@@ -26,8 +26,8 @@ Crimpdeq is a dynamometer device powered by ESP32-C3 and WH-C100 crane scale wit
 ### 1. Clone the Repository
 
 ```bash
-git clone <repository-url>
-cd crimpdeq
+git clone https://github.com/frez-dong/crimpdeq-app.git
+cd crimpdeq-app
 ```
 
 ### 2. Install Dependencies
