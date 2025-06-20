@@ -1,0 +1,35 @@
+name: crimpdeq
+description: "Crimpdeq - Tindeq Progressor BLE Client"
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_blue_plus: ^1.32.11
+  permission_handler: ^11.3.1
+  fl_chart: ^1.0.0
+  # State management
+  hooks_riverpod: ^2.5.2
+  flutter_hooks: ^0.20.5
+  riverpod_annotation: ^2.3.5
+  # Code generation
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  # Code generation
+  build_runner: ^2.4.13
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+  riverpod_generator: ^2.4.3
+
+flutter:
+  uses-material-design: true
