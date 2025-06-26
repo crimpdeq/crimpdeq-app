@@ -1,0 +1,48 @@
+name: Build & Publish APK
+
+on:
+  push:
+    paths-ignore:
+      - "**/README.md"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "**/README.md"
+  workflow_dispatch:
+
+
+jobs:
+  build_and_release:
+    name: Build and release Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Java (required for Android tooling)
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.32.4
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      # Save the artifact for quick download from the workflow run
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
