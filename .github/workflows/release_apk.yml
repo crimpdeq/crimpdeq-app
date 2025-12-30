@@ -2,7 +2,7 @@ name: Build Crimpdeq App on Release
 
 on:
   release:
-    types: [created, published]
+    types: [created]
 
 jobs:
   android:
@@ -79,7 +79,16 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path release | Out-Null
           $zipPath = "release/crimpdeq-app-$env:GITHUB_REF_NAME-windows.zip"
-          Compress-Archive -Path "build/windows/runner/Release/*" -DestinationPath $zipPath -Force
+          # Find the correct runner/Release directory (supports build/windows/x64/runner/Release and others)
+          $candidateDirs = Get-ChildItem -Path "build/windows" -Recurse -Directory -ErrorAction SilentlyContinue | Where-Object { $_.FullName -match "\\runner\\Release$" }
+          if (-not $candidateDirs -or $candidateDirs.Count -eq 0) {
+            Write-Host "No runner/Release directory found under build/windows. Current tree:"
+            Get-ChildItem -Path build/windows -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+            exit 1
+          }
+          $releaseDir = $candidateDirs[0].FullName
+          Write-Host "Zipping contents of $releaseDir"
+          Compress-Archive -Path "$releaseDir\*" -DestinationPath $zipPath -Force
 
       - name: Upload Windows zip to GitHub Release
         uses: svenstaro/upload-release-action@v2
