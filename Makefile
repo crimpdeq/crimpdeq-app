@@ -49,10 +49,15 @@ deploy: build ## Build and deploy to GitHub Pages
 	@echo "Adding dist files to git..."
 	git add dist/
 	git commit -m "Add dist files for deployment"
-	@echo "Deploying using subtree..."
-	git subtree push --prefix dist origin gh-pages
+	@echo "Preparing gh-pages split..."
+	@git fetch origin gh-pages || true
+	@git branch -D gh-pages-tmp 2>/dev/null || true
+	git subtree split --prefix dist -b gh-pages-tmp
+	@echo "Force pushing split subtree to gh-pages..."
+	git push -f origin gh-pages-tmp:gh-pages
+	@git branch -D gh-pages-tmp
 	@echo "Deployment completed!"
-	@echo "Your app should be available at: https://$$(git config --get remote.origin.url | sed 's/.*github.com[:/]\([^/]*\)\/\([^/]*\)\.git/\1.github.io\/\2/')"
+	@echo "Your app should be available at: https://$$(git config --get remote.origin.url | sed -E 's#(git@|https://)github.com[:/]+([^/]+)/([^/.]+)(\\.git)?#\\2.github.io/\\3#')"
 
 check: ## Check Flutter and Dart versions
 	@echo "Flutter version:"
