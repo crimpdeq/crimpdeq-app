@@ -1,0 +1,138 @@
+name: Build Crimpdeq App on Release
+
+on:
+  release:
+    types: [created, published]
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Java (required for Android tooling)
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.32.4
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Prepare release artifact
+        run: |
+          mkdir -p release
+          cp build/app/outputs/flutter-apk/app-release.apk "release/crimpdeq-app-${{ github.ref_name }}.apk"
+
+      - name: Upload APK to GitHub Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: release/*.apk
+          file_glob: true
+          tag: ${{ github.event.release.tag_name }}
+          overwrite: true
+
+  windows:
+    name: Windows app
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.32.4
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      - name: Prepare release artifact (zip)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          $zipPath = "release/crimpdeq-app-$env:GITHUB_REF_NAME-windows.zip"
+          Compress-Archive -Path "build/windows/runner/Release/*" -DestinationPath $zipPath -Force
+
+      - name: Upload Windows zip to GitHub Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: release/*.zip
+          file_glob: true
+          tag: ${{ github.event.release.tag_name }}
+          overwrite: true
+
+  macos:
+    name: macOS app
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.32.4
+          cache: true
+
+      - name: Enable macOS desktop
+        run: flutter config --enable-macos-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build macOS release
+        run: flutter build macos --release
+
+      - name: Prepare release artifact (zip)
+        run: |
+          mkdir -p release
+          APP_PATH=$(ls -d build/macos/Build/Products/Release/*.app | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "No .app bundle found in build/macos/Build/Products/Release"
+            exit 1
+          fi
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "release/crimpdeq-app-${{ github.ref_name }}-macos.zip"
+
+      - name: Upload macOS zip to GitHub Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: release/*.zip
+          file_glob: true
+          tag: ${{ github.event.release.tag_name }}
+          overwrite: true
+
+
