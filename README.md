@@ -121,6 +121,20 @@ lib/
 - `permission_handler`: Runtime permissions
 - `freezed`: Code generation for immutable classes
 
+### Update App Icon
+
+To change the app/launcher icons (including web favicons):
+
+1. Replace the source image at `assets/Logo_app_512x512.png` (recommended: 512×512 PNG with transparency).
+2. Regenerate icons for all platforms using the configured tool:
+
+```bash
+flutter pub get
+dart run flutter_launcher_icons
+```
+
+This uses the `flutter_launcher_icons` configuration in `pubspec.yaml` to update Android, iOS, macOS, Windows, Linux, and Web assets.
+
 ### Building for Release
 
 #### Android APK

@@ -30,6 +30,25 @@ dev_dependencies:
   freezed: ^2.5.7
   json_serializable: ^6.8.0
   riverpod_generator: ^2.4.3
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
+
+# App icon configuration for all platforms
+flutter_launcher_icons:
+  image_path: assets/Logo_app_512x512.png
+  android: true
+  ios: true
+  web:
+    generate: true
+    image_path: assets/Logo_app_512x512.png
+  macos:
+    generate: true
+    image_path: assets/Logo_app_512x512.png
+  windows:
+    generate: true
+    image_path: assets/Logo_app_512x512.png
+  linux:
+    generate: true
+    image_path: assets/Logo_app_512x512.png
