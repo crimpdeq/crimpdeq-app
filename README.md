@@ -1,10 +1,6 @@
 # Crimpdeq App
 
-A Flutter development app for testing and communicating with [Crimpdeq](https://github.com/crimpdeq/crimpdeq-firmware) - a Bluetooth Low Energy dynamometer designed for finger strength training.
-
-## About
-
-Crimpdeq is a dynamometer device powered by ESP32-C3 and WH-C100 crane scale with firmware written in Rust. This Flutter app serves as a development tool to test BLE communication and supports the Tindeq Progressor API.
+A Flutter development app for testing and communicating with [Crimpdeq](https://github.com/crimpdeq/crimpdeq-firmware).
 
 ## Features
 
@@ -13,6 +9,10 @@ Crimpdeq is a dynamometer device powered by ESP32-C3 and WH-C100 crane scale wit
 - Data visualization with charts
 - Compatible with Tindeq Progressor API
 - Cross-platform support (Android, iOS, macOS, Windows, Linux, Web)
+
+## APK
+
+The app is also available via the [Build & Publish APK GitHub Action](https://github.com/crimpdeq/crimpdeq-app/actions/workflows/publish_apk.yml), which lets you download and install it on Android devices without building it yourself.
 
 ## Prerequisites
 
