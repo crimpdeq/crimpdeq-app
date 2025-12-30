@@ -1,4 +1,4 @@
-name: Build & Publish APK
+name: Build & Upload APK
 
 on:
   push:
@@ -13,7 +13,7 @@ on:
 
 jobs:
   build_and_release:
-    name: Build and release Android APK
+    name: Build and upload Android APK
     runs-on: ubuntu-latest
 
     steps:
