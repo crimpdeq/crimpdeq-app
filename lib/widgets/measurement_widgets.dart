@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/progressor_models.dart' as progressor_models;
 
@@ -134,6 +135,97 @@ class CurrentWeightCard extends StatelessWidget {
                 ],
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class CalibrationCard extends StatefulWidget {
+  const CalibrationCard({
+    super.key,
+    required this.connection,
+    required this.onAddCalibrationPoint,
+    required this.onDefaultCalibration,
+  });
+
+  final progressor_models.ConnectionState connection;
+  final ValueChanged<double> onAddCalibrationPoint;
+  final VoidCallback onDefaultCalibration;
+
+  @override
+  State<CalibrationCard> createState() => _CalibrationCardState();
+}
+
+class _CalibrationCardState extends State<CalibrationCard> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submitCalibration() {
+    final raw = _controller.text.trim().replaceAll(',', '.');
+    final weight = double.tryParse(raw);
+    if (weight == null || weight <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid weight in kg.')),
+      );
+      return;
+    }
+    widget.onAddCalibrationPoint(weight);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isConnected = widget.connection.device != null;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Calibration', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _controller,
+              enabled: isConnected,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Attached weight (kg)',
+                hintText: 'e.g. 20.0',
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: isConnected ? _submitCalibration : null,
+                icon: const Icon(Icons.add),
+                label: const Text('Add Calibration Point'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: isConnected ? widget.onDefaultCalibration : null,
+                icon: const Icon(Icons.settings_backup_restore),
+                label: const Text('Default Calibration'),
+              ),
+            ),
           ],
         ),
       ),
