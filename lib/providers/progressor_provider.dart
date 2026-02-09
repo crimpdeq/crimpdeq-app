@@ -532,7 +532,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> addCalibrationPoint(double weightKg) async {
-    final payload = ByteData(4)..setFloat32(0, weightKg, Endian.little);
+    final payload = ByteData(4)..setFloat32(0, weightKg, Endian.big);
     await _sendControlOpCode(
       ControlOpCode.addCalibrationPoint.value,
       payload.buffer.asUint8List(),
