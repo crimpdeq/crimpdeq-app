@@ -145,3 +145,31 @@ jobs:
           overwrite: true
 
 
+  deploy-page:
+    name: Deploy page
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      - name: Set up Java (required for Android tooling)
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.32.4
+          cache: true
+
+      - name: Install dependencies
+        run: make install
+        
+      - name: Deploy page
+        run: make deploy
