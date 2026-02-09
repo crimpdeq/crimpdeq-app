@@ -147,11 +147,13 @@ class CalibrationCard extends StatefulWidget {
     super.key,
     required this.connection,
     required this.onAddCalibrationPoint,
+    required this.onGetCalibration,
     required this.onDefaultCalibration,
   });
 
   final progressor_models.ConnectionState connection;
   final ValueChanged<double> onAddCalibrationPoint;
+  final VoidCallback onGetCalibration;
   final VoidCallback onDefaultCalibration;
 
   @override
@@ -215,6 +217,15 @@ class _CalibrationCardState extends State<CalibrationCard> {
                 onPressed: isConnected ? _submitCalibration : null,
                 icon: const Icon(Icons.add),
                 label: const Text('Add Calibration Point'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: isConnected ? widget.onGetCalibration : null,
+                icon: const Icon(Icons.download),
+                label: const Text('Get Calibration'),
               ),
             ),
             const SizedBox(height: 8),

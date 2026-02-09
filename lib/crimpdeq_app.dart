@@ -51,6 +51,7 @@ class CrimpdeqScreen extends ConsumerWidget {
               CalibrationCard(
                 connection: state.connection,
                 onAddCalibrationPoint: notifier.addCalibrationPoint,
+                onGetCalibration: notifier.getCalibration,
                 onDefaultCalibration: notifier.defaultCalibration,
               ),
               const SizedBox(height: 16),

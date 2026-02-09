@@ -36,6 +36,7 @@ class AppConstants {
 }
 
 enum ControlOpCode {
+  getCalibration(0x72),
   addCalibrationPoint(0x73),
   defaultCalibration(0x74);
 

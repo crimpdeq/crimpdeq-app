@@ -539,6 +539,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     );
   }
 
+  Future<void> getCalibration() async {
+    await _sendControlOpCode(ControlOpCode.getCalibration.value);
+  }
+
   Future<void> defaultCalibration() async {
     await _sendControlOpCode(ControlOpCode.defaultCalibration.value);
   }
