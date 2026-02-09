@@ -10,25 +10,28 @@ class DeviceInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 140),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Device Info',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              if (deviceInfo.firmwareVersion.isNotEmpty)
-                Text('Firmware: ${deviceInfo.firmwareVersion}'),
-              if (deviceInfo.batteryVoltage.isNotEmpty)
-                Text('Battery: ${deviceInfo.batteryVoltage} mV'),
-              if (deviceInfo.tareValue != 0.0)
-                Text('Tare: ${deviceInfo.tareValue.toStringAsFixed(2)} kg'),
-            ],
+      child: SizedBox(
+        width: double.infinity,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 140),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Device Info',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                if (deviceInfo.firmwareVersion.isNotEmpty)
+                  Text('Firmware: ${deviceInfo.firmwareVersion}'),
+                if (deviceInfo.batteryVoltage.isNotEmpty)
+                  Text('Battery: ${deviceInfo.batteryVoltage} mV'),
+                if (deviceInfo.tareValue != 0.0)
+                  Text('Tare: ${deviceInfo.tareValue.toStringAsFixed(2)} kg'),
+              ],
+            ),
           ),
         ),
       ),

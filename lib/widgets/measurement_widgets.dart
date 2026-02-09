@@ -176,7 +176,7 @@ class _CalibrationCardState extends State<CalibrationCard> {
   void _submitCalibration() {
     final raw = _controller.text.trim().replaceAll(',', '.');
     final weight = double.tryParse(raw);
-    if (weight == null || weight <= 0) {
+    if (weight == null || weight < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter a valid weight in kg.')),
       );
