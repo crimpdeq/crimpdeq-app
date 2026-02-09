@@ -483,6 +483,22 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
   }
 
+  Future<void> _sendControlOpCode(int opCode, [List<int> payload = const []]) async {
+    final writeChar = state.connection.writeCharacteristic;
+    if (writeChar == null) return;
+
+    try {
+      final data = Uint8List(1 + payload.length);
+      data[0] = opCode;
+      if (payload.isNotEmpty) {
+        data.setRange(1, data.length, payload);
+      }
+      await writeChar.write(data, withoutResponse: false);
+    } catch (e) {
+      print('Failed to send control opcode: $e');
+    }
+  }
+
   Future<void> _getFirmwareVersion() => _sendCommand('k');
   Future<void> _getBatteryVoltage() => _sendCommand('o');
 
@@ -513,6 +529,22 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     state = state.copyWith(
       measurement: state.measurement.copyWith(isMeasuring: false),
     );
+  }
+
+  Future<void> addCalibrationPoint(double weightKg) async {
+    final payload = ByteData(4)..setFloat32(0, weightKg, Endian.big);
+    await _sendControlOpCode(
+      ControlOpCode.addCalibrationPoint.value,
+      payload.buffer.asUint8List(),
+    );
+  }
+
+  Future<void> getCalibration() async {
+    await _sendControlOpCode(ControlOpCode.getCalibration.value);
+  }
+
+  Future<void> defaultCalibration() async {
+    await _sendControlOpCode(ControlOpCode.defaultCalibration.value);
   }
 
   Future<void> disconnectDevice() async {

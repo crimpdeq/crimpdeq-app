@@ -35,19 +35,20 @@ class CrimpdeqScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ConnectionStatusCard(
-              connection: state.connection,
-              onStartScanning: notifier.startScanning,
-              onDisconnect: notifier.disconnectDevice,
-            ),
-            const SizedBox(height: 16),
-            ControlButtonsCard(
+            ConnectionControlsCard(
               connection: state.connection,
               onStartScanning: notifier.startScanning,
               onDisconnect: notifier.disconnectDevice,
             ),
             const SizedBox(height: 16),
             if (state.connection.device != null) ...[
+              CalibrationCard(
+                connection: state.connection,
+                onAddCalibrationPoint: notifier.addCalibrationPoint,
+                onGetCalibration: notifier.getCalibration,
+                onDefaultCalibration: notifier.defaultCalibration,
+              ),
+              const SizedBox(height: 16),
               DeviceInfoCard(deviceInfo: state.deviceInfo),
               const SizedBox(height: 16),
               PerformanceCard(performance: state.performance),
