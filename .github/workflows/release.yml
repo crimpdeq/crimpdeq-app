@@ -144,18 +144,15 @@ jobs:
           tag: ${{ github.event.release.tag_name }}
           overwrite: true
 
-
-  deploy-page:
-    name: Deploy page
+  web-app:
+    name: Deploy web app
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pages: write
-      id-token: write
-
+      contents: write # To push a branch
+      pages: write # To push to a GitHub Pages site
+      id-token: write # To update the deployment status
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -178,12 +175,10 @@ jobs:
 
       - name: Build web app
         run: make build
-        
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy book
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          force_orphan: true
+          publish_dir: ./dist
