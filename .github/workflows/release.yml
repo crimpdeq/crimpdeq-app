@@ -149,11 +149,16 @@ jobs:
     name: Deploy page
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
+      pages: write
+      id-token: write
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
       - name: Set up Java (required for Android tooling)
         uses: actions/setup-java@v3
@@ -170,6 +175,15 @@ jobs:
 
       - name: Install dependencies
         run: make install
+
+      - name: Build web app
+        run: make build
         
-      - name: Deploy page
-        run: make deploy
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
