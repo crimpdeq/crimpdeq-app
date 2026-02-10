@@ -3,11 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/progressor_models.dart' as progressor_models;
 
 class DeviceInfoCard extends StatelessWidget {
-  static const String _defaultAppVersion = String.fromEnvironment(
-    'APP_VERSION',
-    defaultValue: '0.2.0',
-  );
-
   const DeviceInfoCard({super.key, required this.deviceInfo});
 
   final progressor_models.DeviceInfo deviceInfo;
@@ -29,9 +24,8 @@ class DeviceInfoCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
-                Text('App: v$_defaultAppVersion'),
                 if (deviceInfo.firmwareVersion.isNotEmpty)
-                  Text('Firmware: ${deviceInfo.firmwareVersion}'),
+                  Text('App Version: ${deviceInfo.firmwareVersion}'),
                 if (deviceInfo.batteryVoltage.isNotEmpty)
                   Text('Battery: ${deviceInfo.batteryVoltage} mV'),
                 if (deviceInfo.tareValue != 0.0)
