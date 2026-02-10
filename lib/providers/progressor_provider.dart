@@ -317,6 +317,12 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       case 0: // COMMAND_RESPONSE
         _handleCommandResponse(rawData);
         break;
+      case 5: // CALIBRATION_RESPONSE
+        _handleCalibrationResponse(rawData);
+        break;
+      case 6: // CALIBRATION_POINT_RESPONSE
+        _handleCalibrationPointResponse(rawData);
+        break;
       case 4: // LOW_BATTERY_WARNING
         print('⚠️ Low battery warning received');
         break;
@@ -472,6 +478,60 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
   }
 
+  void _handleCalibrationResponse(List<int> rawData) {
+    if (rawData.length < 6) return;
+
+    try {
+      final responseData = _payloadFromDataMessage(rawData);
+      if (responseData == null || responseData.length < 4) return;
+
+      final byteData = ByteData.view(responseData.buffer, responseData.offsetInBytes);
+      final calibrationFactor = byteData.getFloat32(0, Endian.little);
+
+      state = state.copyWith(
+        connection: state.connection.copyWith(
+          status:
+              'Connected to Progressor · Calibration factor: ${calibrationFactor.toStringAsFixed(6)}',
+        ),
+      );
+    } catch (e) {
+      print('Error parsing calibration response: $e');
+    }
+  }
+
+  void _handleCalibrationPointResponse(List<int> rawData) {
+    if (rawData.length < 10) return;
+
+    try {
+      final responseData = _payloadFromDataMessage(rawData);
+      if (responseData == null || responseData.length < 8) return;
+
+      final byteData = ByteData.view(responseData.buffer, responseData.offsetInBytes);
+      final valueA = byteData.getFloat32(0, Endian.little);
+      final valueB = byteData.getFloat32(4, Endian.little);
+
+      state = state.copyWith(
+        connection: state.connection.copyWith(
+          status:
+              'Connected to Progressor · Calibration point: ${valueA.toStringAsFixed(6)}, ${valueB.toStringAsFixed(6)}',
+        ),
+      );
+    } catch (e) {
+      print('Error parsing calibration point response: $e');
+    }
+  }
+
+  Uint8List? _payloadFromDataMessage(List<int> rawData) {
+    if (rawData.length < 2) return null;
+
+    final payloadSize = rawData[1];
+    if (payloadSize < 0 || rawData.length < payloadSize + 2) {
+      return null;
+    }
+
+    return Uint8List.fromList(rawData.sublist(2, payloadSize + 2));
+  }
+
   Future<void> _sendCommand(String command) async {
     final writeChar = state.connection.writeCharacteristic;
     if (writeChar == null) return;
@@ -480,6 +540,22 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       await writeChar.write(command.codeUnits, withoutResponse: false);
     } catch (e) {
       print('Failed to send command: $e');
+    }
+  }
+
+  Future<void> _sendControlOpCode(int opCode, [List<int> payload = const []]) async {
+    final writeChar = state.connection.writeCharacteristic;
+    if (writeChar == null) return;
+
+    try {
+      final data = Uint8List(1 + payload.length);
+      data[0] = opCode;
+      if (payload.isNotEmpty) {
+        data.setRange(1, data.length, payload);
+      }
+      await writeChar.write(data, withoutResponse: false);
+    } catch (e) {
+      print('Failed to send control opcode: $e');
     }
   }
 
@@ -513,6 +589,22 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     state = state.copyWith(
       measurement: state.measurement.copyWith(isMeasuring: false),
     );
+  }
+
+  Future<void> addCalibrationPoint(double weightKg) async {
+    final payload = ByteData(4)..setFloat32(0, weightKg, Endian.big);
+    await _sendControlOpCode(
+      ControlOpCode.addCalibrationPoint.value,
+      payload.buffer.asUint8List(),
+    );
+  }
+
+  Future<void> getCalibration() async {
+    await _sendControlOpCode(ControlOpCode.getCalibration.value);
+  }
+
+  Future<void> defaultCalibration() async {
+    await _sendControlOpCode(ControlOpCode.defaultCalibration.value);
   }
 
   Future<void> disconnectDevice() async {
