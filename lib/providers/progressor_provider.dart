@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -488,14 +487,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       final responseData = _payloadFromDataMessage(rawData);
       if (responseData == null || responseData.length < 4) return;
 
-      debugPrint(
-        'Calibration factor payload received: ${responseData.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join('-')}',
-      );
-
       final byteData = ByteData.view(responseData.buffer, responseData.offsetInBytes);
       final calibrationFactor = byteData.getFloat32(0, Endian.little);
-      debugPrint('Calibration factor parsed: $calibrationFactor');
-
       _calibrationPoints.clear();
       _calibrationFactor = calibrationFactor;
       _updateCalibrationInfo();
@@ -511,15 +504,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       final responseData = _payloadFromDataMessage(rawData);
       if (responseData == null || responseData.length < 8) return;
 
-      debugPrint(
-        'Calibration point payload received: ${responseData.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join('-')}',
-      );
-
       final byteData = ByteData.view(responseData.buffer, responseData.offsetInBytes);
       final valueA = byteData.getFloat32(0, Endian.little);
       final valueB = byteData.getFloat32(4, Endian.little);
-      debugPrint('Calibration point parsed: valueA=$valueA, valueB=$valueB');
-
       _appendCalibrationPoint(valueA, valueB);
       _updateCalibrationInfo();
     } catch (e) {
