@@ -20,6 +20,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   List<DateTime> _dataTimestamps = [];
   List<WeightMeasurement> _recentMeasurements = [];
   List<int>? _lastRawData;
+  double? _calibrationFactor;
+  final List<List<double>> _calibrationPoints = [];
 
   @override
   ProgressorState build() {
@@ -488,12 +490,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       final byteData = ByteData.view(responseData.buffer, responseData.offsetInBytes);
       final calibrationFactor = byteData.getFloat32(0, Endian.little);
 
-      state = state.copyWith(
-        connection: state.connection.copyWith(
-          status:
-              'Connected to Progressor · Calibration factor: ${calibrationFactor.toStringAsFixed(6)}',
-        ),
-      );
+      _calibrationFactor = calibrationFactor;
+      _updateCalibrationInfo();
     } catch (e) {
       print('Error parsing calibration response: $e');
     }
@@ -510,12 +508,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       final valueA = byteData.getFloat32(0, Endian.little);
       final valueB = byteData.getFloat32(4, Endian.little);
 
-      state = state.copyWith(
-        connection: state.connection.copyWith(
-          status:
-              'Connected to Progressor · Calibration point: ${valueA.toStringAsFixed(6)}, ${valueB.toStringAsFixed(6)}',
-        ),
-      );
+      _appendCalibrationPoint(valueA, valueB);
+      _updateCalibrationInfo();
     } catch (e) {
       print('Error parsing calibration point response: $e');
     }
@@ -530,6 +524,27 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
 
     return Uint8List.fromList(rawData.sublist(2, payloadSize + 2));
+  }
+
+  void _appendCalibrationPoint(double valueA, double valueB) {
+    _calibrationPoints.add([valueA, valueB]);
+    if (_calibrationPoints.length > 20) {
+      _calibrationPoints.removeAt(0);
+    }
+  }
+
+  void _updateCalibrationInfo() {
+    final factorText =
+        _calibrationFactor == null
+            ? 'Calibration factor: -'
+            : 'Calibration factor: ${_calibrationFactor!.toStringAsFixed(6)}';
+
+    final pointsText =
+        _calibrationPoints.isEmpty
+            ? 'Calibration points: -'
+            : 'Calibration points: ${_calibrationPoints.map((point) => '(${point[0].toStringAsFixed(3)}, ${point[1].toStringAsFixed(3)})').join(', ')}';
+
+    state = state.copyWith(errorMessage: '$factorText\n$pointsText');
   }
 
   Future<void> _sendCommand(String command) async {
@@ -605,6 +620,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   Future<void> defaultCalibration() async {
     await _sendControlOpCode(ControlOpCode.defaultCalibration.value);
+    _calibrationFactor = null;
+    _calibrationPoints.clear();
+    _updateCalibrationInfo();
   }
 
   Future<void> disconnectDevice() async {
@@ -620,8 +638,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         deviceInfo: const DeviceInfo(),
         measurement: const MeasurementState(),
         performance: const PerformanceMetrics(),
+        errorMessage: null,
       );
 
+      _calibrationFactor = null;
+      _calibrationPoints.clear();
       _lastNotifyTime = null;
       _dataTimestamps.clear();
       _recentMeasurements.clear();
