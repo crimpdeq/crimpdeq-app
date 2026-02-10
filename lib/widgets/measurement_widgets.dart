@@ -31,8 +31,9 @@ class MeasurementControlCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed:
-                        !measurement.isMeasuring ? onStartMeasurement : null,
+                    onPressed: !measurement.isMeasuring
+                        ? onStartMeasurement
+                        : null,
                     icon: const Icon(Icons.play_arrow),
                     label: const Text('Start'),
                     style: ElevatedButton.styleFrom(
@@ -44,8 +45,9 @@ class MeasurementControlCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed:
-                        measurement.isMeasuring ? onStopMeasurement : null,
+                    onPressed: measurement.isMeasuring
+                        ? onStopMeasurement
+                        : null,
                     icon: const Icon(Icons.stop),
                     label: const Text('Stop'),
                     style: ElevatedButton.styleFrom(
@@ -149,9 +151,11 @@ class CalibrationCard extends StatefulWidget {
     required this.onAddCalibrationPoint,
     required this.onGetCalibration,
     required this.onDefaultCalibration,
+    required this.calibration,
   });
 
   final progressor_models.ConnectionState connection;
+  final progressor_models.CalibrationState calibration;
   final ValueChanged<double> onAddCalibrationPoint;
   final VoidCallback onGetCalibration;
   final VoidCallback onDefaultCalibration;
@@ -185,6 +189,13 @@ class _CalibrationCardState extends State<CalibrationCard> {
       return;
     }
     widget.onAddCalibrationPoint(weight);
+    _controller.clear();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Calibration point sent.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -198,10 +209,22 @@ class _CalibrationCardState extends State<CalibrationCard> {
           children: [
             Text('Calibration', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
+            Text(
+              'Calibration factor: ${widget.calibration.factor.toStringAsFixed(4)}',
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.calibration.points.isEmpty
+                  ? 'Calibration points: []'
+                  : 'Calibration points: ${widget.calibration.points.map((point) => '(${point.measured.toStringAsFixed(3)}, ${point.actual.toStringAsFixed(3)})').join(', ')}',
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _controller,
               enabled: isConnected,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
               ],

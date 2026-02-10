@@ -51,6 +51,27 @@ class MeasurementState with _$MeasurementState {
   }) = _MeasurementState;
 }
 
+class CalibrationPoint {
+  const CalibrationPoint({required this.measured, required this.actual});
+
+  final double measured;
+  final double actual;
+}
+
+class CalibrationState {
+  const CalibrationState({this.factor = 0.0, this.points = const []});
+
+  final double factor;
+  final List<CalibrationPoint> points;
+
+  CalibrationState copyWith({double? factor, List<CalibrationPoint>? points}) {
+    return CalibrationState(
+      factor: factor ?? this.factor,
+      points: points ?? this.points,
+    );
+  }
+}
+
 @freezed
 class ConnectionState with _$ConnectionState {
   const factory ConnectionState({

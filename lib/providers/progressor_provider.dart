@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -11,6 +12,10 @@ import '../constants/progressor_constants.dart';
 import '../models/progressor_models.dart';
 
 part 'progressor_provider.g.dart';
+
+final calibrationStateProvider = StateProvider<CalibrationState>(
+  (ref) => const CalibrationState(),
+);
 
 @riverpod
 class ProgressorNotifier extends _$ProgressorNotifier {
@@ -127,8 +132,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
             bluetoothReady: true,
             status:
                 state.connection.device == null && !state.connection.isScanning
-                    ? 'Bluetooth ready - Press scan button'
-                    : state.connection.status,
+                ? 'Bluetooth ready - Press scan button'
+                : state.connection.status,
           ),
         );
       } else {
@@ -204,10 +209,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       state = state.copyWith(
         connection: state.connection.copyWith(
           isScanning: false,
-          status:
-              state.connection.device == null
-                  ? 'Scan stopped'
-                  : state.connection.status,
+          status: state.connection.device == null
+              ? 'Scan stopped'
+              : state.connection.status,
         ),
       );
     } catch (e) {
@@ -413,15 +417,14 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       state = state.copyWith(
         measurement: state.measurement.copyWith(
           currentWeight: lastMeasurement.weight,
-          maxWeight:
-              lastMeasurement.weight > state.measurement.maxWeight
-                  ? lastMeasurement.weight
-                  : state.measurement.maxWeight,
+          maxWeight: lastMeasurement.weight > state.measurement.maxWeight
+              ? lastMeasurement.weight
+              : state.measurement.maxWeight,
           minWeight:
               state.measurement.minWeight == 0.0 ||
-                      lastMeasurement.weight < state.measurement.minWeight
-                  ? lastMeasurement.weight
-                  : state.measurement.minWeight,
+                  lastMeasurement.weight < state.measurement.minWeight
+              ? lastMeasurement.weight
+              : state.measurement.minWeight,
           sampleCount: lastMeasurement.timestampUs,
           weightHistory: newWeightHistory,
           receivedData: newReceivedData,
@@ -439,7 +442,31 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     if (rawData.length < 2) return;
 
     try {
+      final responseCode = rawData[1];
       final responseData = Uint8List.fromList(rawData.skip(2).toList());
+
+      if (responseCode == ControlOpCode.getCalibration.value &&
+          responseData.length >= 4) {
+        final calibrationData = ByteData.view(responseData.buffer);
+        final factor = calibrationData.getFloat32(0, Endian.little);
+        final points = <CalibrationPoint>[];
+
+        final pointDataLength = responseData.length - 4;
+        final availablePointCount = (pointDataLength ~/ 8).clamp(0, 20);
+
+        for (int i = 0; i < availablePointCount; i++) {
+          final offset = 4 + (i * 8);
+          final measured = calibrationData.getFloat32(offset, Endian.little);
+          final actual = calibrationData.getFloat32(offset + 4, Endian.little);
+          points.add(CalibrationPoint(measured: measured, actual: actual));
+        }
+
+        ref.read(calibrationStateProvider.notifier).state = CalibrationState(
+          factor: factor,
+          points: points,
+        );
+        return;
+      }
 
       // Try to parse as string first (firmware version)
       try {
@@ -483,7 +510,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
   }
 
-  Future<void> _sendControlOpCode(int opCode, [List<int> payload = const []]) async {
+  Future<void> _sendControlOpCode(
+    int opCode, [
+    List<int> payload = const [],
+  ]) async {
     final writeChar = state.connection.writeCharacteristic;
     if (writeChar == null) return;
 
@@ -545,6 +575,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   Future<void> defaultCalibration() async {
     await _sendControlOpCode(ControlOpCode.defaultCalibration.value);
+    ref.read(calibrationStateProvider.notifier).state =
+        const CalibrationState();
   }
 
   Future<void> disconnectDevice() async {
@@ -562,6 +594,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         performance: const PerformanceMetrics(),
       );
 
+      ref.read(calibrationStateProvider.notifier).state =
+          const CalibrationState();
       _lastNotifyTime = null;
       _dataTimestamps.clear();
       _recentMeasurements.clear();

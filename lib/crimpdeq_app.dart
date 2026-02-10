@@ -24,6 +24,7 @@ class CrimpdeqScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(progressorNotifierProvider);
     final notifier = ref.read(progressorNotifierProvider.notifier);
+    final calibration = ref.watch(calibrationStateProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -47,6 +48,7 @@ class CrimpdeqScreen extends ConsumerWidget {
                 onAddCalibrationPoint: notifier.addCalibrationPoint,
                 onGetCalibration: notifier.getCalibration,
                 onDefaultCalibration: notifier.defaultCalibration,
+                calibration: calibration,
               ),
               const SizedBox(height: 16),
               DeviceInfoCard(deviceInfo: state.deviceInfo),
