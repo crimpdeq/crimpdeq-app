@@ -443,7 +443,14 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
     try {
       final responseCode = rawData[1];
-      final responseData = Uint8List.fromList(rawData.skip(2).toList());
+      final rawResponseData = Uint8List.fromList(rawData.skip(2).toList());
+
+      // Some firmware frames include a payload-length byte before payload.
+      final responseData =
+          rawResponseData.length >= 2 &&
+              rawResponseData[0] == rawResponseData.length - 1
+          ? Uint8List.fromList(rawResponseData.skip(1).toList())
+          : rawResponseData;
 
       if (responseCode == ControlResponseCode.calibrationFactor.value &&
           responseData.length == 4) {
