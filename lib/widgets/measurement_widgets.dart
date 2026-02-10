@@ -187,6 +187,10 @@ class _CalibrationCardState extends State<CalibrationCard> {
       return;
     }
     widget.onAddCalibrationPoint(weight);
+    _controller.clear();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Weight ${weight.toStringAsFixed(2)} kg sent.')),
+    );
   }
 
   @override
