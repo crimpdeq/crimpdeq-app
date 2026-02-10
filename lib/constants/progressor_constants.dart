@@ -44,3 +44,12 @@ enum ControlOpCode {
 
   final int value;
 }
+
+enum ControlResponseCode {
+  calibrationFactor(0x05),
+  calibrationPoint(0x06);
+
+  const ControlResponseCode(this.value);
+
+  final int value;
+}

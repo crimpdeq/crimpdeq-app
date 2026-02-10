@@ -445,24 +445,34 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       final responseCode = rawData[1];
       final responseData = Uint8List.fromList(rawData.skip(2).toList());
 
-      if (responseCode == ControlOpCode.getCalibration.value &&
+      if (responseCode == ControlResponseCode.calibrationFactor.value &&
           responseData.length >= 4) {
         final calibrationData = ByteData.view(responseData.buffer);
         final factor = calibrationData.getFloat32(0, Endian.little);
-        final points = <CalibrationPoint>[];
+        final currentCalibration = ref.read(calibrationStateProvider);
 
-        final pointDataLength = responseData.length - 4;
-        final availablePointCount = (pointDataLength ~/ 8).clamp(0, 20);
+        ref.read(calibrationStateProvider.notifier).state = CalibrationState(
+          factor: factor,
+          points: currentCalibration.points,
+        );
+        return;
+      }
+
+      if (responseCode == ControlResponseCode.calibrationPoint.value) {
+        final calibrationData = ByteData.view(responseData.buffer);
+        final points = <CalibrationPoint>[];
+        final availablePointCount = (responseData.length ~/ 8).clamp(0, 20);
 
         for (int i = 0; i < availablePointCount; i++) {
-          final offset = 4 + (i * 8);
+          final offset = i * 8;
           final measured = calibrationData.getFloat32(offset, Endian.little);
           final actual = calibrationData.getFloat32(offset + 4, Endian.little);
           points.add(CalibrationPoint(measured: measured, actual: actual));
         }
 
+        final currentCalibration = ref.read(calibrationStateProvider);
         ref.read(calibrationStateProvider.notifier).state = CalibrationState(
-          factor: factor,
+          factor: currentCalibration.factor,
           points: points,
         );
         return;
