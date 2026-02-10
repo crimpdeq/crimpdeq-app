@@ -533,18 +533,21 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   void _updateCalibrationInfo() {
-    final factorText =
-        _calibrationFactor == null
-            ? 'Calibration factor: -'
-            : 'Calibration factor: ${_calibrationFactor!.toStringAsFixed(6)}';
+    final lines = <String>[];
 
-    final pointsText =
-        _calibrationPoints.isEmpty
-            ? 'Calibration points: -'
-            : 'Calibration points: ${_calibrationPoints.map((point) => '(${point[0].toStringAsFixed(3)}, ${point[1].toStringAsFixed(3)})').join(', ')}';
+    if (_calibrationFactor != null) {
+      lines.add('Calibration factor: ${_calibrationFactor!.toStringAsFixed(6)}');
+    }
 
-    state = state.copyWith(errorMessage: '$factorText\n$pointsText');
+    if (_calibrationPoints.isNotEmpty) {
+      lines.add(
+        'Calibration points: ${_calibrationPoints.map((point) => '(${point[0].toStringAsFixed(3)}, ${point[1].toStringAsFixed(3)})').join(', ')}',
+      );
+    }
+
+    state = state.copyWith(errorMessage: lines.isEmpty ? null : lines.join('\n'));
   }
+
 
   Future<void> _sendCommand(String command) async {
     final writeChar = state.connection.writeCharacteristic;
