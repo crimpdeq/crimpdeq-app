@@ -144,4 +144,41 @@ jobs:
           tag: ${{ github.event.release.tag_name }}
           overwrite: true
 
+  web-app:
+    name: Deploy web app
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # To push a branch
+      pages: write # To push to a GitHub Pages site
+      id-token: write # To update the deployment status
+    steps:
+      - uses: actions/checkout@v6
 
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Set up Java (required for Android tooling)
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.32.4
+          cache: true
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Build web app
+        run: make build
+
+      - name: Deploy book
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          force_orphan: true
+          publish_dir: ./dist

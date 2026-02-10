@@ -1,7 +1,8 @@
-name: Build & Upload APK
+name: Build & Upload APK & Web
 
 on:
   push:
+    branches: [main]
     paths-ignore:
       - "**/README.md"
   pull_request:
@@ -38,6 +39,9 @@ jobs:
 
       - name: Build release APK
         run: flutter build apk --release
+      
+      - name: Build release APK
+        run: flutter build web --release
 
       # Save the artifact for quick download from the workflow run
       - name: Upload APK as artifact
@@ -46,3 +50,8 @@ jobs:
           name: android-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
+      - name: Upload Web as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: build/web

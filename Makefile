@@ -40,11 +40,6 @@ deploy: build ## Build and deploy to GitHub Pages
 		echo "Working directory is clean, proceeding with deployment..."; \
 	else \
 		echo "Warning: Working directory has uncommitted changes"; \
-		read -p "Continue anyway? (y/N): " confirm; \
-		if [ "$$confirm" != "y" ] && [ "$$confirm" != "Y" ]; then \
-			echo "Deployment cancelled"; \
-			exit 1; \
-		fi; \
 	fi
 	@echo "Adding dist files to git..."
 	git add dist/
