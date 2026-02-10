@@ -446,34 +446,39 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       final responseData = Uint8List.fromList(rawData.skip(2).toList());
 
       if (responseCode == ControlResponseCode.calibrationFactor.value &&
-          responseData.length >= 4) {
+          responseData.length == 4) {
         final calibrationData = ByteData.view(responseData.buffer);
         final factor = calibrationData.getFloat32(0, Endian.little);
-        final currentCalibration = ref.read(calibrationStateProvider);
 
+        // Factor frame marks the beginning of a calibration dump.
         ref.read(calibrationStateProvider.notifier).state = CalibrationState(
           factor: factor,
-          points: currentCalibration.points,
+          points: const [],
         );
         return;
       }
 
-      if (responseCode == ControlResponseCode.calibrationPoint.value) {
+      final isCalibrationPointFrame =
+          responseCode == ControlResponseCode.calibrationPoint.value &&
+          responseData.isNotEmpty &&
+          responseData.length % 8 == 0;
+      if (isCalibrationPointFrame) {
         final calibrationData = ByteData.view(responseData.buffer);
-        final points = <CalibrationPoint>[];
-        final availablePointCount = (responseData.length ~/ 8).clamp(0, 20);
+        final newPoints = <CalibrationPoint>[];
+        final framePointCount = (responseData.length ~/ 8).clamp(0, 20);
 
-        for (int i = 0; i < availablePointCount; i++) {
+        for (int i = 0; i < framePointCount; i++) {
           final offset = i * 8;
           final measured = calibrationData.getFloat32(offset, Endian.little);
           final actual = calibrationData.getFloat32(offset + 4, Endian.little);
-          points.add(CalibrationPoint(measured: measured, actual: actual));
+          newPoints.add(CalibrationPoint(measured: measured, actual: actual));
         }
 
         final currentCalibration = ref.read(calibrationStateProvider);
+        final mergedPoints = [...currentCalibration.points, ...newPoints];
         ref.read(calibrationStateProvider.notifier).state = CalibrationState(
           factor: currentCalibration.factor,
-          points: points,
+          points: mergedPoints.take(20).toList(),
         );
         return;
       }
