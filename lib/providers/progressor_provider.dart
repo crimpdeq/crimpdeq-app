@@ -496,6 +496,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       final calibrationFactor = byteData.getFloat32(0, Endian.little);
       debugPrint('Calibration factor parsed: $calibrationFactor');
 
+      _calibrationPoints.clear();
       _calibrationFactor = calibrationFactor;
       _updateCalibrationInfo();
     } catch (e) {
@@ -626,6 +627,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> getCalibration() async {
+    _calibrationPoints.clear();
+    _updateCalibrationInfo();
     await _sendControlOpCode(ControlOpCode.getCalibration.value);
   }
 
