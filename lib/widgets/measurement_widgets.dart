@@ -219,7 +219,7 @@ class _CalibrationCardState extends State<CalibrationCard> {
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: OutlinedButton.icon(
                 onPressed: isConnected ? _submitCalibration : null,
                 icon: const Icon(Icons.add),
                 label: const Text('Add Calibration Point'),
