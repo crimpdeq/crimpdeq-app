@@ -56,6 +56,7 @@
         --text: #1f2937;
         --muted: #6b7280;
         --background: #f5f6f8;
+        --logo-border: rgba(47, 110, 184, 0.16);
       }
 
       .loading {
@@ -92,7 +93,7 @@
         padding: 8px;
         border-radius: 12px;
         background: #fff;
-        border: 2px solid rgba(47, 110, 184, 0.16);
+        border: 2px solid var(--logo-border);
       }
 
       .loading-logo {
@@ -113,6 +114,28 @@
         color: var(--muted);
         font-size: 14px;
         font-weight: 500;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --surface: #121923;
+          --text: #e5edf8;
+          --muted: #a9b7ca;
+          --background: #0a1019;
+          --logo-border: rgba(129, 175, 234, 0.42);
+        }
+
+        .loading {
+          background: radial-gradient(
+            circle at top,
+            #1a2535 0%,
+            var(--background) 58%
+          );
+        }
+
+        .loading-logo-wrap {
+          background: #0f1623;
+        }
       }
     </style>
   </head>
