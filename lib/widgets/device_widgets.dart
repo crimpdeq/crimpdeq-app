@@ -60,6 +60,7 @@ class PerformanceCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const Text('Data sample'),
                     Text(
                       '${performance.currentHz.toStringAsFixed(1)} Hz',
                       style: const TextStyle(
@@ -68,12 +69,12 @@ class PerformanceCard extends StatelessWidget {
                         color: Colors.blue,
                       ),
                     ),
-                    const Text('Data rate'),
                   ],
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
+                    const Text('Notify interval'),
                     Text(
                       '${performance.currentNotifyIntervalMs.toStringAsFixed(2)} ms',
                       style: const TextStyle(
@@ -82,7 +83,6 @@ class PerformanceCard extends StatelessWidget {
                         color: Colors.blue,
                       ),
                     ),
-                    const Text('Notify interval'),
                   ],
                 ),
               ],

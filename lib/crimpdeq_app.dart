@@ -7,6 +7,7 @@ import 'providers/progressor_provider.dart';
 import 'widgets/progressor_widgets.dart';
 
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.dark);
+const _paleRed = Color(0xFFE57373);
 
 class CrimpdeqApp extends ConsumerWidget {
   const CrimpdeqApp({super.key});
@@ -115,7 +116,7 @@ class CrimpdeqScreen extends ConsumerWidget {
             : null;
     final compactBatteryText =
         state.deviceInfo.batteryVoltage.isNotEmpty
-            ? 'Battery: ${state.deviceInfo.batteryVoltage} mV'
+            ? 'Bat: ${state.deviceInfo.batteryVoltage} mV'
             : null;
     final compactLeadingWidthCurrent =
         isCompactHeader ? (isDeviceNotConnected ? 145.0 : compactLeadingWidth) : null;
@@ -134,21 +135,20 @@ class CrimpdeqScreen extends ConsumerWidget {
         leading: Padding(
           padding: const EdgeInsets.only(left: 10),
           child: Row(
-            mainAxisAlignment:
-                isDeviceNotConnected ? MainAxisAlignment.center : MainAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               if (showDisconnectButton && isCompactHeader)
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.14),
+                    color: _paleRed.withValues(alpha: 0.18),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white70),
+                    border: Border.all(color: _paleRed),
                   ),
                   child: IconButton(
                     tooltip: 'Disconnect',
                     onPressed: notifier.disconnectDevice,
-                    icon: const Icon(Icons.bluetooth_disabled, color: Colors.white),
+                    icon: const Icon(Icons.bluetooth_disabled, color: _paleRed),
                     iconSize: 18,
                     visualDensity: VisualDensity.compact,
                     constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
@@ -221,10 +221,7 @@ class CrimpdeqScreen extends ConsumerWidget {
                                   isCompactHeader ? compactStatusText : statusText,
                                   maxLines: isCompactHeader ? 1 : 4,
                                   overflow: TextOverflow.ellipsis,
-                                  textAlign:
-                                      isDeviceNotConnected
-                                          ? TextAlign.center
-                                          : TextAlign.start,
+                                  textAlign: TextAlign.start,
                                   style: GoogleFonts.inter(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
@@ -257,7 +254,7 @@ class CrimpdeqScreen extends ConsumerWidget {
                       icon: const Icon(Icons.bluetooth_disabled, size: 16),
                       label: const Text('Disconnect'),
                       style: FilledButton.styleFrom(
-                        backgroundColor: Colors.red,
+                        backgroundColor: _paleRed,
                         foregroundColor: Colors.white,
                         visualDensity: VisualDensity.compact,
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -470,19 +467,84 @@ class CrimpdeqScreen extends ConsumerWidget {
                                     },
                                   ),
                                   const SizedBox(height: 16),
-                                  if (state.measurement.weightHistory.isNotEmpty) ...[
-                                    WeightHistoryCard(measurement: state.measurement),
-                                    const SizedBox(height: 16),
-                                  ],
-                                  if (state.performance.notifyIntervalHistory.isNotEmpty) ...[
-                                    NotifyIntervalCard(performance: state.performance),
-                                    const SizedBox(height: 16),
-                                  ],
-                                  if (state.measurement.isMeasuring ||
-                                      state.measurement.receivedData.isNotEmpty)
-                                    ReceivedDataCard(
-                                      measurements: state.measurement.receivedData,
-                                    ),
+                                  LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final hasWeightHistory =
+                                          state.measurement.weightHistory.isNotEmpty;
+                                      final hasNotifyHistory =
+                                          state.performance.notifyIntervalHistory.isNotEmpty;
+                                      final hasSamplesSection =
+                                          state.measurement.isMeasuring ||
+                                          state.measurement.receivedData.isNotEmpty;
+                                      final isWide = constraints.maxWidth >= 1200;
+
+                                      if (isWide && hasSamplesSection && (hasWeightHistory || hasNotifyHistory)) {
+                                        return IntrinsicHeight(
+                                          child: Row(
+                                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                                            children: [
+                                              Expanded(
+                                                child:
+                                                    hasWeightHistory && hasNotifyHistory
+                                                        ? Column(
+                                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                          children: [
+                                                            Expanded(
+                                                              child: WeightHistoryCard(
+                                                                measurement: state.measurement,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(height: 16),
+                                                            Expanded(
+                                                              child: NotifyIntervalCard(
+                                                                performance: state.performance,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        )
+                                                        : hasWeightHistory
+                                                        ? WeightHistoryCard(
+                                                          measurement: state.measurement,
+                                                        )
+                                                        : NotifyIntervalCard(
+                                                          performance: state.performance,
+                                                        ),
+                                              ),
+                                              const SizedBox(width: 16),
+                                              ReceivedDataCard(
+                                                measurements: state.measurement.receivedData,
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }
+
+                                      return Column(
+                                        children: [
+                                          if (hasWeightHistory) ...[
+                                            WeightHistoryCard(measurement: state.measurement),
+                                            const SizedBox(height: 16),
+                                          ],
+                                          if (hasNotifyHistory && hasSamplesSection) ...[
+                                            NotifyIntervalCard(
+                                              performance: state.performance,
+                                            ),
+                                            const SizedBox(height: 16),
+                                            ReceivedDataCard(
+                                              measurements: state.measurement.receivedData,
+                                            ),
+                                          ] else if (hasNotifyHistory) ...[
+                                            NotifyIntervalCard(
+                                              performance: state.performance,
+                                            ),
+                                          ] else if (hasSamplesSection)
+                                            ReceivedDataCard(
+                                              measurements: state.measurement.receivedData,
+                                            ),
+                                        ],
+                                      );
+                                    },
+                                  ),
                                 ],
                               ),
                             ),
@@ -564,11 +626,14 @@ class _CalibrationGraphCard extends StatelessWidget {
             ? graphPoints.map((point) => point.y).toList()
             : <double>[0, 1];
 
-    final minX = xs.reduce((a, b) => a < b ? a : b);
-    final maxXData = xs.reduce((a, b) => a > b ? a : b);
-    final maxX = maxXData <= minX ? minX + 1 : maxXData;
-    final xSpan = (maxX - minX).abs();
-    final xInterval = xSpan <= 1 ? 1.0 : (xSpan / 6);
+    final dataMinX = xs.reduce((a, b) => a < b ? a : b);
+    final dataMaxX = xs.reduce((a, b) => a > b ? a : b);
+    final resolvedMaxX = dataMaxX <= dataMinX ? dataMinX + 1 : dataMaxX;
+    final xSpan = (resolvedMaxX - dataMinX).abs();
+    final xPadding = (xSpan * 0.06) < 1.0 ? 1.0 : (xSpan * 0.06);
+    final chartMinX = dataMinX - xPadding;
+    final chartMaxX = resolvedMaxX + xPadding;
+    final xInterval = (chartMaxX - chartMinX) <= 1 ? 1.0 : ((chartMaxX - chartMinX) / 6);
     final minYPoints = ys.reduce((a, b) => a < b ? a : b);
     final maxYPoints = ys.reduce((a, b) => a > b ? a : b);
 
@@ -602,8 +667,8 @@ class _CalibrationGraphCard extends StatelessWidget {
               final intercept = avgY - (slope * avgX);
 
               return <FlSpot>[
-                FlSpot(minX, (slope * minX) + intercept),
-                FlSpot(maxX, (slope * maxX) + intercept),
+                FlSpot(chartMinX, (slope * chartMinX) + intercept),
+                FlSpot(chartMaxX, (slope * chartMaxX) + intercept),
               ];
             }()
             : const <FlSpot>[];
@@ -621,7 +686,7 @@ class _CalibrationGraphCard extends StatelessWidget {
                 .reduce((a, b) => a > b ? a : b);
     final ySpan = (maxY - minY).abs();
     final yPadding = (ySpan * 0.08) < 0.5 ? 0.5 : (ySpan * 0.08);
-    const chartMinY = 0.0;
+    final chartMinY = -yPadding * 0.3;
     final chartMaxY = (maxY + yPadding) <= chartMinY ? chartMinY + 1 : (maxY + yPadding);
 
     return Card(
@@ -661,8 +726,8 @@ class _CalibrationGraphCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                         child: LineChart(
                         LineChartData(
-                          minX: minX,
-                          maxX: maxX,
+                          minX: chartMinX,
+                          maxX: chartMaxX,
                           minY: chartMinY,
                           maxY: chartMaxY,
                           clipData: const FlClipData.all(),
@@ -673,7 +738,9 @@ class _CalibrationGraphCard extends StatelessWidget {
                               fitInsideHorizontally: true,
                               fitInsideVertically: true,
                               getTooltipItems: (touchedSpots) {
-                                return touchedSpots.map((spot) {
+                                final pointSpots =
+                                    touchedSpots.where((spot) => spot.barIndex == 0).toList();
+                                return pointSpots.map((spot) {
                                   return LineTooltipItem(
                                     'Raw: ${spot.x.toStringAsFixed(3)}\nKnown: ${spot.y.toStringAsFixed(3)} kg',
                                     GoogleFonts.inter(
@@ -752,7 +819,7 @@ class _CalibrationGraphCard extends StatelessWidget {
                             LineChartBarData(
                               spots: fitLineSpots,
                               isCurved: false,
-                              color: Colors.red,
+                              color: Colors.blue,
                               barWidth: 2,
                               dotData: const FlDotData(show: false),
                               dashArray: const [6, 4],
@@ -764,6 +831,10 @@ class _CalibrationGraphCard extends StatelessWidget {
                     ),
                   );
 
+                  const indexColumnWidth = 24.0;
+                  const rawValueColumnWidth = 120.0;
+                  const knownWeightColumnWidth = 140.0;
+
                   final pointsListWidget = IntrinsicWidth(
                     child: Container(
                       padding: const EdgeInsets.all(12),
@@ -774,9 +845,11 @@ class _CalibrationGraphCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Calibration Points',
-                            style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12),
+                          Center(
+                            child: Text(
+                              'Calibration Points',
+                              style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12),
+                            ),
                           ),
                           const SizedBox(height: 8),
                           SizedBox(
@@ -790,7 +863,8 @@ class _CalibrationGraphCard extends StatelessWidget {
                                     headingRowHeight: 34,
                                     dataRowMinHeight: 30,
                                     dataRowMaxHeight: 34,
-                                    columnSpacing: 14,
+                                    horizontalMargin: 8,
+                                    columnSpacing: 8,
                                     headingTextStyle: GoogleFonts.inter(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 11,
@@ -798,13 +872,22 @@ class _CalibrationGraphCard extends StatelessWidget {
                                     dataTextStyle: GoogleFonts.inter(fontSize: 11),
                                     columns: const [
                                       DataColumn(
-                                        label: Center(child: Text('Point Number')),
+                                        label: SizedBox(
+                                          width: indexColumnWidth,
+                                          child: Center(child: Text('#')),
+                                        ),
                                       ),
                                       DataColumn(
-                                        label: Center(child: Text('Raw Value')),
+                                        label: SizedBox(
+                                          width: rawValueColumnWidth,
+                                          child: Center(child: Text('Raw Value')),
+                                        ),
                                       ),
                                       DataColumn(
-                                        label: Center(child: Text('Known Weight (kg)')),
+                                        label: SizedBox(
+                                          width: knownWeightColumnWidth,
+                                          child: Center(child: Text('Known Weight (kg)')),
+                                        ),
                                       ),
                                     ],
                                     rows:
@@ -815,13 +898,13 @@ class _CalibrationGraphCard extends StatelessWidget {
                                             cells: [
                                               DataCell(
                                                 SizedBox(
-                                                  width: 95,
+                                                  width: indexColumnWidth,
                                                   child: Center(child: Text(index.toString())),
                                                 ),
                                               ),
                                               DataCell(
                                                 SizedBox(
-                                                  width: 90,
+                                                  width: rawValueColumnWidth,
                                                   child: Center(
                                                     child: Text(point.x.toStringAsFixed(3)),
                                                   ),
@@ -829,7 +912,7 @@ class _CalibrationGraphCard extends StatelessWidget {
                                               ),
                                               DataCell(
                                                 SizedBox(
-                                                  width: 120,
+                                                  width: knownWeightColumnWidth,
                                                   child: Center(
                                                     child: Text(point.y.toStringAsFixed(3)),
                                                   ),

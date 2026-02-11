@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../models/progressor_models.dart' as progressor_models;
 
+const _paleRed = Color(0xFFE57373);
+
 class MeasurementControlCard extends StatelessWidget {
   const MeasurementControlCard({
     super.key,
@@ -29,23 +31,24 @@ class MeasurementControlCard extends StatelessWidget {
               icon: Icon(measurement.isMeasuring ? Icons.stop : Icons.play_arrow),
               label: Text(measurement.isMeasuring ? 'Stop' : 'Start'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: measurement.isMeasuring ? Colors.red : const Color(0xFF2F6EB8),
+                backgroundColor:
+                    measurement.isMeasuring ? _paleRed : const Color(0xFF2F6EB8),
                 foregroundColor: Colors.white,
               ),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: ElevatedButton.icon(
-              onPressed: onTareScale,
-              icon: const Icon(Icons.adjust),
-              label: const Text('Tare Scale'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ),
+                  child: ElevatedButton.icon(
+                    onPressed: onTareScale,
+                    icon: const Icon(Icons.adjust),
+                    label: const Text('Tare Scale'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2F6EB8),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
         ],
       ),
     );
@@ -71,22 +74,60 @@ class CurrentWeightCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${measurement.currentWeight.toStringAsFixed(2)} kg',
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Current'),
+                      Text(
+                        '${measurement.currentWeight.toStringAsFixed(2)} kg',
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
                       ),
-                    ),
-                    Text('Sample: ${measurement.sampleCount}'),
-                  ],
+                    ],
+                  ),
                 ),
+                if (measurement.maxWeight > 0) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Min'),
+                        Text(
+                          '${measurement.minWeight.toStringAsFixed(2)} kg',
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Max'),
+                        Text(
+                          '${measurement.maxWeight.toStringAsFixed(2)} kg',
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 if (measurement.isMeasuring)
                   const Icon(
                     Icons.radio_button_checked,
@@ -95,22 +136,8 @@ class CurrentWeightCard extends StatelessWidget {
                   ),
               ],
             ),
-            if (measurement.maxWeight > 0) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  Text(
-                    'Min: ${measurement.minWeight.toStringAsFixed(2)} kg',
-                    style: const TextStyle(color: Colors.green),
-                  ),
-                  Text(
-                    'Max: ${measurement.maxWeight.toStringAsFixed(2)} kg',
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ],
-              ),
-            ],
+            const SizedBox(height: 4),
+            Text('Timestamp (ms): ${measurement.sampleCount ~/ 1000}'),
           ],
         ),
       ),
