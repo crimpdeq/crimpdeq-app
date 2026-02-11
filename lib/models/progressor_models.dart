@@ -5,7 +5,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'progressor_models.freezed.dart';
 
 @freezed
-class WeightMeasurement with _$WeightMeasurement {
+sealed class WeightMeasurement with _$WeightMeasurement {
   const WeightMeasurement._();
 
   const factory WeightMeasurement({
@@ -18,7 +18,7 @@ class WeightMeasurement with _$WeightMeasurement {
 }
 
 @freezed
-class DeviceInfo with _$DeviceInfo {
+sealed class DeviceInfo with _$DeviceInfo {
   const factory DeviceInfo({
     @Default('') String firmwareVersion,
     @Default('') String batteryVoltage,
@@ -27,7 +27,7 @@ class DeviceInfo with _$DeviceInfo {
 }
 
 @freezed
-class PerformanceMetrics with _$PerformanceMetrics {
+sealed class PerformanceMetrics with _$PerformanceMetrics {
   const factory PerformanceMetrics({
     @Default(0.0) double currentHz,
     @Default(0.0) double currentNotifyIntervalMs,
@@ -39,7 +39,7 @@ class PerformanceMetrics with _$PerformanceMetrics {
 }
 
 @freezed
-class MeasurementState with _$MeasurementState {
+sealed class MeasurementState with _$MeasurementState {
   const factory MeasurementState({
     @Default(0.0) double currentWeight,
     @Default(0.0) double maxWeight,
@@ -52,7 +52,7 @@ class MeasurementState with _$MeasurementState {
 }
 
 @freezed
-class ConnectionState with _$ConnectionState {
+sealed class ConnectionState with _$ConnectionState {
   const factory ConnectionState({
     BluetoothDevice? device,
     BluetoothCharacteristic? notifyCharacteristic,
@@ -65,7 +65,7 @@ class ConnectionState with _$ConnectionState {
 }
 
 @freezed
-class ProgressorState with _$ProgressorState {
+sealed class ProgressorState with _$ProgressorState {
   const factory ProgressorState({
     @Default(ConnectionState()) ConnectionState connection,
     @Default(DeviceInfo()) DeviceInfo deviceInfo,

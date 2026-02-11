@@ -6,8 +6,19 @@ import 'package:fl_chart/fl_chart.dart';
 import 'providers/progressor_provider.dart';
 import 'widgets/progressor_widgets.dart';
 
-final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.dark);
+final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
+  ThemeModeNotifier.new,
+);
 const _paleRed = Color(0xFFE57373);
+
+class ThemeModeNotifier extends Notifier<ThemeMode> {
+  @override
+  ThemeMode build() => ThemeMode.dark;
+
+  void setDarkMode(bool isDark) {
+    state = isDark ? ThemeMode.dark : ThemeMode.light;
+  }
+}
 
 class CrimpdeqApp extends ConsumerWidget {
   const CrimpdeqApp({super.key});
@@ -62,8 +73,8 @@ class CrimpdeqScreen extends ConsumerWidget {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isCompactHeader = screenWidth < 700;
     const compactLeadingWidth = 220.0;
-    final state = ref.watch(progressorNotifierProvider);
-    final notifier = ref.read(progressorNotifierProvider.notifier);
+    final state = ref.watch(progressorProvider);
+    final notifier = ref.read(progressorProvider.notifier);
     final isDarkMode = ref.watch(themeModeProvider) == ThemeMode.dark;
     final connection = state.connection;
     final showScanButton =
@@ -268,8 +279,7 @@ class CrimpdeqScreen extends ConsumerWidget {
           _ThemeSlider(
             isDarkMode: isDarkMode,
             onChanged: (isDark) {
-              ref.read(themeModeProvider.notifier).state =
-                  isDark ? ThemeMode.dark : ThemeMode.light;
+              ref.read(themeModeProvider.notifier).setDarkMode(isDark);
             },
           ),
           const SizedBox(width: 8),

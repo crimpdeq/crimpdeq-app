@@ -3,7 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'progressor_constants.freezed.dart';
 
 @freezed
-class ProgressorConstants with _$ProgressorConstants {
+sealed class ProgressorConstants with _$ProgressorConstants {
   const factory ProgressorConstants({
     required String serviceUuid,
     required String notifyCharUuid,
