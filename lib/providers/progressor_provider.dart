@@ -270,6 +270,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
             await _getFirmwareVersion();
             await _getBatteryVoltage();
+            await getCalibration();
           } else {
             state = state.copyWith(
               connection: state.connection.copyWith(
@@ -609,7 +610,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> addCalibrationPoint(double weightKg) async {
-    final payload = ByteData(4)..setFloat32(0, weightKg, Endian.big);
+    final payload = ByteData(4)..setFloat32(0, weightKg, Endian.little);
     await _sendControlOpCode(
       ControlOpCode.addCalibrationPoint.value,
       payload.buffer.asUint8List(),

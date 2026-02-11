@@ -19,41 +19,34 @@ class MeasurementControlCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Measurement', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: measurement.isMeasuring ? onStopMeasurement : onStartMeasurement,
-                icon: Icon(measurement.isMeasuring ? Icons.stop : Icons.play_arrow),
-                label: Text(measurement.isMeasuring ? 'Stop' : 'Start'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: measurement.isMeasuring ? Colors.red : Colors.green,
-                  foregroundColor: Colors.white,
-                ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: measurement.isMeasuring ? onStopMeasurement : onStartMeasurement,
+              icon: Icon(measurement.isMeasuring ? Icons.stop : Icons.play_arrow),
+              label: Text(measurement.isMeasuring ? 'Stop' : 'Start'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: measurement.isMeasuring ? Colors.red : const Color(0xFF2F6EB8),
+                foregroundColor: Colors.white,
               ),
             ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: onTareScale,
-                icon: const Icon(Icons.adjust),
-                label: const Text('Tare Scale'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: onTareScale,
+              icon: const Icon(Icons.adjust),
+              label: const Text('Tare Scale'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -185,7 +178,10 @@ class _CalibrationCardState extends State<CalibrationCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Calibration', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Add Calibration Point',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _controller,
@@ -212,24 +208,11 @@ class _CalibrationCardState extends State<CalibrationCard> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: isConnected ? widget.onGetCalibration : null,
-                icon: const Icon(Icons.download),
-                label: const Text('Get Calibration'),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
                 onPressed: isConnected ? widget.onDefaultCalibration : null,
                 icon: const Icon(Icons.settings_backup_restore),
-                label: const Text('Default Calibration'),
+                label: const Text('Reset Calibration To Default'),
               ),
             ),
-            if (widget.calibrationInfo != null && widget.calibrationInfo!.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(widget.calibrationInfo!),
-            ],
           ],
         ),
       ),

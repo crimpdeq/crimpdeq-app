@@ -37,7 +37,7 @@ class AppConstants {
 
 enum ControlOpCode {
   getCalibration(0x72),
-  addCalibrationPoint(0x73),
+  addCalibrationPoint(0x69),
   defaultCalibration(0x74);
 
   const ControlOpCode(this.value);
