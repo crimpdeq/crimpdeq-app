@@ -394,38 +394,15 @@ class CrimpdeqScreen extends ConsumerWidget {
                             SingleChildScrollView(
                               child: Column(
                                 children: [
-                                  Card(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(16),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Text(
-                                                'Calibration Info',
-                                                style: GoogleFonts.inter(
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  calibrationFactor != null
-                                                      ? 'Factor: $calibrationFactor'
-                                                      : 'Factor: Not available',
-                                                  style: GoogleFonts.inter(
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      calibrationFactor != null
+                                          ? 'Current Calibration Factor: $calibrationFactor'
+                                          : 'Current Calibration Factor: Not available',
+                                      style: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 16,
                                       ),
                                     ),
                                   ),
@@ -675,15 +652,42 @@ class _CalibrationGraphCard extends StatelessWidget {
                   final sideBySide = constraints.maxWidth >= 900;
                   final graphWidget = SizedBox(
                     height: 240,
-                    child: LineChart(
-                      LineChartData(
-                        minX: minX,
-                        maxX: maxX,
-                        minY: chartMinY,
-                        maxY: chartMaxY,
-                        clipData: const FlClipData.all(),
-                        gridData: FlGridData(show: true, drawVerticalLine: true),
-                        titlesData: FlTitlesData(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: LineChart(
+                        LineChartData(
+                          minX: minX,
+                          maxX: maxX,
+                          minY: chartMinY,
+                          maxY: chartMaxY,
+                          clipData: const FlClipData.all(),
+                          lineTouchData: LineTouchData(
+                            enabled: true,
+                            handleBuiltInTouches: true,
+                            touchTooltipData: LineTouchTooltipData(
+                              fitInsideHorizontally: true,
+                              fitInsideVertically: true,
+                              getTooltipItems: (touchedSpots) {
+                                return touchedSpots.map((spot) {
+                                  return LineTooltipItem(
+                                    'Raw: ${spot.x.toStringAsFixed(3)}\nKnown: ${spot.y.toStringAsFixed(3)} kg',
+                                    GoogleFonts.inter(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 11,
+                                    ),
+                                  );
+                                }).toList();
+                              },
+                            ),
+                          ),
+                          gridData: FlGridData(show: true, drawVerticalLine: true),
+                          titlesData: FlTitlesData(
                           leftTitles: AxisTitles(
                         axisNameWidget: Text(
                           'Known weight (kg)',
@@ -692,6 +696,7 @@ class _CalibrationGraphCard extends StatelessWidget {
                           sideTitles: SideTitles(
                             showTitles: true,
                             reservedSize: 44,
+                            maxIncluded: false,
                               getTitlesWidget:
                                   (value, meta) => Text(
                                     value.toStringAsFixed(1),
@@ -706,8 +711,9 @@ class _CalibrationGraphCard extends StatelessWidget {
                         ),
                             sideTitles: SideTitles(
                               showTitles: true,
-                              reservedSize: 28,
+                              reservedSize: 32,
                               interval: xInterval,
+                              maxIncluded: false,
                               getTitlesWidget:
                                   (value, meta) => Text(
                                     _formatCompactAxis(value),
@@ -722,10 +728,7 @@ class _CalibrationGraphCard extends StatelessWidget {
                             sideTitles: SideTitles(showTitles: false),
                           ),
                         ),
-                        borderData: FlBorderData(
-                          show: true,
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
+                        borderData: FlBorderData(show: false),
                         lineBarsData: [
                           LineChartBarData(
                             spots: graphPoints,
@@ -749,7 +752,7 @@ class _CalibrationGraphCard extends StatelessWidget {
                             LineChartBarData(
                               spots: fitLineSpots,
                               isCurved: false,
-                              color: Colors.orange,
+                              color: Colors.red,
                               barWidth: 2,
                               dotData: const FlDotData(show: false),
                               dashArray: const [6, 4],
@@ -757,39 +760,91 @@ class _CalibrationGraphCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                      ),
+                    ),
                   );
 
-                  final pointsListWidget = Container(
-                    height: 240,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Received points',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12),
-                        ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: ListView.builder(
-                            itemCount: graphPoints.length,
-                            itemBuilder: (context, index) {
-                              final point = graphPoints[index];
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 6),
-                                child: Text(
-                                  '${index + 1}. Raw: ${point.x.toStringAsFixed(3)} | Known: ${point.y.toStringAsFixed(3)} kg',
-                                  style: GoogleFonts.inter(fontSize: 12),
-                                ),
-                              );
-                            },
+                  final pointsListWidget = IntrinsicWidth(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Calibration Points',
+                            style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 190,
+                            child: Scrollbar(
+                              thumbVisibility: true,
+                              child: SingleChildScrollView(
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: DataTable(
+                                    headingRowHeight: 34,
+                                    dataRowMinHeight: 30,
+                                    dataRowMaxHeight: 34,
+                                    columnSpacing: 14,
+                                    headingTextStyle: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 11,
+                                    ),
+                                    dataTextStyle: GoogleFonts.inter(fontSize: 11),
+                                    columns: const [
+                                      DataColumn(
+                                        label: Center(child: Text('Point Number')),
+                                      ),
+                                      DataColumn(
+                                        label: Center(child: Text('Raw Value')),
+                                      ),
+                                      DataColumn(
+                                        label: Center(child: Text('Known Weight (kg)')),
+                                      ),
+                                    ],
+                                    rows:
+                                        graphPoints.asMap().entries.map((entry) {
+                                          final index = entry.key + 1;
+                                          final point = entry.value;
+                                          return DataRow(
+                                            cells: [
+                                              DataCell(
+                                                SizedBox(
+                                                  width: 95,
+                                                  child: Center(child: Text(index.toString())),
+                                                ),
+                                              ),
+                                              DataCell(
+                                                SizedBox(
+                                                  width: 90,
+                                                  child: Center(
+                                                    child: Text(point.x.toStringAsFixed(3)),
+                                                  ),
+                                                ),
+                                              ),
+                                              DataCell(
+                                                SizedBox(
+                                                  width: 120,
+                                                  child: Center(
+                                                    child: Text(point.y.toStringAsFixed(3)),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        }).toList(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
 
@@ -808,7 +863,7 @@ class _CalibrationGraphCard extends StatelessWidget {
                     children: [
                       Expanded(flex: 3, child: graphWidget),
                       const SizedBox(width: 12),
-                      Expanded(flex: 2, child: pointsListWidget),
+                      pointsListWidget,
                     ],
                   );
                 },
@@ -817,8 +872,8 @@ class _CalibrationGraphCard extends StatelessWidget {
             if (hasPoints)
               Text(
                 lineSlope != null
-                    ? 'Orange line slope: ${lineSlope!.toStringAsFixed(6)}'
-                    : 'Orange line unavailable.',
+                    ? 'Slope: ${lineSlope!.toStringAsFixed(6)}'
+                    : 'Slope unavailable.',
                 style: GoogleFonts.inter(fontSize: 12),
               ),
           ],
