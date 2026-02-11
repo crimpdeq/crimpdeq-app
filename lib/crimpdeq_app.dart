@@ -58,6 +58,9 @@ class CrimpdeqScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompactHeader = screenWidth < 700;
+    const compactLeadingWidth = 220.0;
     final state = ref.watch(progressorNotifierProvider);
     final notifier = ref.read(progressorNotifierProvider.notifier);
     final isDarkMode = ref.watch(themeModeProvider) == ThemeMode.dark;
@@ -104,6 +107,18 @@ class CrimpdeqScreen extends ConsumerWidget {
             : isDeviceNotConnected
             ? 'Device Not Connected'
             : 'Connection: $statusLabel';
+    final compactStatusText =
+        connection.device != null ? 'Connected' : 'Not Connected';
+    final compactFirmwareText =
+        state.deviceInfo.firmwareVersion.isNotEmpty
+            ? 'FW: ${state.deviceInfo.firmwareVersion}'
+            : null;
+    final compactBatteryText =
+        state.deviceInfo.batteryVoltage.isNotEmpty
+            ? 'Battery: ${state.deviceInfo.batteryVoltage} mV'
+            : null;
+    final compactLeadingWidthCurrent =
+        isCompactHeader ? (isDeviceNotConnected ? 145.0 : compactLeadingWidth) : null;
     final calibrationFactor = _extractCalibrationFactor(state.errorMessage);
     final calibrationFactorValue = double.tryParse(calibrationFactor ?? '');
     final calibrationPoints = _extractCalibrationPoints(state.errorMessage);
@@ -112,7 +127,10 @@ class CrimpdeqScreen extends ConsumerWidget {
       appBar: AppBar(
         centerTitle: true,
         toolbarHeight: 64,
-        leadingWidth: showDisconnectButton ? 330 : 170,
+        leadingWidth:
+            isCompactHeader
+                ? compactLeadingWidthCurrent
+                : (showDisconnectButton ? 330 : 170),
         leading: Padding(
           padding: const EdgeInsets.only(left: 10),
           child: Row(
@@ -120,58 +138,132 @@ class CrimpdeqScreen extends ConsumerWidget {
                 isDeviceNotConnected ? MainAxisAlignment.center : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              if (showDisconnectButton && isCompactHeader)
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white70),
+                  ),
+                  child: IconButton(
+                    tooltip: 'Disconnect',
+                    onPressed: notifier.disconnectDevice,
+                    icon: const Icon(Icons.bluetooth_disabled, color: Colors.white),
+                    iconSize: 18,
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+                  ),
+                ),
+              if (showDisconnectButton && isCompactHeader) const SizedBox(width: 8),
               Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      margin: const EdgeInsets.only(right: 6, top: 2),
-                      decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
-                    ),
-                    Expanded(
-                      child: Text(
-                        statusText,
-                        maxLines: 4,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: isDeviceNotConnected ? TextAlign.center : TextAlign.start,
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                          height: 1.15,
-                        ),
+                child: Padding(
+                  padding: EdgeInsets.zero,
+                  child: Row(
+                    crossAxisAlignment:
+                        isCompactHeader ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        margin:
+                            isCompactHeader
+                                ? const EdgeInsets.only(right: 6)
+                                : const EdgeInsets.only(right: 6, top: 2),
+                        decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
                       ),
-                    ),
-                    if (connection.isScanning || connection.isConnecting)
-                      const Padding(
-                        padding: EdgeInsets.only(left: 6),
-                        child: SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                      Expanded(
+                        child:
+                            isCompactHeader &&
+                                    (compactFirmwareText != null || compactBatteryText != null)
+                                ? Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      compactStatusText,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 11,
+                                        height: 1.1,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    if (compactFirmwareText != null)
+                                      Text(
+                                        compactFirmwareText,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 10,
+                                          height: 1.1,
+                                        ),
+                                      ),
+                                    if (compactBatteryText != null)
+                                      Text(
+                                        compactBatteryText,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 10,
+                                          height: 1.1,
+                                        ),
+                                      ),
+                                  ],
+                                )
+                                : Text(
+                                  isCompactHeader ? compactStatusText : statusText,
+                                  maxLines: isCompactHeader ? 1 : 4,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign:
+                                      isDeviceNotConnected
+                                          ? TextAlign.center
+                                          : TextAlign.start,
+                                  style: GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: isCompactHeader ? 11 : 12,
+                                    height: 1.15,
+                                  ),
+                                ),
+                      ),
+                      if (connection.isScanning || connection.isConnecting)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 6),
+                          child: SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               if (showDisconnectButton) const SizedBox(width: 8),
               if (showDisconnectButton)
-                FilledButton.icon(
-                  onPressed: notifier.disconnectDevice,
-                  icon: const Icon(Icons.bluetooth_disabled, size: 16),
-                  label: const Text('Disconnect'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
-                ),
+                !isCompactHeader
+                    ? FilledButton.icon(
+                      onPressed: notifier.disconnectDevice,
+                      icon: const Icon(Icons.bluetooth_disabled, size: 16),
+                      label: const Text('Disconnect'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                    )
+                    : const SizedBox.shrink(),
             ],
           ),
         ),
@@ -185,33 +277,74 @@ class CrimpdeqScreen extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
         ],
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 30,
-              height: 30,
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
+        flexibleSpace:
+            isCompactHeader
+                ? SafeArea(
+                  child: IgnorePointer(
+                    child: Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 26,
+                            height: 26,
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Image.asset(
+                              'assets/Logo_app_512x512.png',
+                              fit: BoxFit.contain,
+                              errorBuilder:
+                                  (context, _, __) =>
+                                      const Icon(Icons.image_not_supported),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Crimpdeq',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+                : null,
+        title: isCompactHeader
+            ? null
+            : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Image.asset(
+                  'assets/Logo_app_512x512.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, _, __) => const Icon(Icons.image_not_supported),
+                ),
               ),
-              child: Image.asset(
-                'assets/Logo_app_512x512.png',
-                fit: BoxFit.contain,
-                errorBuilder: (context, _, __) => const Icon(Icons.image_not_supported),
+              const SizedBox(width: 10),
+              Text(
+                'Crimpdeq',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              'Crimpdeq',
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
+            ],
+          ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
