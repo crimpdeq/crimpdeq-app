@@ -290,15 +290,6 @@ class CrimpdeqScreen extends ConsumerWidget {
                                                   ),
                                                 ),
                                               ),
-                                              const SizedBox(width: 12),
-                                              OutlinedButton.icon(
-                                                onPressed:
-                                                    state.connection.device != null
-                                                        ? notifier.getCalibration
-                                                        : null,
-                                                icon: const Icon(Icons.download),
-                                                label: const Text('Get Calibration'),
-                                              ),
                                             ],
                                           ),
                                         ],
@@ -348,21 +339,23 @@ class CrimpdeqScreen extends ConsumerWidget {
                                         );
                                       }
 
-                                      return Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Expanded(
-                                            child: PerformanceCard(
-                                              performance: state.performance,
+                                      return IntrinsicHeight(
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                          children: [
+                                            Expanded(
+                                              child: PerformanceCard(
+                                                performance: state.performance,
+                                              ),
                                             ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: CurrentWeightCard(
-                                              measurement: state.measurement,
+                                            const SizedBox(width: 16),
+                                            Expanded(
+                                              child: CurrentWeightCard(
+                                                measurement: state.measurement,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       );
                                     },
                                   ),
