@@ -241,8 +241,6 @@ class CrimpdeqScreen extends ConsumerWidget {
                 calibrationInfo: state.errorMessage,
               ),
               const SizedBox(height: 16),
-              PerformanceCard(performance: state.performance),
-              const SizedBox(height: 16),
               MeasurementControlCard(
                 measurement: state.measurement,
                 onStartMeasurement: notifier.startMeasurement,
@@ -250,7 +248,33 @@ class CrimpdeqScreen extends ConsumerWidget {
                 onTareScale: notifier.tareScale,
               ),
               const SizedBox(height: 16),
-              CurrentWeightCard(measurement: state.measurement),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final useTwoColumns = constraints.maxWidth >= 900;
+                  if (!useTwoColumns) {
+                    return Column(
+                      children: [
+                        PerformanceCard(performance: state.performance),
+                        const SizedBox(height: 16),
+                        CurrentWeightCard(measurement: state.measurement),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: PerformanceCard(performance: state.performance),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: CurrentWeightCard(measurement: state.measurement),
+                      ),
+                    ],
+                  );
+                },
+              ),
               const SizedBox(height: 16),
               if (state.measurement.weightHistory.isNotEmpty) ...[
                 WeightHistoryCard(measurement: state.measurement),
@@ -260,7 +284,9 @@ class CrimpdeqScreen extends ConsumerWidget {
                 NotifyIntervalCard(performance: state.performance),
                 const SizedBox(height: 16),
               ],
-              ReceivedDataCard(measurements: state.measurement.receivedData),
+              if (state.measurement.isMeasuring ||
+                  state.measurement.receivedData.isNotEmpty)
+                ReceivedDataCard(measurements: state.measurement.receivedData),
             ],
           ],
         ),

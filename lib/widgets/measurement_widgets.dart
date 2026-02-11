@@ -27,34 +27,17 @@ class MeasurementControlCard extends StatelessWidget {
           children: [
             Text('Measurement', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed:
-                        !measurement.isMeasuring ? onStartMeasurement : null,
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Start'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: measurement.isMeasuring ? onStopMeasurement : onStartMeasurement,
+                icon: Icon(measurement.isMeasuring ? Icons.stop : Icons.play_arrow),
+                label: Text(measurement.isMeasuring ? 'Stop' : 'Start'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: measurement.isMeasuring ? Colors.red : Colors.green,
+                  foregroundColor: Colors.white,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed:
-                        measurement.isMeasuring ? onStopMeasurement : null,
-                    icon: const Icon(Icons.stop),
-                    label: const Text('Stop'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
             const SizedBox(height: 8),
             SizedBox(
