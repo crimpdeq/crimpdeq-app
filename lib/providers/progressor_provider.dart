@@ -16,12 +16,15 @@ part 'progressor_provider.g.dart';
 @riverpod
 class ProgressorNotifier extends _$ProgressorNotifier {
   static const Duration _uiUpdateInterval = Duration(milliseconds: 66);
+  static const Duration _commandSettleDelay = Duration(milliseconds: 120);
+  static const Duration _resumeCheckDelay = Duration(milliseconds: 300);
 
   StreamSubscription? _scanSubscription;
   StreamSubscription? _notifySubscription;
   StreamSubscription? _connectionSubscription;
   DateTime? _lastNotifyTime;
   DateTime? _lastUiUpdateTime;
+  DateTime? _lastMeasurementReceivedAt;
   List<DateTime> _dataTimestamps = [];
   List<WeightMeasurement> _recentMeasurements = [];
   final List<WeightMeasurement> _pendingMeasurements = [];
@@ -368,6 +371,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     if (data.length < 2) return;
 
     final now = DateTime.now();
+    _lastMeasurementReceivedAt = now;
 
     // Performance tracking
     if (_lastNotifyTime != null) {
@@ -637,12 +641,42 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   Future<void> _getBatteryVoltage() => _sendCommand('o');
 
   Future<void> tareScale() async {
+    final wasMeasuring = state.measurement.isMeasuring;
+    var tareWeight = state.measurement.currentWeight;
+
+    if (wasMeasuring) {
+      await _sendCommand('f');
+      _flushPendingMeasurements();
+      tareWeight = state.measurement.currentWeight;
+      state = state.copyWith(
+        measurement: state.measurement.copyWith(isMeasuring: false),
+      );
+      await Future.delayed(_commandSettleDelay);
+    }
+
     await _sendCommand('d');
+    _resetMeasurementState();
     state = state.copyWith(
       deviceInfo: state.deviceInfo.copyWith(
-        tareValue: state.measurement.currentWeight,
+        tareValue: tareWeight,
       ),
     );
+
+    if (wasMeasuring) {
+      await Future.delayed(_commandSettleDelay);
+      final lastMeasurementBeforeResume = _lastMeasurementReceivedAt;
+      await _sendCommand('e');
+      state = state.copyWith(
+        measurement: state.measurement.copyWith(isMeasuring: true),
+      );
+
+      // Some devices ignore an immediate start after tare, so retry once if
+      // no fresh measurement packet arrives shortly after resuming.
+      await Future.delayed(_resumeCheckDelay);
+      if (_lastMeasurementReceivedAt == lastMeasurementBeforeResume) {
+        await _sendCommand('e');
+      }
+    }
   }
 
   Future<void> startMeasurement() async {
@@ -667,52 +701,77 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   Future<void> stopMeasurement() async {
     await _sendCommand('f');
+    _flushPendingMeasurements();
 
-    // Flush any throttled samples so the UI shows the latest measurement when stopping.
-    if (_pendingMeasurements.isNotEmpty) {
-      final publishMeasurements =
-          List<WeightMeasurement>.from(_pendingMeasurements);
-      _pendingMeasurements.clear();
-      final lastMeasurement = publishMeasurements.last;
+    state = state.copyWith(
+      measurement: state.measurement.copyWith(isMeasuring: false),
+    );
+  }
 
-      final newWeightHistory = List<FlSpot>.from(
-        state.measurement.weightHistory,
-      )..add(FlSpot(lastMeasurement.timestampSec, lastMeasurement.weight));
+  void _resetMeasurementState() {
+    state = state.copyWith(
+      measurement: state.measurement.copyWith(
+        currentWeight: 0.0,
+        maxWeight: 0.0,
+        minWeight: 0.0,
+        sampleCount: 0,
+        weightHistory: [],
+        receivedData: [],
+      ),
+    );
+    _pendingMeasurements.clear();
+    _recentMeasurements.clear();
+    _notifyIntervalHistory.clear();
+    _currentNotifyIntervalMs = 0.0;
+    _dataPacketCount = 0;
+    _lastNotifyTime = null;
+    _lastUiUpdateTime = null;
+    _lastMeasurementReceivedAt = null;
+  }
 
-      if (newWeightHistory.length > AppConstants.maxHistorySize) {
-        newWeightHistory.removeAt(0);
-      }
+  void _flushPendingMeasurements() {
+    // Flush throttled samples so the UI reflects the latest value immediately.
+    if (_pendingMeasurements.isEmpty) return;
 
-      final newReceivedData = List<WeightMeasurement>.from(
-        publishMeasurements.reversed,
-      )..addAll(state.measurement.receivedData);
+    final publishMeasurements = List<WeightMeasurement>.from(
+      _pendingMeasurements,
+    );
+    _pendingMeasurements.clear();
+    final lastMeasurement = publishMeasurements.last;
 
-      if (newReceivedData.length > AppConstants.maxReceivedDataSize) {
-        newReceivedData.removeRange(
-          AppConstants.maxReceivedDataSize,
-          newReceivedData.length,
-        );
-      }
+    final newWeightHistory = List<FlSpot>.from(
+      state.measurement.weightHistory,
+    )..add(FlSpot(lastMeasurement.timestampSec, lastMeasurement.weight));
 
-      state = state.copyWith(
-        measurement: state.measurement.copyWith(
-          currentWeight: lastMeasurement.weight,
-          maxWeight: lastMeasurement.weight > state.measurement.maxWeight
-              ? lastMeasurement.weight
-              : state.measurement.maxWeight,
-          minWeight: state.measurement.minWeight == 0.0 ||
-                  lastMeasurement.weight < state.measurement.minWeight
-              ? lastMeasurement.weight
-              : state.measurement.minWeight,
-          sampleCount: lastMeasurement.timestampUs,
-          weightHistory: newWeightHistory,
-          receivedData: newReceivedData,
-        ),
+    if (newWeightHistory.length > AppConstants.maxHistorySize) {
+      newWeightHistory.removeAt(0);
+    }
+
+    final newReceivedData = List<WeightMeasurement>.from(
+      publishMeasurements.reversed,
+    )..addAll(state.measurement.receivedData);
+
+    if (newReceivedData.length > AppConstants.maxReceivedDataSize) {
+      newReceivedData.removeRange(
+        AppConstants.maxReceivedDataSize,
+        newReceivedData.length,
       );
     }
 
     state = state.copyWith(
-      measurement: state.measurement.copyWith(isMeasuring: false),
+      measurement: state.measurement.copyWith(
+        currentWeight: lastMeasurement.weight,
+        maxWeight: lastMeasurement.weight > state.measurement.maxWeight
+            ? lastMeasurement.weight
+            : state.measurement.maxWeight,
+        minWeight: state.measurement.minWeight == 0.0 ||
+                lastMeasurement.weight < state.measurement.minWeight
+            ? lastMeasurement.weight
+            : state.measurement.minWeight,
+        sampleCount: lastMeasurement.timestampUs,
+        weightHistory: newWeightHistory,
+        receivedData: newReceivedData,
+      ),
     );
   }
 
