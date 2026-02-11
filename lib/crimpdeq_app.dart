@@ -116,38 +116,45 @@ class CrimpdeqScreen extends ConsumerWidget {
                 isDeviceNotConnected ? MainAxisAlignment.center : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 8,
-                height: 8,
-                margin: const EdgeInsets.only(right: 6),
-                decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
-              ),
               Expanded(
-                child: Text(
-                  statusText,
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: isDeviceNotConnected ? TextAlign.center : TextAlign.start,
-                  style: GoogleFonts.inter(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                    height: 1.15,
-                  ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsets.only(right: 6, top: 2),
+                      decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
                     ),
-              ),
-              if (connection.isScanning || connection.isConnecting)
-                const Padding(
-                  padding: EdgeInsets.only(left: 6),
-                  child: SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+                    Expanded(
+                      child: Text(
+                        statusText,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: isDeviceNotConnected ? TextAlign.center : TextAlign.start,
+                        style: GoogleFonts.inter(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          height: 1.15,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (connection.isScanning || connection.isConnecting)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 6),
+                        child: SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
+              ),
               if (showDisconnectButton) const SizedBox(width: 8),
               if (showDisconnectButton)
                 FilledButton.icon(
