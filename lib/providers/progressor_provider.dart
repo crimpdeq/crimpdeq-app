@@ -14,11 +14,18 @@ part 'progressor_provider.g.dart';
 
 @riverpod
 class ProgressorNotifier extends _$ProgressorNotifier {
+  static const Duration _uiUpdateInterval = Duration(milliseconds: 66);
+
   StreamSubscription? _scanSubscription;
   StreamSubscription? _notifySubscription;
   DateTime? _lastNotifyTime;
+  DateTime? _lastUiUpdateTime;
   List<DateTime> _dataTimestamps = [];
   List<WeightMeasurement> _recentMeasurements = [];
+  final List<WeightMeasurement> _pendingMeasurements = [];
+  final List<double> _notifyIntervalHistory = [];
+  double _currentNotifyIntervalMs = 0.0;
+  int _dataPacketCount = 0;
   List<int>? _lastRawData;
   double? _calibrationFactor;
   final List<List<double>> _calibrationPoints = [];
@@ -343,21 +350,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     if (_lastNotifyTime != null) {
       final currentNotifyIntervalMs =
           now.difference(_lastNotifyTime!).inMicroseconds / 1000.0;
-
-      final newHistory = List<double>.from(
-        state.performance.notifyIntervalHistory,
-      )..add(currentNotifyIntervalMs);
-
-      if (newHistory.length > AppConstants.maxIntervalHistorySize) {
-        newHistory.removeAt(0);
+      _currentNotifyIntervalMs = currentNotifyIntervalMs;
+      _notifyIntervalHistory.add(currentNotifyIntervalMs);
+      if (_notifyIntervalHistory.length > AppConstants.maxIntervalHistorySize) {
+        _notifyIntervalHistory.removeAt(0);
       }
-
-      state = state.copyWith(
-        performance: state.performance.copyWith(
-          currentNotifyIntervalMs: currentNotifyIntervalMs,
-          notifyIntervalHistory: newHistory,
-        ),
-      );
     }
     _lastNotifyTime = now;
 
@@ -385,9 +382,21 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       _recentMeasurements.add(measurement);
     }
 
-    // Update state with new measurements
+    _dataPacketCount++;
+
+    // Process every sample, but publish state on a throttled cadence for web/browser smoothness.
     if (newMeasurements.isNotEmpty) {
-      final lastMeasurement = newMeasurements.last;
+      _pendingMeasurements.addAll(newMeasurements);
+      final shouldPublish =
+          _lastUiUpdateTime == null ||
+          now.difference(_lastUiUpdateTime!) >= _uiUpdateInterval;
+      if (!shouldPublish) return;
+      _lastUiUpdateTime = now;
+
+      final publishMeasurements = List<WeightMeasurement>.from(_pendingMeasurements);
+      _pendingMeasurements.clear();
+
+      final lastMeasurement = publishMeasurements.last;
       final newWeightHistory = List<FlSpot>.from(
         state.measurement.weightHistory,
       )..add(FlSpot(lastMeasurement.timestampSec, lastMeasurement.weight));
@@ -397,7 +406,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       }
 
       final newReceivedData = List<WeightMeasurement>.from(
-        newMeasurements.reversed,
+        publishMeasurements.reversed,
       )..addAll(state.measurement.receivedData);
 
       if (newReceivedData.length > AppConstants.maxReceivedDataSize) {
@@ -436,8 +445,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
           receivedData: newReceivedData,
         ),
         performance: state.performance.copyWith(
+          currentNotifyIntervalMs: _currentNotifyIntervalMs,
+          notifyIntervalHistory: List<double>.from(_notifyIntervalHistory),
           currentHz: currentHz,
-          dataPacketCount: state.performance.dataPacketCount + 1,
+          dataPacketCount: _dataPacketCount,
           samplesPerPacket: samplesPerPacket,
         ),
       );
@@ -591,6 +602,13 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   Future<void> startMeasurement() async {
     await _sendCommand('e');
+    _pendingMeasurements.clear();
+    _recentMeasurements.clear();
+    _notifyIntervalHistory.clear();
+    _currentNotifyIntervalMs = 0.0;
+    _dataPacketCount = 0;
+    _lastNotifyTime = null;
+    _lastUiUpdateTime = null;
     state = state.copyWith(
       measurement: state.measurement.copyWith(
         isMeasuring: true,
@@ -604,6 +622,51 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   Future<void> stopMeasurement() async {
     await _sendCommand('f');
+
+    // Flush any throttled samples so the UI shows the latest measurement when stopping.
+    if (_pendingMeasurements.isNotEmpty) {
+      final publishMeasurements = List<WeightMeasurement>.from(_pendingMeasurements);
+      _pendingMeasurements.clear();
+      final lastMeasurement = publishMeasurements.last;
+
+      final newWeightHistory = List<FlSpot>.from(
+        state.measurement.weightHistory,
+      )..add(FlSpot(lastMeasurement.timestampSec, lastMeasurement.weight));
+
+      if (newWeightHistory.length > AppConstants.maxHistorySize) {
+        newWeightHistory.removeAt(0);
+      }
+
+      final newReceivedData = List<WeightMeasurement>.from(
+        publishMeasurements.reversed,
+      )..addAll(state.measurement.receivedData);
+
+      if (newReceivedData.length > AppConstants.maxReceivedDataSize) {
+        newReceivedData.removeRange(
+          AppConstants.maxReceivedDataSize,
+          newReceivedData.length,
+        );
+      }
+
+      state = state.copyWith(
+        measurement: state.measurement.copyWith(
+          currentWeight: lastMeasurement.weight,
+          maxWeight:
+              lastMeasurement.weight > state.measurement.maxWeight
+                  ? lastMeasurement.weight
+                  : state.measurement.maxWeight,
+          minWeight:
+              state.measurement.minWeight == 0.0 ||
+                      lastMeasurement.weight < state.measurement.minWeight
+                  ? lastMeasurement.weight
+                  : state.measurement.minWeight,
+          sampleCount: lastMeasurement.timestampUs,
+          weightHistory: newWeightHistory,
+          receivedData: newReceivedData,
+        ),
+      );
+    }
+
     state = state.copyWith(
       measurement: state.measurement.copyWith(isMeasuring: false),
     );
@@ -649,8 +712,13 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       _calibrationFactor = null;
       _calibrationPoints.clear();
       _lastNotifyTime = null;
+      _lastUiUpdateTime = null;
       _dataTimestamps.clear();
       _recentMeasurements.clear();
+      _pendingMeasurements.clear();
+      _notifyIntervalHistory.clear();
+      _currentNotifyIntervalMs = 0.0;
+      _dataPacketCount = 0;
       _lastRawData = null;
     } catch (e) {
       print('Failed to disconnect: $e');
