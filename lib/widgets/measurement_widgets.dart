@@ -149,12 +149,14 @@ class CalibrationCard extends StatefulWidget {
     required this.onAddCalibrationPoint,
     required this.onGetCalibration,
     required this.onDefaultCalibration,
+    this.calibrationInfo,
   });
 
   final progressor_models.ConnectionState connection;
   final ValueChanged<double> onAddCalibrationPoint;
   final VoidCallback onGetCalibration;
   final VoidCallback onDefaultCalibration;
+  final String? calibrationInfo;
 
   @override
   State<CalibrationCard> createState() => _CalibrationCardState();
@@ -185,6 +187,10 @@ class _CalibrationCardState extends State<CalibrationCard> {
       return;
     }
     widget.onAddCalibrationPoint(weight);
+    _controller.clear();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Weight ${weight.toStringAsFixed(2)} kg sent.')),
+    );
   }
 
   @override
@@ -237,6 +243,10 @@ class _CalibrationCardState extends State<CalibrationCard> {
                 label: const Text('Default Calibration'),
               ),
             ),
+            if (widget.calibrationInfo != null && widget.calibrationInfo!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(widget.calibrationInfo!),
+            ],
           ],
         ),
       ),

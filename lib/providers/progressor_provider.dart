@@ -20,6 +20,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   List<DateTime> _dataTimestamps = [];
   List<WeightMeasurement> _recentMeasurements = [];
   List<int>? _lastRawData;
+  double? _calibrationFactor;
+  final List<List<double>> _calibrationPoints = [];
 
   @override
   ProgressorState build() {
@@ -317,6 +319,12 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       case 0: // COMMAND_RESPONSE
         _handleCommandResponse(rawData);
         break;
+      case 5: // CALIBRATION_RESPONSE
+        _handleCalibrationResponse(rawData);
+        break;
+      case 6: // CALIBRATION_POINT_RESPONSE
+        _handleCalibrationPointResponse(rawData);
+        break;
       case 4: // LOW_BATTERY_WARNING
         print('⚠️ Low battery warning received');
         break;
@@ -472,6 +480,75 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
   }
 
+  void _handleCalibrationResponse(List<int> rawData) {
+    if (rawData.length < 6) return;
+
+    try {
+      final responseData = _payloadFromDataMessage(rawData);
+      if (responseData == null || responseData.length < 4) return;
+
+      final byteData = ByteData.view(responseData.buffer, responseData.offsetInBytes);
+      final calibrationFactor = byteData.getFloat32(0, Endian.little);
+      _calibrationPoints.clear();
+      _calibrationFactor = calibrationFactor;
+      _updateCalibrationInfo();
+    } catch (e) {
+      print('Error parsing calibration response: $e');
+    }
+  }
+
+  void _handleCalibrationPointResponse(List<int> rawData) {
+    if (rawData.length < 10) return;
+
+    try {
+      final responseData = _payloadFromDataMessage(rawData);
+      if (responseData == null || responseData.length < 8) return;
+
+      final byteData = ByteData.view(responseData.buffer, responseData.offsetInBytes);
+      final valueA = byteData.getFloat32(0, Endian.little);
+      final valueB = byteData.getFloat32(4, Endian.little);
+      _appendCalibrationPoint(valueA, valueB);
+      _updateCalibrationInfo();
+    } catch (e) {
+      print('Error parsing calibration point response: $e');
+    }
+  }
+
+  Uint8List? _payloadFromDataMessage(List<int> rawData) {
+    if (rawData.length < 2) return null;
+
+    final payloadSize = rawData[1];
+    if (payloadSize < 0 || rawData.length < payloadSize + 2) {
+      return null;
+    }
+
+    return Uint8List.fromList(rawData.sublist(2, payloadSize + 2));
+  }
+
+  void _appendCalibrationPoint(double valueA, double valueB) {
+    _calibrationPoints.add([valueA, valueB]);
+    if (_calibrationPoints.length > 20) {
+      _calibrationPoints.removeAt(0);
+    }
+  }
+
+  void _updateCalibrationInfo() {
+    final lines = <String>[];
+
+    if (_calibrationFactor != null) {
+      lines.add('Calibration factor: ${_calibrationFactor!.toStringAsFixed(6)}');
+    }
+
+    if (_calibrationPoints.isNotEmpty) {
+      lines.add(
+        'Calibration points: ${_calibrationPoints.map((point) => '(${point[0].toStringAsFixed(3)}, ${point[1].toStringAsFixed(3)})').join(', ')}',
+      );
+    }
+
+    state = state.copyWith(errorMessage: lines.isEmpty ? null : lines.join('\n'));
+  }
+
+
   Future<void> _sendCommand(String command) async {
     final writeChar = state.connection.writeCharacteristic;
     if (writeChar == null) return;
@@ -540,11 +617,16 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> getCalibration() async {
+    _calibrationPoints.clear();
+    _updateCalibrationInfo();
     await _sendControlOpCode(ControlOpCode.getCalibration.value);
   }
 
   Future<void> defaultCalibration() async {
     await _sendControlOpCode(ControlOpCode.defaultCalibration.value);
+    _calibrationFactor = null;
+    _calibrationPoints.clear();
+    _updateCalibrationInfo();
   }
 
   Future<void> disconnectDevice() async {
@@ -560,8 +642,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         deviceInfo: const DeviceInfo(),
         measurement: const MeasurementState(),
         performance: const PerformanceMetrics(),
+        errorMessage: null,
       );
 
+      _calibrationFactor = null;
+      _calibrationPoints.clear();
       _lastNotifyTime = null;
       _dataTimestamps.clear();
       _recentMeasurements.clear();
