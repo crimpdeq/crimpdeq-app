@@ -11,7 +11,6 @@ on:
       - "**/README.md"
   workflow_dispatch:
 
-
 jobs:
   build_and_release:
     name: Build and upload Android APK
@@ -24,8 +23,8 @@ jobs:
       - name: Set up Java (required for Android tooling)
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
@@ -39,7 +38,7 @@ jobs:
 
       - name: Build release APK
         run: flutter build apk --release
-      
+
       - name: Build release APK
         run: flutter build web --release
 
