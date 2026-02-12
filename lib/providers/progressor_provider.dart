@@ -518,11 +518,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   void _handleCalibrationResponse(List<int> rawData) {
-    if (rawData.length < 6) return;
+    if (rawData.length < 5) return;
 
     try {
-      final responseData = _payloadFromDataMessage(rawData);
-      if (responseData == null || responseData.length < 4) return;
+      final responseData = _payloadFromCalibrationMessage(rawData, 4);
+      if (responseData == null) return;
 
       final byteData =
           ByteData.view(responseData.buffer, responseData.offsetInBytes);
@@ -536,11 +536,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   void _handleCalibrationPointResponse(List<int> rawData) {
-    if (rawData.length < 10) return;
+    if (rawData.length < 9) return;
 
     try {
-      final responseData = _payloadFromDataMessage(rawData);
-      if (responseData == null || responseData.length < 8) return;
+      final responseData = _payloadFromCalibrationMessage(rawData, 8);
+      if (responseData == null) return;
 
       final byteData =
           ByteData.view(responseData.buffer, responseData.offsetInBytes);
@@ -562,6 +562,18 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
 
     return Uint8List.fromList(rawData.sublist(2, payloadSize + 2));
+  }
+
+  Uint8List? _payloadFromCalibrationMessage(List<int> rawData, int minBytes) {
+    final payloadWithLength = _payloadFromDataMessage(rawData);
+    if (payloadWithLength != null && payloadWithLength.length >= minBytes) {
+      return payloadWithLength;
+    }
+
+    // Some firmware variants send calibration notifications as:
+    // [messageType, payload...] without a payload-length byte.
+    if (rawData.length - 1 < minBytes) return null;
+    return Uint8List.fromList(rawData.sublist(1));
   }
 
   void _appendCalibrationPoint(double valueA, double valueB) {
@@ -790,10 +802,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> defaultCalibration() async {
-    await _sendControlOpCode(ControlOpCode.defaultCalibration.value);
     _calibrationFactor = null;
     _calibrationPoints.clear();
     _updateCalibrationInfo();
+    await _sendControlOpCode(ControlOpCode.defaultCalibration.value);
   }
 
   Future<void> disconnectDevice() async {

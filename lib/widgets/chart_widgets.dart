@@ -10,6 +10,11 @@ class WeightHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final weightHistory = measurement.weightHistory;
+    final minX = weightHistory.isNotEmpty ? weightHistory.first.x : 0.0;
+    final maxX = weightHistory.isNotEmpty ? weightHistory.last.x : 1.0;
+    final resolvedMaxX = maxX <= minX ? minX + 1.0 : maxX;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -24,9 +29,13 @@ class WeightHistoryCard extends StatelessWidget {
             SizedBox(
               height: 200,
               child: LineChart(
+                duration: Duration.zero,
                 LineChartData(
+                  minX: minX,
+                  maxX: resolvedMaxX,
                   minY: measurement.minWeight - 1,
                   maxY: measurement.maxWeight + 1,
+                  clipData: const FlClipData.all(),
                   lineTouchData: LineTouchData(
                     enabled: true,
                     touchTooltipData: LineTouchTooltipData(
@@ -85,8 +94,8 @@ class WeightHistoryCard extends StatelessWidget {
                   ),
                   lineBarsData: [
                     LineChartBarData(
-                      spots: measurement.weightHistory,
-                      isCurved: true,
+                      spots: weightHistory,
+                      isCurved: false,
                       color: Colors.blue,
                       barWidth: 2,
                       dotData: const FlDotData(show: false),
