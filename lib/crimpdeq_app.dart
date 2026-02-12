@@ -302,7 +302,7 @@ class CrimpdeqScreen extends ConsumerWidget {
                               'assets/Logo_app_512x512.png',
                               fit: BoxFit.contain,
                               errorBuilder:
-                                  (context, _, __) =>
+                                  (context, error, stackTrace) =>
                                       const Icon(Icons.image_not_supported),
                             ),
                           ),
@@ -337,7 +337,9 @@ class CrimpdeqScreen extends ConsumerWidget {
                 child: Image.asset(
                   'assets/Logo_app_512x512.png',
                   fit: BoxFit.contain,
-                  errorBuilder: (context, _, __) => const Icon(Icons.image_not_supported),
+                  errorBuilder:
+                      (context, error, stackTrace) =>
+                          const Icon(Icons.image_not_supported),
                 ),
               ),
               const SizedBox(width: 10),

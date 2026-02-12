@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -22,16 +22,15 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   StreamSubscription? _scanSubscription;
   StreamSubscription? _notifySubscription;
   StreamSubscription? _connectionSubscription;
+  StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
   DateTime? _lastNotifyTime;
   DateTime? _lastUiUpdateTime;
   DateTime? _lastMeasurementReceivedAt;
-  List<DateTime> _dataTimestamps = [];
-  List<WeightMeasurement> _recentMeasurements = [];
+  final List<WeightMeasurement> _recentMeasurements = [];
   final List<WeightMeasurement> _pendingMeasurements = [];
   final List<double> _notifyIntervalHistory = [];
   double _currentNotifyIntervalMs = 0.0;
   int _dataPacketCount = 0;
-  List<int>? _lastRawData;
   double? _calibrationFactor;
   final List<List<double>> _calibrationPoints = [];
 
@@ -39,10 +38,16 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   ProgressorState build() {
     ref.onDispose(() {
       _cleanupSubscriptions();
+      _adapterStateSubscription?.cancel();
+      _adapterStateSubscription = null;
     });
 
     _initializeBle();
     return const ProgressorState();
+  }
+
+  void _log(String message) {
+    debugPrint('[ProgressorNotifier] $message');
   }
 
   Future<void> _initializeBle() async {
@@ -109,7 +114,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   Future<bool> _checkAndroidPermissions() async {
     final bluetoothScan = await Permission.bluetoothScan.isGranted;
     final bluetoothConnect = await Permission.bluetoothConnect.isGranted;
-    final location = await Permission.location.isGranted ||
+    final location =
+        await Permission.location.isGranted ||
         await Permission.locationWhenInUse.isGranted;
     return bluetoothScan && bluetoothConnect && location;
   }
@@ -133,15 +139,18 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       );
     }
 
-    FlutterBluePlus.adapterState.listen((BluetoothAdapterState adapterState) {
+    _adapterStateSubscription?.cancel();
+    _adapterStateSubscription = FlutterBluePlus.adapterState.listen((
+      BluetoothAdapterState adapterState,
+    ) async {
       if (adapterState == BluetoothAdapterState.on) {
         state = state.copyWith(
           connection: state.connection.copyWith(
             bluetoothReady: true,
             status:
                 state.connection.device == null && !state.connection.isScanning
-                    ? 'Bluetooth ready - Press scan button'
-                    : state.connection.status,
+                ? 'Bluetooth ready - Press scan button'
+                : state.connection.status,
           ),
         );
       } else {
@@ -152,7 +161,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
             isScanning: false,
           ),
         );
-        disconnectDevice();
+        await disconnectDevice();
       }
     });
   }
@@ -173,7 +182,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         withServices: [Guid(ProgressorConstants.instance.serviceUuid)],
       );
 
+      _scanSubscription?.cancel();
       _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
+        if (state.connection.device != null || state.connection.isConnecting) {
+          return;
+        }
         for (final result in results) {
           if (result.device.platformName.toLowerCase().contains('progressor') ||
               result.advertisementData.serviceUuids.any(
@@ -181,7 +194,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
                     uuid.toString().toLowerCase() ==
                     ProgressorConstants.instance.serviceUuid.toLowerCase(),
               )) {
-            _connectToDevice(result.device);
+            unawaited(_connectToDevice(result.device));
             break;
           }
         }
@@ -189,7 +202,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
       Timer(AppConstants.scanExtendedTimeout, () {
         if (state.connection.device == null && state.connection.isScanning) {
-          stopScanning();
+          unawaited(stopScanning());
           state = state.copyWith(
             connection: state.connection.copyWith(
               status: 'Progressor device not found. Please try scanning again.',
@@ -212,7 +225,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
     try {
       await FlutterBluePlus.stopScan();
-      _scanSubscription?.cancel();
+      await _scanSubscription?.cancel();
+      _scanSubscription = null;
 
       state = state.copyWith(
         connection: state.connection.copyWith(
@@ -223,12 +237,15 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         ),
       );
     } catch (e) {
-      print('Failed to stop scan: $e');
+      _log('Failed to stop scan: $e');
     }
   }
 
   Future<void> _connectToDevice(BluetoothDevice device) async {
-    stopScanning();
+    if (state.connection.device != null || state.connection.isConnecting) {
+      return;
+    }
+    await stopScanning();
 
     state = state.copyWith(
       connection: state.connection.copyWith(
@@ -248,66 +265,80 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       );
 
       final services = await device.discoverServices();
-
+      BluetoothService? progressorService;
       for (final service in services) {
         if (service.uuid.toString().toLowerCase() ==
             ProgressorConstants.instance.serviceUuid.toLowerCase()) {
-          BluetoothCharacteristic? notifyChar;
-          BluetoothCharacteristic? writeChar;
-
-          for (final characteristic in service.characteristics) {
-            final charUuid = characteristic.uuid.toString().toLowerCase();
-
-            if (charUuid ==
-                ProgressorConstants.instance.notifyCharUuid.toLowerCase()) {
-              notifyChar = characteristic;
-              await _subscribeToNotifications(characteristic);
-            } else if (charUuid ==
-                ProgressorConstants.instance.writeCharUuid.toLowerCase()) {
-              writeChar = characteristic;
-            }
-          }
-
-          if (notifyChar != null && writeChar != null) {
-            state = state.copyWith(
-              connection: state.connection.copyWith(
-                notifyCharacteristic: notifyChar,
-                writeCharacteristic: writeChar,
-                isConnecting: false,
-                status: 'Connected to Progressor',
-              ),
-            );
-
-            _connectionSubscription?.cancel();
-            _connectionSubscription =
-                device.connectionState.listen((connectionState) {
-              if (connectionState == BluetoothConnectionState.disconnected) {
-                state = state.copyWith(
-                  connection: state.connection.copyWith(
-                    device: null,
-                    notifyCharacteristic: null,
-                    writeCharacteristic: null,
-                    isConnecting: false,
-                    isScanning: false,
-                    status: 'Device disconnected',
-                  ),
-                );
-              }
-            });
-
-            await _getFirmwareVersion();
-            await _getBatteryVoltage();
-            await getCalibration();
-          } else {
-            state = state.copyWith(
-              connection: state.connection.copyWith(
-                isConnecting: false,
-                status: 'Required characteristics not found',
-              ),
-            );
-          }
+          progressorService = service;
+          break;
         }
       }
+
+      if (progressorService == null) {
+        state = state.copyWith(
+          connection: state.connection.copyWith(
+            isConnecting: false,
+            status: 'Progressor service not found',
+          ),
+        );
+        return;
+      }
+
+      BluetoothCharacteristic? notifyChar;
+      BluetoothCharacteristic? writeChar;
+      for (final characteristic in progressorService.characteristics) {
+        final charUuid = characteristic.uuid.toString().toLowerCase();
+
+        if (charUuid ==
+            ProgressorConstants.instance.notifyCharUuid.toLowerCase()) {
+          notifyChar = characteristic;
+          await _subscribeToNotifications(characteristic);
+        } else if (charUuid ==
+            ProgressorConstants.instance.writeCharUuid.toLowerCase()) {
+          writeChar = characteristic;
+        }
+      }
+
+      if (notifyChar == null || writeChar == null) {
+        state = state.copyWith(
+          connection: state.connection.copyWith(
+            isConnecting: false,
+            status: 'Required characteristics not found',
+          ),
+        );
+        return;
+      }
+
+      state = state.copyWith(
+        connection: state.connection.copyWith(
+          notifyCharacteristic: notifyChar,
+          writeCharacteristic: writeChar,
+          isConnecting: false,
+          status: 'Connected to Progressor',
+        ),
+      );
+
+      _connectionSubscription?.cancel();
+      _connectionSubscription = device.connectionState.listen((
+        connectionState,
+      ) {
+        if (connectionState == BluetoothConnectionState.disconnected) {
+          state = state.copyWith(
+            connection: state.connection.copyWith(
+              device: null,
+              notifyCharacteristic: null,
+              writeCharacteristic: null,
+              isConnecting: false,
+              isScanning: false,
+              status: 'Device disconnected',
+            ),
+          );
+        }
+      });
+
+      await _getFirmwareVersion();
+      await _getBatteryVoltage();
+      await getCalibration();
     } catch (e) {
       state = state.copyWith(
         connection: state.connection.copyWith(
@@ -323,7 +354,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   ) async {
     try {
       _notifySubscription?.cancel();
-      final useIndications = characteristic.properties.indicate &&
+      final useIndications =
+          characteristic.properties.indicate &&
           !characteristic.properties.notify;
       await characteristic.setNotifyValue(
         true,
@@ -360,10 +392,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         _handleCalibrationPointResponse(rawData);
         break;
       case 4: // LOW_BATTERY_WARNING
-        print('⚠️ Low battery warning received');
+        _log('Low battery warning received');
         break;
       default:
-        print('Unknown message type: $messageType');
+        _log('Unknown message type: $messageType');
     }
   }
 
@@ -414,13 +446,15 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     // Process every sample, but publish state on a throttled cadence for web/browser smoothness.
     if (newMeasurements.isNotEmpty) {
       _pendingMeasurements.addAll(newMeasurements);
-      final shouldPublish = _lastUiUpdateTime == null ||
+      final shouldPublish =
+          _lastUiUpdateTime == null ||
           now.difference(_lastUiUpdateTime!) >= _uiUpdateInterval;
       if (!shouldPublish) return;
       _lastUiUpdateTime = now;
 
-      final publishMeasurements =
-          List<WeightMeasurement>.from(_pendingMeasurements);
+      final publishMeasurements = List<WeightMeasurement>.from(
+        _pendingMeasurements,
+      );
       _pendingMeasurements.clear();
 
       final lastMeasurement = publishMeasurements.last;
@@ -461,7 +495,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
           maxWeight: lastMeasurement.weight > state.measurement.maxWeight
               ? lastMeasurement.weight
               : state.measurement.maxWeight,
-          minWeight: state.measurement.minWeight == 0.0 ||
+          minWeight:
+              state.measurement.minWeight == 0.0 ||
                   lastMeasurement.weight < state.measurement.minWeight
               ? lastMeasurement.weight
               : state.measurement.minWeight,
@@ -497,7 +532,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
           );
           return;
         }
-      } catch (e) {
+      } catch (_) {
         // Not a string, try other formats
       }
 
@@ -513,7 +548,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         );
       }
     } catch (e) {
-      print('Error parsing command response: $e');
+      _log('Error parsing command response: $e');
     }
   }
 
@@ -524,14 +559,16 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       final responseData = _payloadFromCalibrationMessage(rawData, 4);
       if (responseData == null) return;
 
-      final byteData =
-          ByteData.view(responseData.buffer, responseData.offsetInBytes);
+      final byteData = ByteData.view(
+        responseData.buffer,
+        responseData.offsetInBytes,
+      );
       final calibrationFactor = byteData.getFloat32(0, Endian.little);
       _calibrationPoints.clear();
       _calibrationFactor = calibrationFactor;
       _updateCalibrationInfo();
     } catch (e) {
-      print('Error parsing calibration response: $e');
+      _log('Error parsing calibration response: $e');
     }
   }
 
@@ -542,14 +579,16 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       final responseData = _payloadFromCalibrationMessage(rawData, 8);
       if (responseData == null) return;
 
-      final byteData =
-          ByteData.view(responseData.buffer, responseData.offsetInBytes);
+      final byteData = ByteData.view(
+        responseData.buffer,
+        responseData.offsetInBytes,
+      );
       final valueA = byteData.getFloat32(0, Endian.little);
       final valueB = byteData.getFloat32(4, Endian.little);
       _appendCalibrationPoint(valueA, valueB);
       _updateCalibrationInfo();
     } catch (e) {
-      print('Error parsing calibration point response: $e');
+      _log('Error parsing calibration point response: $e');
     }
   }
 
@@ -557,7 +596,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     if (rawData.length < 2) return null;
 
     final payloadSize = rawData[1];
-    if (payloadSize < 0 || rawData.length < payloadSize + 2) {
+    if (rawData.length < payloadSize + 2) {
       return null;
     }
 
@@ -587,8 +626,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     final lines = <String>[];
 
     if (_calibrationFactor != null) {
-      lines
-          .add('Calibration factor: ${_calibrationFactor!.toStringAsFixed(6)}');
+      lines.add(
+        'Calibration factor: ${_calibrationFactor!.toStringAsFixed(6)}',
+      );
     }
 
     if (_calibrationPoints.isNotEmpty) {
@@ -597,8 +637,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       );
     }
 
-    state =
-        state.copyWith(errorMessage: lines.isEmpty ? null : lines.join('\n'));
+    state = state.copyWith(
+      errorMessage: lines.isEmpty ? null : lines.join('\n'),
+    );
   }
 
   Future<void> _sendCommand(String command) async {
@@ -631,22 +672,27 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       await writeChar.write(data, withoutResponse: withoutResponse);
     } catch (e) {
       state = state.copyWith(
-        connection:
-            state.connection.copyWith(status: 'Failed to send $action: $e'),
+        connection: state.connection.copyWith(
+          status: 'Failed to send $action: $e',
+        ),
       );
-      print('Failed to send $action: $e');
+      _log('Failed to send $action: $e');
     }
   }
 
-  Future<void> _sendControlOpCode(int opCode,
-      [List<int> payload = const []]) async {
+  Future<void> _sendControlOpCode(
+    int opCode, [
+    List<int> payload = const [],
+  ]) async {
     final data = Uint8List(1 + payload.length);
     data[0] = opCode;
     if (payload.isNotEmpty) {
       data.setRange(1, data.length, payload);
     }
-    await _writeToDevice(data,
-        action: 'control opcode 0x${opCode.toRadixString(16)}');
+    await _writeToDevice(
+      data,
+      action: 'control opcode 0x${opCode.toRadixString(16)}',
+    );
   }
 
   Future<void> _getFirmwareVersion() => _sendCommand('k');
@@ -669,9 +715,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     await _sendCommand('d');
     _resetMeasurementState();
     state = state.copyWith(
-      deviceInfo: state.deviceInfo.copyWith(
-        tareValue: tareWeight,
-      ),
+      deviceInfo: state.deviceInfo.copyWith(tareValue: tareWeight),
     );
 
     if (wasMeasuring) {
@@ -751,9 +795,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _pendingMeasurements.clear();
     final lastMeasurement = publishMeasurements.last;
 
-    final newWeightHistory = List<FlSpot>.from(
-      state.measurement.weightHistory,
-    )..add(FlSpot(lastMeasurement.timestampSec, lastMeasurement.weight));
+    final newWeightHistory = List<FlSpot>.from(state.measurement.weightHistory)
+      ..add(FlSpot(lastMeasurement.timestampSec, lastMeasurement.weight));
 
     if (newWeightHistory.length > AppConstants.maxHistorySize) {
       newWeightHistory.removeAt(0);
@@ -776,7 +819,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         maxWeight: lastMeasurement.weight > state.measurement.maxWeight
             ? lastMeasurement.weight
             : state.measurement.maxWeight,
-        minWeight: state.measurement.minWeight == 0.0 ||
+        minWeight:
+            state.measurement.minWeight == 0.0 ||
                 lastMeasurement.weight < state.measurement.minWeight
             ? lastMeasurement.weight
             : state.measurement.minWeight,
@@ -828,15 +872,13 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       _calibrationPoints.clear();
       _lastNotifyTime = null;
       _lastUiUpdateTime = null;
-      _dataTimestamps.clear();
       _recentMeasurements.clear();
       _pendingMeasurements.clear();
       _notifyIntervalHistory.clear();
       _currentNotifyIntervalMs = 0.0;
       _dataPacketCount = 0;
-      _lastRawData = null;
     } catch (e) {
-      print('Failed to disconnect: $e');
+      _log('Failed to disconnect: $e');
     }
   }
 
