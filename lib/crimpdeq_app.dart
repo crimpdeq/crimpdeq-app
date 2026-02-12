@@ -110,8 +110,6 @@ class CrimpdeqScreen extends ConsumerWidget {
         'Firmware: ${state.deviceInfo.firmwareVersion}',
       if (state.deviceInfo.batteryVoltage.isNotEmpty)
         'Battery: ${state.deviceInfo.batteryVoltage} mV',
-      if (state.deviceInfo.tareValue != 0.0)
-        'Tare ${state.deviceInfo.tareValue.toStringAsFixed(2)} kg',
     ];
     final statusText =
         connection.device != null
