@@ -15,15 +15,15 @@ final progressorProvider = ProgressorNotifierProvider._();
 final class ProgressorNotifierProvider
     extends $NotifierProvider<ProgressorNotifier, ProgressorState> {
   ProgressorNotifierProvider._()
-      : super(
-          from: null,
-          argument: null,
-          retry: null,
-          name: r'progressorProvider',
-          isAutoDispose: true,
-          dependencies: null,
-          $allTransitiveDependencies: null,
-        );
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'progressorProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$progressorNotifierHash();
@@ -42,7 +42,7 @@ final class ProgressorNotifierProvider
 }
 
 String _$progressorNotifierHash() =>
-    r'5510585b5cc51b292021a083e4742084c991f8bc';
+    r'd0576852e3358186337fd3ddde7901adb5aa632e';
 
 abstract class _$ProgressorNotifier extends $Notifier<ProgressorState> {
   ProgressorState build();
@@ -50,11 +50,14 @@ abstract class _$ProgressorNotifier extends $Notifier<ProgressorState> {
   @override
   void runBuild() {
     final ref = this.ref as $Ref<ProgressorState, ProgressorState>;
-    final element = ref.element as $ClassProviderElement<
-        AnyNotifier<ProgressorState, ProgressorState>,
-        ProgressorState,
-        Object?,
-        Object?>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<ProgressorState, ProgressorState>,
+              ProgressorState,
+              Object?,
+              Object?
+            >;
     element.handleCreate(ref, build);
   }
 }
