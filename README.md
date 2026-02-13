@@ -16,7 +16,7 @@ The app is also available via [GitHub Releases](https://github.com/crimpdeq/crim
 
 ## Prerequisites
 
-- Flutter SDK (3.10.0 or higher)
+- Flutter SDK (3.41.0 or higher)
 - Dart SDK (3.0.0 or higher)
 - Android Studio or Xcode (for mobile development)
 - A physical device with Bluetooth capability

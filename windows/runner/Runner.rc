@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "test_notify" "\0"
+            VALUE "FileDescription", "Crimpdeq" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "test_notify" "\0"
+            VALUE "InternalName", "Crimpdeq" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "test_notify.exe" "\0"
-            VALUE "ProductName", "test_notify" "\0"
+            VALUE "OriginalFilename", "Crimpdeq.exe" "\0"
+            VALUE "ProductName", "Crimpdeq" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

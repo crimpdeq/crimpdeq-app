@@ -3,7 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'progressor_constants.freezed.dart';
 
 @freezed
-class ProgressorConstants with _$ProgressorConstants {
+sealed class ProgressorConstants with _$ProgressorConstants {
   const factory ProgressorConstants({
     required String serviceUuid,
     required String notifyCharUuid,
@@ -37,7 +37,7 @@ class AppConstants {
 
 enum ControlOpCode {
   getCalibration(0x72),
-  addCalibrationPoint(0x73),
+  addCalibrationPoint(0x69),
   defaultCalibration(0x74);
 
   const ControlOpCode(this.value);

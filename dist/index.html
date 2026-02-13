@@ -14,7 +14,7 @@
     This is a placeholder for base href that will be replaced by the value of
     the `--base-href` argument provided to `flutter build`.
   -->
-    <base href="/crimpdeq-app/" />
+    <base href="/" />
 
     <meta charset="UTF-8" />
     <meta content="IE=Edge" http-equiv="X-UA-Compatible" />
@@ -38,21 +38,120 @@
 
     <title>Crimpdeq</title>
     <link rel="manifest" href="manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
 
     <style>
-      /* Loading indicator */
+      body {
+        margin: 0;
+      }
+
+      :root {
+        --brand-blue: #2f6eb8;
+        --surface: #ffffff;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --background: #f5f6f8;
+        --logo-border: rgba(47, 110, 184, 0.16);
+      }
+
       .loading {
         display: flex;
         justify-content: center;
         align-items: center;
         height: 100vh;
-        font-family: sans-serif;
+        margin: 0;
+        background: radial-gradient(
+          circle at top,
+          #ffffff 0%,
+          var(--background) 58%
+        );
+        font-family: "Inter", sans-serif;
+      }
+
+      .loading-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        min-width: 240px;
+        padding: 20px 24px;
+        border-radius: 14px;
+        background: var(--surface);
+        box-shadow:
+          0 14px 30px rgba(47, 110, 184, 0.14),
+          0 2px 6px rgba(15, 23, 42, 0.08);
+      }
+
+      .loading-logo-wrap {
+        width: 58px;
+        height: 58px;
+        padding: 8px;
+        border-radius: 12px;
+        background: #fff;
+        border: 2px solid var(--logo-border);
+      }
+
+      .loading-logo {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      .loading-title {
+        margin: 0;
+        color: var(--text);
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .loading-subtitle {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --surface: #121923;
+          --text: #e5edf8;
+          --muted: #a9b7ca;
+          --background: #0a1019;
+          --logo-border: rgba(129, 175, 234, 0.42);
+        }
+
+        .loading {
+          background: radial-gradient(
+            circle at top,
+            #1a2535 0%,
+            var(--background) 58%
+          );
+        }
+
+        .loading-logo-wrap {
+          background: #0f1623;
+        }
       }
     </style>
   </head>
   <body>
     <div id="loading" class="loading">
-      <div>Loading Crimpdeq...</div>
+      <div class="loading-card">
+        <div class="loading-logo-wrap">
+          <img
+            class="loading-logo"
+            src="assets/assets/Logo_app_512x512.png"
+            alt="Crimpdeq logo"
+          />
+        </div>
+        <p class="loading-title">Crimpdeq</p>
+        <p class="loading-subtitle">Loading...</p>
+      </div>
     </div>
 
     <script>

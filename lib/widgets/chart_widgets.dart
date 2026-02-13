@@ -10,6 +10,11 @@ class WeightHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final weightHistory = measurement.weightHistory;
+    final minX = weightHistory.isNotEmpty ? weightHistory.first.x : 0.0;
+    final maxX = weightHistory.isNotEmpty ? weightHistory.last.x : 1.0;
+    final resolvedMaxX = maxX <= minX ? minX + 1.0 : maxX;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -24,9 +29,34 @@ class WeightHistoryCard extends StatelessWidget {
             SizedBox(
               height: 200,
               child: LineChart(
+                duration: Duration.zero,
                 LineChartData(
+                  minX: minX,
+                  maxX: resolvedMaxX,
                   minY: measurement.minWeight - 1,
                   maxY: measurement.maxWeight + 1,
+                  clipData: const FlClipData.all(),
+                  lineTouchData: LineTouchData(
+                    enabled: true,
+                    touchTooltipData: LineTouchTooltipData(
+                      fitInsideHorizontally: true,
+                      fitInsideVertically: true,
+                      getTooltipItems: (touchedSpots) {
+                        return touchedSpots
+                            .map(
+                              (spot) => LineTooltipItem(
+                                '${spot.y.toStringAsFixed(3)} kg\n${(spot.x * 1000).toStringAsFixed(0)} ms',
+                                const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            )
+                            .toList();
+                      },
+                    ),
+                  ),
                   titlesData: FlTitlesData(
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
@@ -64,14 +94,14 @@ class WeightHistoryCard extends StatelessWidget {
                   ),
                   lineBarsData: [
                     LineChartBarData(
-                      spots: measurement.weightHistory,
-                      isCurved: true,
+                      spots: weightHistory,
+                      isCurved: false,
                       color: Colors.blue,
                       barWidth: 2,
                       dotData: const FlDotData(show: false),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: Colors.blue.withOpacity(0.1),
+                        color: Colors.blue.withValues(alpha: 0.1),
                       ),
                     ),
                   ],
@@ -166,12 +196,12 @@ class NotifyIntervalCard extends StatelessWidget {
                               )
                               .toList(),
                       isCurved: false,
-                      color: Colors.green,
+                      color: Colors.blue,
                       barWidth: 2,
                       dotData: const FlDotData(show: false),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: Colors.green.withOpacity(0.1),
+                        color: Colors.blue.withValues(alpha: 0.1),
                       ),
                     ),
                   ],
@@ -184,15 +214,15 @@ class NotifyIntervalCard extends StatelessWidget {
               children: [
                 Text(
                   'Min: ${history.isNotEmpty ? history.reduce((a, b) => a < b ? a : b).toStringAsFixed(2) : "0.00"}ms',
-                  style: const TextStyle(fontSize: 12, color: Colors.green),
+                  style: const TextStyle(fontSize: 12, color: Colors.white),
                 ),
                 Text(
                   'Max: ${history.isNotEmpty ? history.reduce((a, b) => a > b ? a : b).toStringAsFixed(2) : "0.00"}ms',
-                  style: const TextStyle(fontSize: 12, color: Colors.red),
+                  style: const TextStyle(fontSize: 12, color: Colors.white),
                 ),
                 Text(
                   'Avg: ${history.isNotEmpty ? (history.reduce((a, b) => a + b) / history.length).toStringAsFixed(2) : "0.00"}ms',
-                  style: const TextStyle(fontSize: 12, color: Colors.blue),
+                  style: const TextStyle(fontSize: 12, color: Colors.white),
                 ),
               ],
             ),

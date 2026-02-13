@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../models/progressor_models.dart' as progressor_models;
 
+const _paleRed = Color(0xFFE57373);
+
 class MeasurementControlCard extends StatelessWidget {
   const MeasurementControlCard({
     super.key,
@@ -19,58 +21,35 @@ class MeasurementControlCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Measurement', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed:
-                        !measurement.isMeasuring ? onStartMeasurement : null,
-                    icon: const Icon(Icons.play_arrow),
-                    label: const Text('Start'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed:
-                        measurement.isMeasuring ? onStopMeasurement : null,
-                    icon: const Icon(Icons.stop),
-                    label: const Text('Stop'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: onTareScale,
-                icon: const Icon(Icons.adjust),
-                label: const Text('Tare Scale'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: measurement.isMeasuring ? onStopMeasurement : onStartMeasurement,
+              icon: Icon(measurement.isMeasuring ? Icons.stop : Icons.play_arrow),
+              label: Text(measurement.isMeasuring ? 'Stop' : 'Start'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor:
+                    measurement.isMeasuring ? _paleRed : const Color(0xFF2F6EB8),
+                foregroundColor: Colors.white,
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: onTareScale,
+                    icon: const Icon(Icons.adjust),
+                    label: const Text('Tare Scale'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2F6EB8),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+        ],
       ),
     );
   }
@@ -95,22 +74,60 @@ class CurrentWeightCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${measurement.currentWeight.toStringAsFixed(2)} kg',
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Current'),
+                      Text(
+                        '${measurement.currentWeight.toStringAsFixed(2)} kg',
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
                       ),
-                    ),
-                    Text('Sample: ${measurement.sampleCount}'),
-                  ],
+                    ],
+                  ),
                 ),
+                if (measurement.maxWeight > 0) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Min'),
+                        Text(
+                          '${measurement.minWeight.toStringAsFixed(2)} kg',
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Max'),
+                        Text(
+                          '${measurement.maxWeight.toStringAsFixed(2)} kg',
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 if (measurement.isMeasuring)
                   const Icon(
                     Icons.radio_button_checked,
@@ -119,22 +136,8 @@ class CurrentWeightCard extends StatelessWidget {
                   ),
               ],
             ),
-            if (measurement.maxWeight > 0) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  Text(
-                    'Min: ${measurement.minWeight.toStringAsFixed(2)} kg',
-                    style: const TextStyle(color: Colors.green),
-                  ),
-                  Text(
-                    'Max: ${measurement.maxWeight.toStringAsFixed(2)} kg',
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ],
-              ),
-            ],
+            const SizedBox(height: 4),
+            Text('Timestamp (ms): ${measurement.sampleCount ~/ 1000}'),
           ],
         ),
       ),
@@ -202,7 +205,10 @@ class _CalibrationCardState extends State<CalibrationCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Calibration', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Add Calibration Point',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _controller,
@@ -219,7 +225,7 @@ class _CalibrationCardState extends State<CalibrationCard> {
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: OutlinedButton.icon(
                 onPressed: isConnected ? _submitCalibration : null,
                 icon: const Icon(Icons.add),
                 label: const Text('Add Calibration Point'),
@@ -229,24 +235,11 @@ class _CalibrationCardState extends State<CalibrationCard> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: isConnected ? widget.onGetCalibration : null,
-                icon: const Icon(Icons.download),
-                label: const Text('Get Calibration'),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
                 onPressed: isConnected ? widget.onDefaultCalibration : null,
                 icon: const Icon(Icons.settings_backup_restore),
-                label: const Text('Default Calibration'),
+                label: const Text('Reset Calibration To Default'),
               ),
             ),
-            if (widget.calibrationInfo != null && widget.calibrationInfo!.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(widget.calibrationInfo!),
-            ],
           ],
         ),
       ),

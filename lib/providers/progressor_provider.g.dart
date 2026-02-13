@@ -6,23 +6,58 @@ part of 'progressor_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$progressorNotifierHash() =>
-    r'55d8637f65266481904864af82af298dfcd6aa39';
+// GENERATED CODE - DO NOT MODIFY BY HAND
+// ignore_for_file: type=lint, type=warning
 
-/// See also [ProgressorNotifier].
 @ProviderFor(ProgressorNotifier)
-final progressorNotifierProvider =
-    AutoDisposeNotifierProvider<ProgressorNotifier, ProgressorState>.internal(
-      ProgressorNotifier.new,
-      name: r'progressorNotifierProvider',
-      debugGetCreateSourceHash:
-          const bool.fromEnvironment('dart.vm.product')
-              ? null
-              : _$progressorNotifierHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+final progressorProvider = ProgressorNotifierProvider._();
 
-typedef _$ProgressorNotifier = AutoDisposeNotifier<ProgressorState>;
-// ignore_for_file: type=lint
-// ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package
+final class ProgressorNotifierProvider
+    extends $NotifierProvider<ProgressorNotifier, ProgressorState> {
+  ProgressorNotifierProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'progressorProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$progressorNotifierHash();
+
+  @$internal
+  @override
+  ProgressorNotifier create() => ProgressorNotifier();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ProgressorState value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ProgressorState>(value),
+    );
+  }
+}
+
+String _$progressorNotifierHash() =>
+    r'd0576852e3358186337fd3ddde7901adb5aa632e';
+
+abstract class _$ProgressorNotifier extends $Notifier<ProgressorState> {
+  ProgressorState build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<ProgressorState, ProgressorState>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<ProgressorState, ProgressorState>,
+              ProgressorState,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}
