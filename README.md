@@ -1,67 +1,66 @@
 # Crimpdeq App
 
-A Flutter development app for testing and communicating with [Crimpdeq](https://github.com/crimpdeq/crimpdeq-firmware).
+A Flutter development app for calibrating, testing and communicating with [Crimpdeq](https://github.com/crimpdeq/crimpdeq-firmware).
 
 ## Features
 
 - Bluetooth Low Energy (BLE) device scanning and connection
+- Calibration support
 - Real-time weight measurement display
 - Data visualization with charts
 - Compatible with Tindeq Progressor API
-- Cross-platform support (Android, iOS, macOS, Windows, Linux, Web)
+- Cross-platform support (Android, macOS, Windows, Linux, Web)
 
 ## Released Apps
 
-The app is also available via [GitHub Releases](https://github.com/crimpdeq/crimpdeq-app/releases), there you can find Android, Windows and macOS versions of the app withough building it yourself.
+The app is also available via [GitHub Releases](https://github.com/crimpdeq/crimpdeq-app/releases), there you can find Android, Windows, Linux and macOS versions of the app withough building it yourself.
 
-## Prerequisites
+## App Development
+As a normal user, you wont need any of this section, this is just meant for the app developers.
+
+### Prerequisites
 
 - Flutter SDK (3.41.0 or higher)
 - Dart SDK (3.0.0 or higher)
 - Android Studio or Xcode (for mobile development)
 - A physical device with Bluetooth capability
 
-## Setup & Installation
+### Setup & Installation
 
-### 1. Clone the Repository
+#### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/frez-dong/crimpdeq-app.git
 cd crimpdeq-app
 ```
 
-### 2. Install Dependencies
+#### 2. Install Dependencies
 
 ```bash
 flutter pub get
 ```
 
-### 3. Generate Code (if needed)
+### #3. Generate Code (if needed)
 
 ```bash
 flutter packages pub run build_runner build
 ```
 
-### 4. Platform-specific Setup
+#### 4. Platform-specific Setup
 
-#### Android
+##### Android
 
 - Minimum SDK version: 21
 - Target SDK version: 34
 - Required permissions are automatically handled
 
-#### iOS
-
-- Minimum iOS version: 12.0
-- Bluetooth permissions are automatically requested
-
-#### Web
+##### Web
 
 - Modern web browser with WebBluetooth support (Chrome, Edge)
 - HTTPS connection required for Bluetooth access
 - Some browsers may have limited BLE support
 
-### 5. Run the App
+#### 5. Run the App
 
 ```bash
 flutter run
@@ -85,17 +84,7 @@ or
 flutter run -d chrome
 ```
 
-## Usage
-
-1. **Launch the app** - The app will request necessary permissions (location for Android, Bluetooth for iOS)
-2. **Scan for devices** - Tap "Scan" to search for available Crimpdeq devices
-3. **Connect** - Select and connect to your Crimpdeq device
-4. **Start measuring** - Use the measurement controls to start/stop data collection
-5. **View data** - Monitor real-time weight data and charts
-
-## Development
-
-### Project Structure
+#### Project Structure
 
 ```
 lib/
@@ -113,7 +102,7 @@ lib/
     └── progressor_widgets.dart
 ```
 
-### Key Dependencies
+#### Key Dependencies
 
 - `flutter_blue_plus`: BLE communication
 - `hooks_riverpod`: State management
@@ -121,7 +110,7 @@ lib/
 - `permission_handler`: Runtime permissions
 - `freezed`: Code generation for immutable classes
 
-### Update App Icon
+#### Update App Icon
 
 To change the app/launcher icons (including web favicons):
 
@@ -134,26 +123,6 @@ dart run flutter_launcher_icons
 ```
 
 This uses the `flutter_launcher_icons` configuration in `pubspec.yaml` to update Android, iOS, macOS, Windows, Linux, and Web assets.
-
-### Building for Release
-
-#### Android APK
-
-```bash
-flutter build apk --release
-```
-
-#### iOS
-
-```bash
-flutter build ios --release
-```
-
-#### Web
-
-```bash
-flutter build web --release
-```
 
 ## GitHub Pages Deployment
 
@@ -174,7 +143,7 @@ This project uses a Makefile for easy building and deployment to GitHub Pages.
    make install
    ```
 
-### Deployment
+### Deploy
 
 Deploy to GitHub Pages with a single command:
 

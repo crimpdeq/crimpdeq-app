@@ -144,6 +144,46 @@ jobs:
           tag: ${{ github.event.release.tag_name }}
           overwrite: true
 
+  linux:
+    name: Linux app
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.0
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Linux release
+        run: flutter build linux --release
+
+      - name: Prepare release artifact (zip)
+        run: |
+          mkdir -p release
+          BUNDLE_DIR=build/linux/x64/release/bundle
+          if [ ! -e "$BUNDLE_DIR/Crimpdeq" ]; then
+            echo "No app bundle found at $BUNDLE_DIR"
+            exit 1
+          fi
+          (cd "$BUNDLE_DIR" && zip -r ../../../../../release/crimpdeq-app-${{ github.ref_name }}-linux.zip .)
+
+      - name: Upload Linux zip to GitHub Release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: release/*.zip
+          file_glob: true
+          tag: ${{ github.event.release.tag_name }}
+          overwrite: true
   web-app:
     name: Deploy web app
     runs-on: ubuntu-latest
