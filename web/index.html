@@ -160,12 +160,32 @@
         const loadingSubtitle = document.querySelector(".loading-subtitle");
         const hasWebBluetooth = !!navigator.bluetooth;
         const isSecure = window.isSecureContext;
+        const canRunApp = isSecure && hasWebBluetooth;
 
-        if (isSecure && hasWebBluetooth) return;
+        if (canRunApp) {
+          const bootstrapScript = document.createElement("script");
+          bootstrapScript.src = "flutter_bootstrap.js";
+          bootstrapScript.async = true;
+          document.body.appendChild(bootstrapScript);
+          return;
+        }
 
         if (loadingSubtitle) {
-          loadingSubtitle.textContent =
-            "Unsupported browser. Use Chrome/Edge over HTTPS.";
+          loadingSubtitle.textContent = "Unsupported browser.";
+
+          const compatibilityLink = document.createElement("a");
+          compatibilityLink.href =
+            "https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API#browser_compatibility";
+          compatibilityLink.target = "_blank";
+          compatibilityLink.rel = "noopener noreferrer";
+          compatibilityLink.textContent = "Check Web Bluetooth browser compatibility";
+          compatibilityLink.style.display = "inline-block";
+          compatibilityLink.style.marginTop = "6px";
+          compatibilityLink.style.fontSize = "13px";
+          compatibilityLink.style.color = "#93c5fd";
+
+          loadingSubtitle.appendChild(document.createElement("br"));
+          loadingSubtitle.appendChild(compatibilityLink);
         }
 
         if (!loadingCard) return;
@@ -189,7 +209,5 @@
         }
       });
     </script>
-
-    <script src="flutter_bootstrap.js" async></script>
   </body>
 </html>

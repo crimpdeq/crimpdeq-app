@@ -33,6 +33,11 @@ dev_dependencies:
   riverpod_generator: ^4.0.3
   flutter_launcher_icons: ^0.14.4
 
+# Workaround: riverpod_generator's dependency tree excludes test_api 0.7.7
+# (pinned by flutter_test). Override so version solving succeeds.
+dependency_overrides:
+  test_api: 0.7.8
+
 flutter:
   uses-material-design: true
   assets:
