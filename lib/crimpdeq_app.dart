@@ -262,9 +262,25 @@ ThemeData _buildLightTheme() {
         side: const BorderSide(color: Color(0xFFD7E3EE)),
       ),
     ),
-    tabBarTheme: dark.tabBarTheme.copyWith(
+    tabBarTheme: TabBarThemeData(
+      indicator: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0A7FB3), Color(0xFF38BDF8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      indicatorSize: TabBarIndicatorSize.tab,
       dividerColor: const Color(0xFFD7E3EE),
+      labelColor: Colors.white,
       unselectedLabelColor: const Color(0xFF607486),
+      labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13),
+      unselectedLabelStyle: GoogleFonts.inter(
+        fontWeight: FontWeight.w600,
+        fontSize: 13,
+      ),
+      splashBorderRadius: BorderRadius.circular(12),
     ),
     inputDecorationTheme: dark.inputDecorationTheme.copyWith(
       fillColor: Colors.white,

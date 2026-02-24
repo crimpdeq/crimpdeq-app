@@ -461,12 +461,13 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       final expectedFrameLength = payloadLength + 2;
 
       // Some firmware variants send command responses as [0, payload...]
-      // without a payload-length byte. On web, those were being mistaken for
-      // framed packets and left buffered forever.
+      // without a payload-length byte (e.g. 5-byte battery [0, v0, v1, v2, v3]).
+      // Only treat as legacy when the buffer matches a known legacy size;
+      // do not use payloadLength > N, as that misclassifies framed responses
+      // with payloads larger than N (e.g. [0, 32, ...payload...]).
       if (messageType == ProgressorConstants.instance.commandResponse) {
         final looksLikeLegacyBattery = _rxBuffer.length == 5;
-        final looksLikeLegacyString = payloadLength > 31;
-        if (looksLikeLegacyBattery || looksLikeLegacyString) {
+        if (looksLikeLegacyBattery) {
           _parseReceivedData(List<int>.from(_rxBuffer));
           _rxBuffer.clear();
           return;
