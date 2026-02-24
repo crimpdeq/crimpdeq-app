@@ -278,6 +278,10 @@ ThemeData _buildLightTheme() {
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Color(0xFFD7E3EE)),
       ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF0A7FB3), width: 1.4),
+      ),
     ),
     dataTableTheme: dark.dataTableTheme.copyWith(
       headingRowColor: const WidgetStatePropertyAll(Color(0xFFF3F8FC)),
@@ -374,7 +378,7 @@ class CrimpdeqScreen extends ConsumerWidget {
         theme.appBarTheme.foregroundColor ?? colorScheme.onSurface;
     final appBarLogoBackground = theme.brightness == Brightness.dark
         ? Colors.white
-        : Colors.white.withValues(alpha: 0.92);
+        : const Color(0xFFE8EEF4); // Light gray so logo stands out from app bar
 
     return Scaffold(
       appBar: AppBar(
