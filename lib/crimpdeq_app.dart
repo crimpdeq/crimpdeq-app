@@ -387,192 +387,211 @@ class CrimpdeqScreen extends ConsumerWidget {
         leadingWidth: isCompactHeader
             ? compactLeadingWidthCurrent
             : (showDisconnectButton ? 330 : 170),
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (showDisconnectButton && isCompactHeader)
-                Container(
-                  decoration: BoxDecoration(
-                    color: _paleRed.withValues(alpha: 0.18),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: _paleRed),
-                  ),
-                  child: IconButton(
-                    tooltip: 'Disconnect',
-                    onPressed: notifier.disconnectDevice,
-                    icon: const Icon(Icons.bluetooth_disabled, color: _paleRed),
-                    iconSize: 18,
-                    visualDensity: VisualDensity.compact,
-                    constraints: const BoxConstraints(
-                      minWidth: 34,
-                      minHeight: 34,
-                    ),
-                  ),
-                ),
-              if (showDisconnectButton && isCompactHeader)
-                const SizedBox(width: 8),
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.zero,
-                  child: Row(
-                    crossAxisAlignment: isCompactHeader
-                        ? CrossAxisAlignment.center
-                        : CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        margin: isCompactHeader
-                            ? const EdgeInsets.only(right: 6)
-                            : const EdgeInsets.only(right: 6, top: 2),
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          shape: BoxShape.circle,
+        leading: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 80 || constraints.maxHeight < 24) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.only(left: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (showDisconnectButton && isCompactHeader)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _paleRed.withValues(alpha: 0.18),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: _paleRed),
+                      ),
+                      child: IconButton(
+                        tooltip: 'Disconnect',
+                        onPressed: notifier.disconnectDevice,
+                        icon: const Icon(Icons.bluetooth_disabled, color: _paleRed),
+                        iconSize: 18,
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints(
+                          minWidth: 34,
+                          minHeight: 34,
                         ),
                       ),
-                      Expanded(
-                        child:
-                            isCompactHeader &&
-                                (compactFirmwareText != null ||
-                                    compactBatteryText != null)
-                            ? Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    compactStatusText,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.inter(
-                                      color: appBarForeground,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 11,
-                                      height: 1.1,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  if (compactFirmwareText != null)
-                                    Text(
-                                      compactFirmwareText,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.inter(
-                                        color: appBarForeground,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 10,
-                                        height: 1.1,
-                                      ),
-                                    ),
-                                  if (compactBatteryText != null)
-                                    Text(
-                                      compactBatteryText,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.inter(
-                                        color: appBarForeground,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 10,
-                                        height: 1.1,
-                                      ),
-                                    ),
-                                ],
-                              )
-                            : Text(
-                                isCompactHeader
-                                    ? compactStatusText
-                                    : statusText,
-                                maxLines: isCompactHeader ? 1 : 4,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.start,
-                                style: GoogleFonts.inter(
-                                  color: appBarForeground,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: isCompactHeader ? 11 : 12,
-                                  height: 1.15,
-                                ),
-                              ),
-                      ),
-                      if (connection.isScanning || connection.isConnecting)
-                        Padding(
-                          padding: EdgeInsets.only(left: 6),
-                          child: SizedBox(
-                            width: 12,
-                            height: 12,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: appBarForeground,
+                    ),
+                  if (showDisconnectButton && isCompactHeader)
+                    const SizedBox(width: 8),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.zero,
+                      child: Row(
+                        crossAxisAlignment: isCompactHeader
+                            ? CrossAxisAlignment.center
+                            : CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: isCompactHeader
+                                ? const EdgeInsets.only(right: 6)
+                                : const EdgeInsets.only(right: 6, top: 2),
+                            decoration: BoxDecoration(
+                              color: statusColor,
+                              shape: BoxShape.circle,
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              if (showDisconnectButton) const SizedBox(width: 8),
-              if (showDisconnectButton)
-                !isCompactHeader
-                    ? FilledButton.icon(
-                        onPressed: notifier.disconnectDevice,
-                        icon: const Icon(Icons.bluetooth_disabled, size: 16),
-                        label: const Text('Disconnect'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _paleRed,
-                          foregroundColor: colorScheme.onError,
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
+                          Expanded(
+                            child:
+                                isCompactHeader &&
+                                    (compactFirmwareText != null ||
+                                        compactBatteryText != null)
+                                ? Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        compactStatusText,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(
+                                          color: appBarForeground,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 11,
+                                          height: 1.1,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      if (compactFirmwareText != null)
+                                        Text(
+                                          compactFirmwareText,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.inter(
+                                            color: appBarForeground,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 10,
+                                            height: 1.1,
+                                          ),
+                                        ),
+                                      if (compactBatteryText != null)
+                                        Text(
+                                          compactBatteryText,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.inter(
+                                            color: appBarForeground,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 10,
+                                            height: 1.1,
+                                          ),
+                                        ),
+                                    ],
+                                  )
+                                : Text(
+                                    isCompactHeader
+                                        ? compactStatusText
+                                        : statusText,
+                                    maxLines: isCompactHeader ? 1 : 4,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.start,
+                                    style: GoogleFonts.inter(
+                                      color: appBarForeground,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: isCompactHeader ? 11 : 12,
+                                      height: 1.15,
+                                    ),
+                                  ),
                           ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-            ],
-          ),
+                          if (connection.isScanning || connection.isConnecting)
+                            Padding(
+                              padding: EdgeInsets.only(left: 6),
+                              child: SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: appBarForeground,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (showDisconnectButton) const SizedBox(width: 8),
+                  if (showDisconnectButton)
+                    !isCompactHeader
+                        ? FilledButton.icon(
+                            onPressed: notifier.disconnectDevice,
+                            icon: const Icon(Icons.bluetooth_disabled, size: 16),
+                            label: const Text('Disconnect'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _paleRed,
+                              foregroundColor: colorScheme.onError,
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                ],
+              ),
+            );
+          },
         ),
         actions: [
-          _ThemeSlider(
-            isDarkMode: isDarkMode,
-            onChanged: (isDark) {
-              ref.read(themeModeProvider.notifier).setDarkMode(isDark);
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 70 || constraints.maxHeight < 24) {
+                return const SizedBox.shrink();
+              }
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _ThemeSlider(
+                  isDarkMode: isDarkMode,
+                  onChanged: (isDark) {
+                    ref.read(themeModeProvider.notifier).setDarkMode(isDark);
+                  },
+                ),
+              );
             },
           ),
-          const SizedBox(width: 8),
         ],
         flexibleSpace: isCompactHeader
             ? SafeArea(
                 child: IgnorePointer(
                   child: Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 26,
-                          height: 26,
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: appBarLogoBackground,
-                            borderRadius: BorderRadius.circular(6),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 26,
+                            height: 26,
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: appBarLogoBackground,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Image.asset(
+                              'assets/Logo_app_512x512.png',
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.image_not_supported),
+                            ),
                           ),
-                          child: Image.asset(
-                            'assets/Logo_app_512x512.png',
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.image_not_supported),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Crimpdeq',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w700,
+                              color: appBarForeground,
+                              fontSize: 14,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Crimpdeq',
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w700,
-                            color: appBarForeground,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -580,33 +599,36 @@ class CrimpdeqScreen extends ConsumerWidget {
             : null,
         title: isCompactHeader
             ? null
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: appBarLogoBackground,
-                      borderRadius: BorderRadius.circular(6),
+            : FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: appBarLogoBackground,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Image.asset(
+                        'assets/Logo_app_512x512.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(Icons.image_not_supported),
+                      ),
                     ),
-                    child: Image.asset(
-                      'assets/Logo_app_512x512.png',
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.image_not_supported),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Crimpdeq',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700,
+                        color: appBarForeground,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Crimpdeq',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w700,
-                      color: appBarForeground,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
       ),
       body: DecoratedBox(
