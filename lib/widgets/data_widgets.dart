@@ -9,6 +9,7 @@ class ReceivedDataCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Align(
       alignment: Alignment.topLeft,
       child: IntrinsicWidth(
@@ -18,14 +19,16 @@ class ReceivedDataCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Last Received Samples', style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Last Received Samples',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 10),
                 if (measurements.isEmpty)
-                  const Text(
+                  Text(
                     'No data received yet. Start measurement to see data.',
-                    style: TextStyle(
+                    style: textTheme.bodySmall?.copyWith(
                       fontStyle: FontStyle.italic,
-                      color: Colors.grey,
                     ),
                   )
                 else
@@ -36,16 +39,19 @@ class ReceivedDataCard extends StatelessWidget {
                         DataColumn(label: Text('Weight (kg)')),
                         DataColumn(label: Text('Timestamp (s)')),
                       ],
-                      rows:
-                          measurements.asMap().entries.map((entry) {
-                            final measurement = entry.value;
-                            return DataRow(
-                              cells: [
-                                DataCell(Text(measurement.weight.toStringAsFixed(2))),
-                                DataCell(Text(measurement.timestampSec.toStringAsFixed(6))),
-                              ],
-                            );
-                          }).toList(),
+                      rows: measurements.asMap().entries.map((entry) {
+                        final measurement = entry.value;
+                        return DataRow(
+                          cells: [
+                            DataCell(
+                              Text(measurement.weight.toStringAsFixed(2)),
+                            ),
+                            DataCell(
+                              Text(measurement.timestampSec.toStringAsFixed(6)),
+                            ),
+                          ],
+                        );
+                      }).toList(),
                     ),
                   ),
               ],

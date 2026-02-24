@@ -17,16 +17,14 @@ class ConnectionControlsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Connection',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text('Connection', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -43,12 +41,11 @@ class ConnectionControlsCard extends StatelessWidget {
                   child: Text(
                     connection.status,
                     style: TextStyle(
-                      color:
-                          connection.device != null
-                              ? Colors.green
-                              : connection.isScanning || connection.isConnecting
-                              ? Colors.blue
-                              : Colors.orange,
+                      color: connection.device != null
+                          ? Colors.greenAccent.shade400
+                          : connection.isScanning || connection.isConnecting
+                          ? colorScheme.primary
+                          : Colors.orangeAccent.shade200,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -70,16 +67,16 @@ class ConnectionControlsCard extends StatelessWidget {
                   child: ElevatedButton.icon(
                     onPressed:
                         connection.bluetoothReady &&
-                                !connection.isScanning &&
-                                !connection.isConnecting &&
-                                connection.device == null
-                            ? onStartScanning
-                            : null,
+                            !connection.isScanning &&
+                            !connection.isConnecting &&
+                            connection.device == null
+                        ? onStartScanning
+                        : null,
                     icon: const Icon(Icons.search),
                     label: const Text('Scan'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
                     ),
                   ),
                 ),
@@ -90,8 +87,8 @@ class ConnectionControlsCard extends StatelessWidget {
                     icon: const Icon(Icons.bluetooth_disabled),
                     label: const Text('Disconnect'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
+                      backgroundColor: colorScheme.error,
+                      foregroundColor: colorScheme.onError,
                     ),
                   ),
                 ),

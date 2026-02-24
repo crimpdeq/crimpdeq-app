@@ -21,34 +21,42 @@ class MeasurementControlCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
       child: Row(
         children: [
           Expanded(
             child: ElevatedButton.icon(
-              onPressed: measurement.isMeasuring ? onStopMeasurement : onStartMeasurement,
-              icon: Icon(measurement.isMeasuring ? Icons.stop : Icons.play_arrow),
+              onPressed: measurement.isMeasuring
+                  ? onStopMeasurement
+                  : onStartMeasurement,
+              icon: Icon(
+                measurement.isMeasuring ? Icons.stop : Icons.play_arrow,
+              ),
               label: Text(measurement.isMeasuring ? 'Stop' : 'Start'),
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    measurement.isMeasuring ? _paleRed : const Color(0xFF2F6EB8),
-                foregroundColor: Colors.white,
+                backgroundColor: measurement.isMeasuring
+                    ? _paleRed
+                    : colorScheme.primary,
+                foregroundColor: measurement.isMeasuring
+                    ? colorScheme.onError
+                    : colorScheme.onPrimary,
               ),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: onTareScale,
-                    icon: const Icon(Icons.adjust),
-                    label: const Text('Tare Scale'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2F6EB8),
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
+            child: ElevatedButton.icon(
+              onPressed: onTareScale,
+              icon: const Icon(Icons.adjust),
+              label: const Text('Tare Scale'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -62,6 +70,8 @@ class CurrentWeightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -80,13 +90,12 @@ class CurrentWeightCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Current'),
+                      Text('Current', style: textTheme.bodySmall),
                       Text(
                         '${measurement.currentWeight.toStringAsFixed(2)} kg',
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
+                        style: textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: colorScheme.primary,
                         ),
                       ),
                     ],
@@ -98,13 +107,12 @@ class CurrentWeightCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Min'),
+                        Text('Min', style: textTheme.bodySmall),
                         Text(
                           '${measurement.minWeight.toStringAsFixed(2)} kg',
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
+                          style: textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: colorScheme.primary,
                           ),
                         ),
                       ],
@@ -115,13 +123,12 @@ class CurrentWeightCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Max'),
+                        Text('Max', style: textTheme.bodySmall),
                         Text(
                           '${measurement.maxWeight.toStringAsFixed(2)} kg',
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
+                          style: textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: colorScheme.primary,
                           ),
                         ),
                       ],
@@ -129,9 +136,9 @@ class CurrentWeightCard extends StatelessWidget {
                   ),
                 ],
                 if (measurement.isMeasuring)
-                  const Icon(
+                  Icon(
                     Icons.radio_button_checked,
-                    color: Colors.red,
+                    color: colorScheme.error,
                     size: 24,
                   ),
               ],
@@ -213,7 +220,9 @@ class _CalibrationCardState extends State<CalibrationCard> {
             TextField(
               controller: _controller,
               enabled: isConnected,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
               ],

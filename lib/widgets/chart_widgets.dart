@@ -10,6 +10,8 @@ class WeightHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final weightHistory = measurement.weightHistory;
     final minX = weightHistory.isNotEmpty ? weightHistory.first.x : 0.0;
     final maxX = weightHistory.isNotEmpty ? weightHistory.last.x : 1.0;
@@ -46,8 +48,8 @@ class WeightHistoryCard extends StatelessWidget {
                             .map(
                               (spot) => LineTooltipItem(
                                 '${spot.y.toStringAsFixed(3)} kg\n${(spot.x * 1000).toStringAsFixed(0)} ms',
-                                const TextStyle(
-                                  color: Colors.white,
+                                TextStyle(
+                                  color: colorScheme.onSurface,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 11,
                                 ),
@@ -62,22 +64,20 @@ class WeightHistoryCard extends StatelessWidget {
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 40,
-                        getTitlesWidget:
-                            (value, meta) => Text(
-                              '${value.toStringAsFixed(1)}kg',
-                              style: const TextStyle(fontSize: 10),
-                            ),
+                        getTitlesWidget: (value, meta) => Text(
+                          '${value.toStringAsFixed(1)}kg',
+                          style: textTheme.bodySmall?.copyWith(fontSize: 10),
+                        ),
                       ),
                     ),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 30,
-                        getTitlesWidget:
-                            (value, meta) => Text(
-                              '${value.toInt()}',
-                              style: const TextStyle(fontSize: 10),
-                            ),
+                        getTitlesWidget: (value, meta) => Text(
+                          '${value.toInt()}',
+                          style: textTheme.bodySmall?.copyWith(fontSize: 10),
+                        ),
                       ),
                     ),
                     topTitles: const AxisTitles(
@@ -87,21 +87,32 @@ class WeightHistoryCard extends StatelessWidget {
                       sideTitles: SideTitles(showTitles: false),
                     ),
                   ),
-                  gridData: FlGridData(show: true, drawVerticalLine: true),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: true,
+                    getDrawingHorizontalLine: (_) => FlLine(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                      strokeWidth: 1,
+                    ),
+                    getDrawingVerticalLine: (_) => FlLine(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+                      strokeWidth: 1,
+                    ),
+                  ),
                   borderData: FlBorderData(
                     show: true,
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: colorScheme.outline),
                   ),
                   lineBarsData: [
                     LineChartBarData(
                       spots: weightHistory,
                       isCurved: false,
-                      color: Colors.blue,
+                      color: colorScheme.primary,
                       barWidth: 2,
                       dotData: const FlDotData(show: false),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: Colors.blue.withValues(alpha: 0.1),
+                        color: colorScheme.primary.withValues(alpha: 0.12),
                       ),
                     ),
                   ],
@@ -122,6 +133,8 @@ class NotifyIntervalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final history = performance.notifyIntervalHistory;
 
     return Card(
@@ -140,31 +153,28 @@ class NotifyIntervalCard extends StatelessWidget {
               child: LineChart(
                 LineChartData(
                   minY: 0,
-                  maxY:
-                      history.isNotEmpty
-                          ? history.reduce((a, b) => a > b ? a : b) * 1.2
-                          : 100,
+                  maxY: history.isNotEmpty
+                      ? history.reduce((a, b) => a > b ? a : b) * 1.2
+                      : 100,
                   titlesData: FlTitlesData(
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 40,
-                        getTitlesWidget:
-                            (value, meta) => Text(
-                              '${value.toInt()}ms',
-                              style: const TextStyle(fontSize: 10),
-                            ),
+                        getTitlesWidget: (value, meta) => Text(
+                          '${value.toInt()}ms',
+                          style: textTheme.bodySmall?.copyWith(fontSize: 10),
+                        ),
                       ),
                     ),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 30,
-                        getTitlesWidget:
-                            (value, meta) => Text(
-                              '-${(history.length - value.toInt()).toString()}',
-                              style: const TextStyle(fontSize: 10),
-                            ),
+                        getTitlesWidget: (value, meta) => Text(
+                          '-${(history.length - value.toInt()).toString()}',
+                          style: textTheme.bodySmall?.copyWith(fontSize: 10),
+                        ),
                       ),
                     ),
                     topTitles: const AxisTitles(
@@ -179,29 +189,36 @@ class NotifyIntervalCard extends StatelessWidget {
                     drawVerticalLine: true,
                     horizontalInterval: 10,
                     verticalInterval: 10,
+                    getDrawingHorizontalLine: (_) => FlLine(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+                      strokeWidth: 1,
+                    ),
+                    getDrawingVerticalLine: (_) => FlLine(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+                      strokeWidth: 1,
+                    ),
                   ),
                   borderData: FlBorderData(
                     show: true,
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: colorScheme.outline),
                   ),
                   lineBarsData: [
                     LineChartBarData(
-                      spots:
-                          history
-                              .asMap()
-                              .entries
-                              .map(
-                                (entry) =>
-                                    FlSpot(entry.key.toDouble(), entry.value),
-                              )
-                              .toList(),
+                      spots: history
+                          .asMap()
+                          .entries
+                          .map(
+                            (entry) =>
+                                FlSpot(entry.key.toDouble(), entry.value),
+                          )
+                          .toList(),
                       isCurved: false,
-                      color: Colors.blue,
+                      color: colorScheme.primary,
                       barWidth: 2,
                       dotData: const FlDotData(show: false),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: Colors.blue.withValues(alpha: 0.1),
+                        color: colorScheme.primary.withValues(alpha: 0.12),
                       ),
                     ),
                   ],
@@ -214,15 +231,24 @@ class NotifyIntervalCard extends StatelessWidget {
               children: [
                 Text(
                   'Min: ${history.isNotEmpty ? history.reduce((a, b) => a < b ? a : b).toStringAsFixed(2) : "0.00"}ms',
-                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                  style: textTheme.bodySmall?.copyWith(
+                    fontSize: 12,
+                    color: colorScheme.onSurface,
+                  ),
                 ),
                 Text(
                   'Max: ${history.isNotEmpty ? history.reduce((a, b) => a > b ? a : b).toStringAsFixed(2) : "0.00"}ms',
-                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                  style: textTheme.bodySmall?.copyWith(
+                    fontSize: 12,
+                    color: colorScheme.onSurface,
+                  ),
                 ),
                 Text(
                   'Avg: ${history.isNotEmpty ? (history.reduce((a, b) => a + b) / history.length).toStringAsFixed(2) : "0.00"}ms',
-                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                  style: textTheme.bodySmall?.copyWith(
+                    fontSize: 12,
+                    color: colorScheme.onSurface,
+                  ),
                 ),
               ],
             ),
