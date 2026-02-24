@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+    <base href="/crimpdeq-app/" />
+
+    <meta charset="UTF-8" />
+    <meta content="IE=Edge" http-equiv="X-UA-Compatible" />
+    <meta
+      name="description"
+      content="Crimpdeq - Tindeq Progressor BLE Client"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Web Bluetooth permissions -->
+    <meta http-equiv="Permissions-Policy" content="bluetooth=*" />
+
+    <!-- iOS meta tags & icons -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="Crimpdeq" />
+    <link rel="apple-touch-icon" href="icons/Icon-192.png" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="favicon.png" />
+
+    <title>Crimpdeq</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      body {
+        margin: 0;
+      }
+
+      :root {
+        --brand-blue: #2f6eb8;
+        --surface: #ffffff;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --background: #f5f6f8;
+        --logo-border: rgba(47, 110, 184, 0.16);
+      }
+
+      .loading {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background: radial-gradient(
+          circle at top,
+          #ffffff 0%,
+          var(--background) 58%
+        );
+        font-family: "Inter", sans-serif;
+      }
+
+      .loading-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        min-width: 240px;
+        padding: 20px 24px;
+        border-radius: 14px;
+        background: var(--surface);
+        box-shadow:
+          0 14px 30px rgba(47, 110, 184, 0.14),
+          0 2px 6px rgba(15, 23, 42, 0.08);
+      }
+
+      .loading-logo-wrap {
+        width: 58px;
+        height: 58px;
+        padding: 8px;
+        border-radius: 12px;
+        background: #fff;
+        border: 2px solid var(--logo-border);
+      }
+
+      .loading-logo {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      .loading-title {
+        margin: 0;
+        color: var(--text);
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .loading-subtitle {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --surface: #121923;
+          --text: #e5edf8;
+          --muted: #a9b7ca;
+          --background: #0a1019;
+          --logo-border: rgba(129, 175, 234, 0.42);
+        }
+
+        .loading {
+          background: radial-gradient(
+            circle at top,
+            #1a2535 0%,
+            var(--background) 58%
+          );
+        }
+
+        .loading-logo-wrap {
+          background: #0f1623;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading" class="loading">
+      <div class="loading-card">
+        <div class="loading-logo-wrap">
+          <img
+            class="loading-logo"
+            src="assets/assets/Logo_app_512x512.png"
+            alt="Crimpdeq logo"
+          />
+        </div>
+        <p class="loading-title">Crimpdeq</p>
+        <p class="loading-subtitle">Loading...</p>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const loadingCard = document.querySelector(".loading-card");
+        const loadingSubtitle = document.querySelector(".loading-subtitle");
+        const hasWebBluetooth = !!navigator.bluetooth;
+        const isSecure = window.isSecureContext;
+        const canRunApp = isSecure && hasWebBluetooth;
+
+        if (canRunApp) {
+          const bootstrapScript = document.createElement("script");
+          bootstrapScript.src = "flutter_bootstrap.js";
+          bootstrapScript.async = true;
+          document.body.appendChild(bootstrapScript);
+          return;
+        }
+
+        if (loadingSubtitle) {
+          loadingSubtitle.textContent = "Unsupported browser.";
+
+          const compatibilityLink = document.createElement("a");
+          compatibilityLink.href =
+            "https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API#browser_compatibility";
+          compatibilityLink.target = "_blank";
+          compatibilityLink.rel = "noopener noreferrer";
+          compatibilityLink.textContent = "Check Web Bluetooth browser compatibility";
+          compatibilityLink.style.display = "inline-block";
+          compatibilityLink.style.marginTop = "6px";
+          compatibilityLink.style.fontSize = "13px";
+          compatibilityLink.style.color = "#93c5fd";
+
+          loadingSubtitle.appendChild(document.createElement("br"));
+          loadingSubtitle.appendChild(compatibilityLink);
+        }
+
+        if (!loadingCard) return;
+
+        const warning = document.createElement("p");
+        warning.style.margin = "8px 0 0";
+        warning.style.fontSize = "13px";
+        warning.style.color = "#b91c1c";
+        warning.textContent = !isSecure
+          ? "This app requires HTTPS (or localhost)."
+          : "This browser does not support Web Bluetooth.";
+
+        loadingCard.appendChild(warning);
+      })();
+
+      // Hide loading indicator when Flutter app loads
+      window.addEventListener("flutter-first-frame", function () {
+        const loading = document.querySelector("#loading");
+        if (loading) {
+          loading.remove();
+        }
+      });
+    </script>
+  </body>
+</html>
