@@ -958,7 +958,7 @@ packages:
     source: hosted
     version: "1.28.0"
   test_api:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: test_api
       sha256: "19a78f63e83d3a61f00826d09bc2f60e191bf3504183c001262be6ac75589fb8"

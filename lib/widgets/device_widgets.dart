@@ -46,6 +46,8 @@ class PerformanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -60,13 +62,12 @@ class PerformanceCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Data sample'),
+                    Text('Data sample', style: textTheme.bodySmall),
                     Text(
                       '${performance.currentHz.toStringAsFixed(1)} Hz',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
+                      style: textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.primary,
                       ),
                     ),
                   ],
@@ -74,13 +75,12 @@ class PerformanceCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text('Notify interval'),
+                    Text('Notify interval', style: textTheme.bodySmall),
                     Text(
                       '${performance.currentNotifyIntervalMs.toStringAsFixed(2)} ms',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.primary,
                       ),
                     ),
                   ],
@@ -98,9 +98,9 @@ class PerformanceCard extends StatelessWidget {
             if (performance.duplicatePacketCount > 0)
               Text(
                 '🔴 Duplicates: ${performance.duplicatePacketCount}',
-                style: const TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.error,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
           ],

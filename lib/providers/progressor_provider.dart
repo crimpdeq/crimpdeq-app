@@ -21,6 +21,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   StreamSubscription? _scanSubscription;
   StreamSubscription? _notifySubscription;
+  StreamSubscription? _notifyEventSubscription;
   StreamSubscription? _connectionSubscription;
   StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
   DateTime? _lastNotifyTime;
@@ -29,6 +30,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   final List<WeightMeasurement> _recentMeasurements = [];
   final List<WeightMeasurement> _pendingMeasurements = [];
   final List<double> _notifyIntervalHistory = [];
+  final List<int> _rxBuffer = [];
   double _currentNotifyIntervalMs = 0.0;
   int _dataPacketCount = 0;
   double? _calibrationFactor;
@@ -65,6 +67,15 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> _requestPermissions() async {
+    if (kIsWeb) {
+      state = state.copyWith(
+        connection: state.connection.copyWith(
+          status: 'Browser Bluetooth ready - use scan to choose a device',
+        ),
+      );
+      return;
+    }
+
     state = state.copyWith(
       connection: state.connection.copyWith(
         status: 'Requesting permissions...',
@@ -180,6 +191,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       await FlutterBluePlus.startScan(
         timeout: AppConstants.scanTimeout,
         withServices: [Guid(ProgressorConstants.instance.serviceUuid)],
+        webOptionalServices: [Guid(ProgressorConstants.instance.serviceUuid)],
       );
 
       _scanSubscription?.cancel();
@@ -354,22 +366,141 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   ) async {
     try {
       _notifySubscription?.cancel();
+      _notifyEventSubscription?.cancel();
       final useIndications =
           characteristic.properties.indicate &&
           !characteristic.properties.notify;
+      _log(
+        'Subscribing to notifications on ${characteristic.uuid} '
+        '(notify=${characteristic.properties.notify}, '
+        'indicate=${characteristic.properties.indicate}, '
+        'read=${characteristic.properties.read}, '
+        'write=${characteristic.properties.write}, '
+        'writeNoResp=${characteristic.properties.writeWithoutResponse})',
+      );
+
+      if (kIsWeb) {
+        final device = state.connection.device;
+        final targetServiceUuid = characteristic.serviceUuid.toString().toLowerCase();
+        final targetCharUuid = characteristic.uuid.toString().toLowerCase();
+
+        // Web fallback: bypass strict characteristic stream matching
+        // (instanceId/primaryServiceUuid) and match by device+UUIDs only.
+        _notifyEventSubscription = FlutterBluePlus.events.onCharacteristicReceived
+            .where((event) => event.error == null)
+            .where((event) => device != null && event.device.remoteId == device.remoteId)
+            .where(
+              (event) =>
+                  event.characteristic.serviceUuid
+                      .toString()
+                      .toLowerCase() ==
+                  targetServiceUuid,
+            )
+            .where(
+              (event) =>
+                  event.characteristic.characteristicUuid
+                      .toString()
+                      .toLowerCase() ==
+                  targetCharUuid,
+            )
+            .listen((event) {
+              _log(
+                'Web RX event (${event.value.length} bytes) '
+                'svc=${event.characteristic.serviceUuid} '
+                'chr=${event.characteristic.characteristicUuid} '
+                'instance=${event.characteristic.instanceId}',
+              );
+              _handleIncomingNotificationChunk(event.value);
+            });
+      } else {
+        // Listen before enabling notifications to avoid missing early packets.
+        _notifySubscription = characteristic.onValueReceived.listen((value) {
+          if (value.isEmpty) return;
+          _log('Characteristic stream RX (${value.length} bytes)');
+          _handleIncomingNotificationChunk(value);
+        });
+      }
+
       await characteristic.setNotifyValue(
         true,
         forceIndications: useIndications,
       );
-      _notifySubscription = characteristic.onValueReceived.listen((value) {
-        _parseReceivedData(value);
-      });
+      _log('Notification subscription enabled for ${characteristic.uuid}');
     } catch (e) {
       state = state.copyWith(
         connection: state.connection.copyWith(
           status: 'Notification subscription failed: $e',
         ),
       );
+    }
+  }
+
+  void _handleIncomingNotificationChunk(List<int> chunk) {
+    if (chunk.isEmpty) return;
+
+    _rxBuffer.addAll(chunk);
+
+    // Reassemble framed packets: [messageType, payloadLength, payload...].
+    // Web Bluetooth may surface smaller chunks than native platforms.
+    while (_rxBuffer.isNotEmpty) {
+      final messageType = _rxBuffer.first;
+
+      // Low battery can be a single-byte message on some firmware variants.
+      if (messageType == ProgressorConstants.instance.lowBatteryWarning &&
+          _rxBuffer.length == 1) {
+        _parseReceivedData(List<int>.from(_rxBuffer));
+        _rxBuffer.clear();
+        return;
+      }
+
+      if (_rxBuffer.length < 2) {
+        return;
+      }
+
+      final payloadLength = _rxBuffer[1];
+      final expectedFrameLength = payloadLength + 2;
+
+      // Some firmware variants send command responses as [0, payload...]
+      // without a payload-length byte (e.g. 5-byte battery [0, v0, v1, v2, v3]).
+      // Only treat as legacy when the buffer matches a known legacy size;
+      // do not use payloadLength > N, as that misclassifies framed responses
+      // with payloads larger than N (e.g. [0, 32, ...payload...]).
+      if (messageType == ProgressorConstants.instance.commandResponse) {
+        final looksLikeLegacyBattery = _rxBuffer.length == 5;
+        if (looksLikeLegacyBattery) {
+          _parseReceivedData(List<int>.from(_rxBuffer));
+          _rxBuffer.clear();
+          return;
+        }
+      }
+
+      if (expectedFrameLength <= 1 || expectedFrameLength > 512) {
+        _log(
+          'Dropping desynced byte while parsing notifications (type=$messageType, lenByte=$payloadLength)',
+        );
+        _rxBuffer.removeAt(0);
+        continue;
+      }
+
+      // Legacy firmware variants may omit the payload-length byte for calibration.
+      if (messageType == 5 && _rxBuffer.length == 5) {
+        _parseReceivedData(List<int>.from(_rxBuffer));
+        _rxBuffer.clear();
+        return;
+      }
+      if (messageType == 6 && _rxBuffer.length == 9) {
+        _parseReceivedData(List<int>.from(_rxBuffer));
+        _rxBuffer.clear();
+        return;
+      }
+
+      if (_rxBuffer.length < expectedFrameLength) {
+        return;
+      }
+
+      final frame = List<int>.from(_rxBuffer.take(expectedFrameLength));
+      _rxBuffer.removeRange(0, expectedFrameLength);
+      _parseReceivedData(frame);
     }
   }
 
@@ -519,12 +650,24 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     if (rawData.length < 2) return;
 
     try {
-      final responseData = Uint8List.fromList(rawData.skip(2).toList());
+      final framedPayload = _payloadFromDataMessage(rawData);
+      final responseData = framedPayload ??
+          Uint8List.fromList(
+            rawData.length > 1 ? rawData.sublist(1) : const <int>[],
+          );
+      if (responseData.isEmpty) return;
 
       // Try to parse as string first (firmware version)
       try {
-        final stringResponse = String.fromCharCodes(responseData);
-        if (stringResponse.isNotEmpty && !stringResponse.contains('\x00')) {
+        final stringResponse = String.fromCharCodes(responseData)
+            .replaceAll('\x00', '')
+            .trim();
+        final looksPrintable = stringResponse.isNotEmpty &&
+            stringResponse.runes.every(
+              (r) => r == 9 || r == 10 || r == 13 || (r >= 32 && r <= 126),
+            );
+        if (looksPrintable) {
+          _log('Command response (string): $stringResponse');
           state = state.copyWith(
             deviceInfo: state.deviceInfo.copyWith(
               firmwareVersion: stringResponse,
@@ -540,6 +683,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       if (responseData.length >= 4) {
         final byteData = ByteData.view(responseData.buffer);
         final voltage = byteData.getUint32(0, Endian.little);
+        _log('Command response (u32): $voltage');
 
         state = state.copyWith(
           deviceInfo: state.deviceInfo.copyWith(
@@ -668,8 +812,31 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         return;
       }
 
-      final withoutResponse = supportsWrite ? false : true;
-      await writeChar.write(data, withoutResponse: withoutResponse);
+      final preferredWithoutResponse =
+          kIsWeb && supportsWriteNoResponse
+              ? true
+              : (supportsWrite ? false : true);
+
+      try {
+        await writeChar.write(
+          data,
+          withoutResponse: preferredWithoutResponse,
+        );
+      } catch (e) {
+        final canRetryWithAlternateMode =
+            (preferredWithoutResponse && supportsWrite) ||
+            (!preferredWithoutResponse && supportsWriteNoResponse);
+        if (!canRetryWithAlternateMode) rethrow;
+
+        final alternateWithoutResponse = !preferredWithoutResponse;
+        _log(
+          'Retrying $action with withoutResponse=$alternateWithoutResponse after write failure: $e',
+        );
+        await writeChar.write(
+          data,
+          withoutResponse: alternateWithoutResponse,
+        );
+      }
     } catch (e) {
       state = state.copyWith(
         connection: state.connection.copyWith(
@@ -783,6 +950,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _lastNotifyTime = null;
     _lastUiUpdateTime = null;
     _lastMeasurementReceivedAt = null;
+    _rxBuffer.clear();
   }
 
   void _flushPendingMeasurements() {
@@ -877,6 +1045,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       _notifyIntervalHistory.clear();
       _currentNotifyIntervalMs = 0.0;
       _dataPacketCount = 0;
+      _rxBuffer.clear();
     } catch (e) {
       _log('Failed to disconnect: $e');
     }
@@ -885,9 +1054,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   void _cleanupSubscriptions() {
     _scanSubscription?.cancel();
     _notifySubscription?.cancel();
+    _notifyEventSubscription?.cancel();
     _connectionSubscription?.cancel();
     _scanSubscription = null;
     _notifySubscription = null;
+    _notifyEventSubscription = null;
     _connectionSubscription = null;
   }
 }

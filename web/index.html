@@ -155,6 +155,52 @@
     </div>
 
     <script>
+      (function () {
+        const loadingCard = document.querySelector(".loading-card");
+        const loadingSubtitle = document.querySelector(".loading-subtitle");
+        const hasWebBluetooth = !!navigator.bluetooth;
+        const isSecure = window.isSecureContext;
+        const canRunApp = isSecure && hasWebBluetooth;
+
+        if (canRunApp) {
+          const bootstrapScript = document.createElement("script");
+          bootstrapScript.src = "flutter_bootstrap.js";
+          bootstrapScript.async = true;
+          document.body.appendChild(bootstrapScript);
+          return;
+        }
+
+        if (loadingSubtitle) {
+          loadingSubtitle.textContent = "Unsupported browser.";
+
+          const compatibilityLink = document.createElement("a");
+          compatibilityLink.href =
+            "https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API#browser_compatibility";
+          compatibilityLink.target = "_blank";
+          compatibilityLink.rel = "noopener noreferrer";
+          compatibilityLink.textContent = "Check Web Bluetooth browser compatibility";
+          compatibilityLink.style.display = "inline-block";
+          compatibilityLink.style.marginTop = "6px";
+          compatibilityLink.style.fontSize = "13px";
+          compatibilityLink.style.color = "#93c5fd";
+
+          loadingSubtitle.appendChild(document.createElement("br"));
+          loadingSubtitle.appendChild(compatibilityLink);
+        }
+
+        if (!loadingCard) return;
+
+        const warning = document.createElement("p");
+        warning.style.margin = "8px 0 0";
+        warning.style.fontSize = "13px";
+        warning.style.color = "#b91c1c";
+        warning.textContent = !isSecure
+          ? "This app requires HTTPS (or localhost)."
+          : "This browser does not support Web Bluetooth.";
+
+        loadingCard.appendChild(warning);
+      })();
+
       // Hide loading indicator when Flutter app loads
       window.addEventListener("flutter-first-frame", function () {
         const loading = document.querySelector("#loading");
@@ -163,7 +209,5 @@
         }
       });
     </script>
-
-    <script src="flutter_bootstrap.js" async></script>
   </body>
 </html>
