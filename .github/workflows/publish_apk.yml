@@ -39,7 +39,7 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release
 
-      - name: Build release APK
+      - name: Build release web
         run: flutter build web --release
 
       # Save the artifact for quick download from the workflow run
