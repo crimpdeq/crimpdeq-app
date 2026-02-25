@@ -193,14 +193,10 @@ jobs:
     name: Deploy web app
     runs-on: ubuntu-latest
     permissions:
-      contents: write # To push a branch
-      pages: write # To push to a GitHub Pages site
-      id-token: write # To update the deployment status
+      contents: read
+      deployments: write
     steps:
       - uses: actions/checkout@v6
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
 
       - name: Set up Java (required for Android tooling)
         uses: actions/setup-java@v5
@@ -219,11 +215,12 @@ jobs:
         run: make install
 
       - name: Build web app
-        run: make build
+        run: make build-local
 
-      - name: Deploy book
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Publish to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          force_orphan: true
-          publish_dir: ./dist
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 2fc7f8105c4c2a621b320949cae125ae
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: pages deploy dist --project-name=crimpdeq-app --branch=main
