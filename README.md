@@ -1,6 +1,6 @@
 # Crimpdeq App
 
-A Flutter development app for calibrating, testing and communicating with [Crimpdeq](https://github.com/crimpdeq/crimpdeq-firmware).
+A Flutter development app for calibrating, testing and communicating with [Crimpdeq](https://crimpdeq.com).
 
 ## Features
 
