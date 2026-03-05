@@ -1064,15 +1064,20 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   void _handleUnexpectedDisconnect() {
     _cleanupSubscriptions();
+    _resetDisconnectedState(
+      bluetoothReady: state.connection.bluetoothReady,
+      status: 'Device disconnected',
+    );
+  }
 
+  void _resetDisconnectedState({
+    required bool bluetoothReady,
+    required String status,
+  }) {
     state = state.copyWith(
-      connection: state.connection.copyWith(
-        device: null,
-        notifyCharacteristic: null,
-        writeCharacteristic: null,
-        isConnecting: false,
-        isScanning: false,
-        status: 'Device disconnected',
+      connection: ConnectionState(
+        bluetoothReady: bluetoothReady,
+        status: status,
       ),
       deviceInfo: const DeviceInfo(),
       measurement: const MeasurementState(),
@@ -1085,31 +1090,62 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _resetMeasurementRuntimeState(clearRxBuffer: true);
   }
 
+  Future<bool> _isDeviceDisconnected(BluetoothDevice device) async {
+    try {
+      final connectionState = await device.connectionState.first.timeout(
+        const Duration(seconds: 1),
+      );
+      return connectionState == BluetoothConnectionState.disconnected;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> disconnectDevice() async {
     final bluetoothReady = state.connection.bluetoothReady;
+    final device = state.connection.device;
 
-    try {
-      await state.connection.device?.disconnect();
-    } catch (e) {
-      _log('Failed to disconnect: $e');
-    } finally {
+    if (device == null) {
       _cleanupSubscriptions();
-
-      state = state.copyWith(
-        connection: ConnectionState(
-          bluetoothReady: bluetoothReady,
-          status: 'Disconnected',
-        ),
-        deviceInfo: const DeviceInfo(),
-        measurement: const MeasurementState(),
-        performance: const PerformanceMetrics(),
-        errorMessage: null,
+      _resetDisconnectedState(
+        bluetoothReady: bluetoothReady,
+        status: 'Disconnected',
       );
-
-      _calibrationFactor = null;
-      _calibrationPoints.clear();
-      _resetMeasurementRuntimeState(clearRxBuffer: true);
+      return;
     }
+
+    Object? disconnectError;
+    try {
+      await device.disconnect();
+    } catch (e) {
+      disconnectError = e;
+      _log('Failed to disconnect: $e');
+    }
+
+    // Connection-state listener may have already handled the disconnect.
+    if (state.connection.device == null) {
+      return;
+    }
+
+    final isDisconnected = await _isDeviceDisconnected(device);
+    if (!isDisconnected) {
+      state = state.copyWith(
+        connection: state.connection.copyWith(
+          isConnecting: false,
+          isScanning: false,
+          status: disconnectError == null
+              ? 'Waiting for device to disconnect...'
+              : 'Disconnect failed: $disconnectError',
+        ),
+      );
+      return;
+    }
+
+    _cleanupSubscriptions();
+    _resetDisconnectedState(
+      bluetoothReady: bluetoothReady,
+      status: 'Disconnected',
+    );
   }
 
   void _cleanupSubscriptions() {
