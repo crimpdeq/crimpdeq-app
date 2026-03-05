@@ -336,9 +336,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         }
       });
 
-      await _getFirmwareVersion();
-      await _getBatteryVoltage();
-      await getCalibration();
+      await _requestInitialDeviceInfo();
     } catch (e) {
       await _failConnectionSetup(device, 'Connection failed: $e');
     }
@@ -838,9 +836,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         return;
       }
 
-      final preferredWithoutResponse = kIsWeb && supportsWriteNoResponse
-          ? true
-          : (supportsWrite ? false : true);
+      final preferredWithoutResponse = supportsWrite ? false : true;
+      _log(
+        'Sending $action (${data.length} bytes) '
+        'with withoutResponse=$preferredWithoutResponse',
+      );
 
       try {
         await writeChar.write(data, withoutResponse: preferredWithoutResponse);
@@ -879,6 +879,28 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       data,
       action: 'control opcode 0x${opCode.toRadixString(16)}',
     );
+  }
+
+  Future<void> _requestInitialDeviceInfo() async {
+    const maxAttempts = 2;
+
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      if (state.connection.device == null) return;
+
+      await _getFirmwareVersion();
+      await Future.delayed(_commandSettleDelay);
+      await _getBatteryVoltage();
+      await Future.delayed(_commandSettleDelay);
+      await getCalibration();
+
+      final hasFirmware = state.deviceInfo.firmwareVersion.isNotEmpty;
+      final hasBattery = state.deviceInfo.batteryVoltage.isNotEmpty;
+      if (hasFirmware && hasBattery) {
+        return;
+      }
+
+      await Future.delayed(_resumeCheckDelay);
+    }
   }
 
   Future<void> _getFirmwareVersion() => _sendCommand('k');
