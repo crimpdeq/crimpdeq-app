@@ -460,17 +460,17 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       final payloadLength = _rxBuffer[1];
       final expectedFrameLength = payloadLength + 2;
 
-      // Some firmware variants send command responses as [0, payload...]
-      // without a payload-length byte (e.g. 5-byte battery [0, v0, v1, v2, v3]).
-      // Only treat as legacy when the buffer matches a known legacy size;
-      // do not use payloadLength > N, as that misclassifies framed responses
-      // with payloads larger than N (e.g. [0, 32, ...payload...]).
-      if (messageType == ProgressorConstants.instance.commandResponse) {
-        final looksLikeLegacyBattery = _rxBuffer.length == 5;
-        if (looksLikeLegacyBattery) {
-          _parseReceivedData(List<int>.from(_rxBuffer));
-          _rxBuffer.clear();
-          return;
+      // Some firmware variants send battery command responses as
+      // [0, v0, v1, v2, v3] (no payload-length byte).
+      // When Web Bluetooth batches this legacy 5-byte frame with following
+      // notifications in the same chunk, consume only the first 5 bytes.
+      if (messageType == ProgressorConstants.instance.commandResponse &&
+          _rxBuffer.length >= 5) {
+        final legacyBatteryFrame = List<int>.from(_rxBuffer.take(5));
+        if (_looksLikeLegacyBatteryFrame(legacyBatteryFrame)) {
+          _parseReceivedData(legacyBatteryFrame);
+          _rxBuffer.removeRange(0, 5);
+          continue;
         }
       }
 
@@ -528,6 +528,19 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       default:
         _log('Unknown message type: $messageType');
     }
+  }
+
+  bool _looksLikeLegacyBatteryFrame(List<int> frame) {
+    if (frame.length != 5 ||
+        frame.first != ProgressorConstants.instance.commandResponse) {
+      return false;
+    }
+
+    final voltage =
+        frame[1] | (frame[2] << 8) | (frame[3] << 16) | (frame[4] << 24);
+
+    // Typical battery voltage range (mV) reported by this device.
+    return voltage >= 1000 && voltage <= 10000;
   }
 
   void _handleWeightMeasurement(List<int> data) {
