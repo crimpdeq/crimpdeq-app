@@ -424,7 +424,10 @@ class CrimpdeqScreen extends ConsumerWidget {
                       child: IconButton(
                         tooltip: 'Disconnect',
                         onPressed: notifier.disconnectDevice,
-                        icon: const Icon(Icons.bluetooth_disabled, color: _paleRed),
+                        icon: const Icon(
+                          Icons.bluetooth_disabled,
+                          color: _paleRed,
+                        ),
                         iconSize: 18,
                         visualDensity: VisualDensity.compact,
                         constraints: const BoxConstraints(
@@ -461,7 +464,8 @@ class CrimpdeqScreen extends ConsumerWidget {
                                         compactBatteryText != null)
                                 ? Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         compactStatusText,
@@ -537,7 +541,10 @@ class CrimpdeqScreen extends ConsumerWidget {
                     !isCompactHeader
                         ? FilledButton.icon(
                             onPressed: notifier.disconnectDevice,
-                            icon: const Icon(Icons.bluetooth_disabled, size: 16),
+                            icon: const Icon(
+                              Icons.bluetooth_disabled,
+                              size: 16,
+                            ),
                             label: const Text('Disconnect'),
                             style: FilledButton.styleFrom(
                               backgroundColor: _paleRed,
@@ -678,13 +685,12 @@ class CrimpdeqScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: state.connection.device == null
-                  ? SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          if (showScanButton) const SizedBox(height: 72),
-                          if (showScanButton)
-                            Center(
-                              child: FilledButton.icon(
+                  ? Align(
+                      alignment: Alignment.topCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 72),
+                        child: showScanButton
+                            ? FilledButton.icon(
                                 onPressed: notifier.startScanning,
                                 icon: const Icon(Icons.search, size: 24),
                                 label: const Text('Scan'),
@@ -699,9 +705,8 @@ class CrimpdeqScreen extends ConsumerWidget {
                                     fontSize: 18,
                                   ),
                                 ),
-                              ),
-                            ),
-                        ],
+                              )
+                            : const SizedBox.shrink(),
                       ),
                     )
                   : DefaultTabController(
