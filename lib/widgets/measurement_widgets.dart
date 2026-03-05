@@ -244,11 +244,24 @@ class _CalibrationCardState extends State<CalibrationCard> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
+                onPressed: isConnected ? widget.onGetCalibration : null,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Get Calibration'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
                 onPressed: isConnected ? widget.onDefaultCalibration : null,
                 icon: const Icon(Icons.settings_backup_restore),
                 label: const Text('Reset Calibration To Default'),
               ),
             ),
+            if ((widget.calibrationInfo ?? '').trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(widget.calibrationInfo!),
+            ],
           ],
         ),
       ),

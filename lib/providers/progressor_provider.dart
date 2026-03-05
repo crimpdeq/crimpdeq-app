@@ -24,6 +24,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   StreamSubscription? _notifyEventSubscription;
   StreamSubscription? _connectionSubscription;
   StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
+  Timer? _scanTimeoutTimer;
   DateTime? _lastNotifyTime;
   DateTime? _lastUiUpdateTime;
   DateTime? _lastMeasurementReceivedAt;
@@ -40,6 +41,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   ProgressorState build() {
     ref.onDispose(() {
       _cleanupSubscriptions();
+      _cancelScanTimeoutTimer();
       _adapterStateSubscription?.cancel();
       _adapterStateSubscription = null;
     });
@@ -212,7 +214,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         }
       });
 
-      Timer(AppConstants.scanExtendedTimeout, () {
+      _cancelScanTimeoutTimer();
+      _scanTimeoutTimer = Timer(AppConstants.scanExtendedTimeout, () {
         if (state.connection.device == null && state.connection.isScanning) {
           unawaited(stopScanning());
           state = state.copyWith(
@@ -233,6 +236,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> stopScanning() async {
+    _cancelScanTimeoutTimer();
     if (!state.connection.isScanning) return;
 
     try {
@@ -287,12 +291,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       }
 
       if (progressorService == null) {
-        state = state.copyWith(
-          connection: state.connection.copyWith(
-            isConnecting: false,
-            status: 'Progressor service not found',
-          ),
-        );
+        await _failConnectionSetup(device, 'Progressor service not found');
         return;
       }
 
@@ -312,11 +311,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       }
 
       if (notifyChar == null || writeChar == null) {
-        state = state.copyWith(
-          connection: state.connection.copyWith(
-            isConnecting: false,
-            status: 'Required characteristics not found',
-          ),
+        await _failConnectionSetup(
+          device,
+          'Required characteristics not found',
         );
         return;
       }
@@ -335,30 +332,37 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         connectionState,
       ) {
         if (connectionState == BluetoothConnectionState.disconnected) {
-          state = state.copyWith(
-            connection: state.connection.copyWith(
-              device: null,
-              notifyCharacteristic: null,
-              writeCharacteristic: null,
-              isConnecting: false,
-              isScanning: false,
-              status: 'Device disconnected',
-            ),
-          );
+          _handleUnexpectedDisconnect();
         }
       });
 
-      await _getFirmwareVersion();
-      await _getBatteryVoltage();
-      await getCalibration();
+      await _requestInitialDeviceInfo();
     } catch (e) {
-      state = state.copyWith(
-        connection: state.connection.copyWith(
-          isConnecting: false,
-          status: 'Connection failed: $e',
-        ),
-      );
+      await _failConnectionSetup(device, 'Connection failed: $e');
     }
+  }
+
+  Future<void> _failConnectionSetup(
+    BluetoothDevice device,
+    String status,
+  ) async {
+    try {
+      await device.disconnect();
+    } catch (_) {
+      // Device might already be disconnected.
+    }
+
+    _cleanupSubscriptions();
+    state = state.copyWith(
+      connection: state.connection.copyWith(
+        device: null,
+        notifyCharacteristic: null,
+        writeCharacteristic: null,
+        isConnecting: false,
+        isScanning: false,
+        status: status,
+      ),
+    );
   }
 
   Future<void> _subscribeToNotifications(
@@ -381,19 +385,24 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
       if (kIsWeb) {
         final device = state.connection.device;
-        final targetServiceUuid = characteristic.serviceUuid.toString().toLowerCase();
+        final targetServiceUuid = characteristic.serviceUuid
+            .toString()
+            .toLowerCase();
         final targetCharUuid = characteristic.uuid.toString().toLowerCase();
 
         // Web fallback: bypass strict characteristic stream matching
         // (instanceId/primaryServiceUuid) and match by device+UUIDs only.
-        _notifyEventSubscription = FlutterBluePlus.events.onCharacteristicReceived
+        _notifyEventSubscription = FlutterBluePlus
+            .events
+            .onCharacteristicReceived
             .where((event) => event.error == null)
-            .where((event) => device != null && event.device.remoteId == device.remoteId)
             .where(
               (event) =>
-                  event.characteristic.serviceUuid
-                      .toString()
-                      .toLowerCase() ==
+                  device != null && event.device.remoteId == device.remoteId,
+            )
+            .where(
+              (event) =>
+                  event.characteristic.serviceUuid.toString().toLowerCase() ==
                   targetServiceUuid,
             )
             .where(
@@ -664,7 +673,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
     try {
       final framedPayload = _payloadFromDataMessage(rawData);
-      final responseData = framedPayload ??
+      final responseData =
+          framedPayload ??
           Uint8List.fromList(
             rawData.length > 1 ? rawData.sublist(1) : const <int>[],
           );
@@ -672,10 +682,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
       // Try to parse as string first (firmware version)
       try {
-        final stringResponse = String.fromCharCodes(responseData)
-            .replaceAll('\x00', '')
-            .trim();
-        final looksPrintable = stringResponse.isNotEmpty &&
+        final stringResponse = String.fromCharCodes(
+          responseData,
+        ).replaceAll('\x00', '').trim();
+        final looksPrintable =
+            stringResponse.isNotEmpty &&
             stringResponse.runes.every(
               (r) => r == 9 || r == 10 || r == 13 || (r >= 32 && r <= 126),
             );
@@ -825,16 +836,14 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         return;
       }
 
-      final preferredWithoutResponse =
-          kIsWeb && supportsWriteNoResponse
-              ? true
-              : (supportsWrite ? false : true);
+      final preferredWithoutResponse = supportsWrite ? false : true;
+      _log(
+        'Sending $action (${data.length} bytes) '
+        'with withoutResponse=$preferredWithoutResponse',
+      );
 
       try {
-        await writeChar.write(
-          data,
-          withoutResponse: preferredWithoutResponse,
-        );
+        await writeChar.write(data, withoutResponse: preferredWithoutResponse);
       } catch (e) {
         final canRetryWithAlternateMode =
             (preferredWithoutResponse && supportsWrite) ||
@@ -845,10 +854,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         _log(
           'Retrying $action with withoutResponse=$alternateWithoutResponse after write failure: $e',
         );
-        await writeChar.write(
-          data,
-          withoutResponse: alternateWithoutResponse,
-        );
+        await writeChar.write(data, withoutResponse: alternateWithoutResponse);
       }
     } catch (e) {
       state = state.copyWith(
@@ -873,6 +879,28 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       data,
       action: 'control opcode 0x${opCode.toRadixString(16)}',
     );
+  }
+
+  Future<void> _requestInitialDeviceInfo() async {
+    const maxAttempts = 2;
+
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      if (state.connection.device == null) return;
+
+      await _getFirmwareVersion();
+      await Future.delayed(_commandSettleDelay);
+      await _getBatteryVoltage();
+      await Future.delayed(_commandSettleDelay);
+      await getCalibration();
+
+      final hasFirmware = state.deviceInfo.firmwareVersion.isNotEmpty;
+      final hasBattery = state.deviceInfo.batteryVoltage.isNotEmpty;
+      if (hasFirmware && hasBattery) {
+        return;
+      }
+
+      await Future.delayed(_resumeCheckDelay);
+    }
   }
 
   Future<void> _getFirmwareVersion() => _sendCommand('k');
@@ -917,13 +945,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   Future<void> startMeasurement() async {
     await _sendCommand('e');
-    _pendingMeasurements.clear();
-    _recentMeasurements.clear();
-    _notifyIntervalHistory.clear();
-    _currentNotifyIntervalMs = 0.0;
-    _dataPacketCount = 0;
-    _lastNotifyTime = null;
-    _lastUiUpdateTime = null;
+    _resetMeasurementRuntimeState();
     state = state.copyWith(
       measurement: state.measurement.copyWith(
         isMeasuring: true,
@@ -955,6 +977,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         receivedData: [],
       ),
     );
+    _resetMeasurementRuntimeState(clearRxBuffer: true);
+  }
+
+  void _resetMeasurementRuntimeState({bool clearRxBuffer = false}) {
     _pendingMeasurements.clear();
     _recentMeasurements.clear();
     _notifyIntervalHistory.clear();
@@ -963,7 +989,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _lastNotifyTime = null;
     _lastUiUpdateTime = null;
     _lastMeasurementReceivedAt = null;
-    _rxBuffer.clear();
+
+    if (clearRxBuffer) {
+      _rxBuffer.clear();
+    }
   }
 
   void _flushPendingMeasurements() {
@@ -1033,38 +1062,94 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     await _sendControlOpCode(ControlOpCode.defaultCalibration.value);
   }
 
-  Future<void> disconnectDevice() async {
+  void _handleUnexpectedDisconnect() {
+    _cleanupSubscriptions();
+    _resetDisconnectedState(
+      bluetoothReady: state.connection.bluetoothReady,
+      status: 'Device disconnected',
+    );
+  }
+
+  void _resetDisconnectedState({
+    required bool bluetoothReady,
+    required String status,
+  }) {
+    state = state.copyWith(
+      connection: ConnectionState(
+        bluetoothReady: bluetoothReady,
+        status: status,
+      ),
+      deviceInfo: const DeviceInfo(),
+      measurement: const MeasurementState(),
+      performance: const PerformanceMetrics(),
+      errorMessage: null,
+    );
+
+    _calibrationFactor = null;
+    _calibrationPoints.clear();
+    _resetMeasurementRuntimeState(clearRxBuffer: true);
+  }
+
+  Future<bool> _isDeviceDisconnected(BluetoothDevice device) async {
     try {
-      await state.connection.device?.disconnect();
-      _cleanupSubscriptions();
-
-      state = state.copyWith(
-        connection: const ConnectionState(
-          bluetoothReady: true,
-          status: 'Disconnected',
-        ),
-        deviceInfo: const DeviceInfo(),
-        measurement: const MeasurementState(),
-        performance: const PerformanceMetrics(),
-        errorMessage: null,
+      final connectionState = await device.connectionState.first.timeout(
+        const Duration(seconds: 1),
       );
-
-      _calibrationFactor = null;
-      _calibrationPoints.clear();
-      _lastNotifyTime = null;
-      _lastUiUpdateTime = null;
-      _recentMeasurements.clear();
-      _pendingMeasurements.clear();
-      _notifyIntervalHistory.clear();
-      _currentNotifyIntervalMs = 0.0;
-      _dataPacketCount = 0;
-      _rxBuffer.clear();
-    } catch (e) {
-      _log('Failed to disconnect: $e');
+      return connectionState == BluetoothConnectionState.disconnected;
+    } catch (_) {
+      return false;
     }
   }
 
+  Future<void> disconnectDevice() async {
+    final bluetoothReady = state.connection.bluetoothReady;
+    final device = state.connection.device;
+
+    if (device == null) {
+      _cleanupSubscriptions();
+      _resetDisconnectedState(
+        bluetoothReady: bluetoothReady,
+        status: 'Disconnected',
+      );
+      return;
+    }
+
+    Object? disconnectError;
+    try {
+      await device.disconnect();
+    } catch (e) {
+      disconnectError = e;
+      _log('Failed to disconnect: $e');
+    }
+
+    // Connection-state listener may have already handled the disconnect.
+    if (state.connection.device == null) {
+      return;
+    }
+
+    final isDisconnected = await _isDeviceDisconnected(device);
+    if (!isDisconnected) {
+      state = state.copyWith(
+        connection: state.connection.copyWith(
+          isConnecting: false,
+          isScanning: false,
+          status: disconnectError == null
+              ? 'Waiting for device to disconnect...'
+              : 'Disconnect failed: $disconnectError',
+        ),
+      );
+      return;
+    }
+
+    _cleanupSubscriptions();
+    _resetDisconnectedState(
+      bluetoothReady: bluetoothReady,
+      status: 'Disconnected',
+    );
+  }
+
   void _cleanupSubscriptions() {
+    _cancelScanTimeoutTimer();
     _scanSubscription?.cancel();
     _notifySubscription?.cancel();
     _notifyEventSubscription?.cancel();
@@ -1073,5 +1158,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _notifySubscription = null;
     _notifyEventSubscription = null;
     _connectionSubscription = null;
+  }
+
+  void _cancelScanTimeoutTimer() {
+    _scanTimeoutTimer?.cancel();
+    _scanTimeoutTimer = null;
   }
 }
