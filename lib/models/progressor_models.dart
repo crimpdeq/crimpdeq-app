@@ -2,29 +2,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'package:crimpdeq_protocol/crimpdeq_protocol.dart';
+export 'package:crimpdeq_protocol/crimpdeq_protocol.dart'
+    show WeightMeasurement, DeviceInfo;
+
 part 'progressor_models.freezed.dart';
-
-@freezed
-sealed class WeightMeasurement with _$WeightMeasurement {
-  const WeightMeasurement._();
-
-  const factory WeightMeasurement({
-    required double weight,
-    required int timestampUs,
-    required DateTime receivedAt,
-  }) = _WeightMeasurement;
-
-  double get timestampSec => timestampUs / 1000000.0;
-}
-
-@freezed
-sealed class DeviceInfo with _$DeviceInfo {
-  const factory DeviceInfo({
-    @Default('') String firmwareVersion,
-    @Default('') String batteryVoltage,
-    @Default(0.0) double tareValue,
-  }) = _DeviceInfo;
-}
 
 @freezed
 sealed class PerformanceMetrics with _$PerformanceMetrics {
@@ -53,6 +35,8 @@ sealed class MeasurementState with _$MeasurementState {
 
 @freezed
 sealed class ConnectionState with _$ConnectionState {
+  const ConnectionState._();
+
   const factory ConnectionState({
     BluetoothDevice? device,
     BluetoothCharacteristic? notifyCharacteristic,
@@ -61,7 +45,10 @@ sealed class ConnectionState with _$ConnectionState {
     @Default(false) bool isScanning,
     @Default(false) bool isConnecting,
     @Default(false) bool bluetoothReady,
+    @Default(false) bool isSimulator,
   }) = _ConnectionState;
+
+  bool get isConnected => device != null || isSimulator;
 }
 
 @freezed

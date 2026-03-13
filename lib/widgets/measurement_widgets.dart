@@ -205,7 +205,7 @@ class _CalibrationCardState extends State<CalibrationCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isConnected = widget.connection.device != null;
+    final isConnected = widget.connection.isConnected;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),

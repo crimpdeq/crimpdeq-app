@@ -21,6 +21,8 @@ dependencies:
   freezed_annotation: ^3.1.0
   json_annotation: ^4.10.0
   google_fonts: ^8.0.1
+  crimpdeq_protocol:
+    path: packages/crimpdeq_protocol
 
 dev_dependencies:
   flutter_test:

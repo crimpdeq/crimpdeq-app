@@ -1,17 +1,47 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:crimpdeq_protocol/crimpdeq_protocol.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:fl_chart/fl_chart.dart';
 
 import '../constants/progressor_constants.dart';
 import '../models/progressor_models.dart';
 
 part 'progressor_provider.g.dart';
+
+// ── BleTransport backed by flutter_blue_plus ──────────────────────
+
+class _FlutterBluePlusTransport implements BleTransport {
+  final BluetoothCharacteristic _writeChar;
+
+  _FlutterBluePlusTransport(this._writeChar);
+
+  @override
+  Future<void> write(List<int> data) async {
+    final supportsWrite = _writeChar.properties.write;
+    final supportsWriteNoResponse = _writeChar.properties.writeWithoutResponse;
+    if (!supportsWrite && !supportsWriteNoResponse) {
+      throw StateError('Write characteristic is not writable');
+    }
+
+    final preferredWithoutResponse = !supportsWrite;
+    try {
+      await _writeChar.write(data, withoutResponse: preferredWithoutResponse);
+    } catch (e) {
+      final canRetry = (preferredWithoutResponse && supportsWrite) ||
+          (!preferredWithoutResponse && supportsWriteNoResponse);
+      if (!canRetry) rethrow;
+      await _writeChar.write(data, withoutResponse: !preferredWithoutResponse);
+    }
+  }
+}
+
+// ── Notifier ──────────────────────────────────────────────────────
 
 @riverpod
 class ProgressorNotifier extends _$ProgressorNotifier {
@@ -24,26 +54,35 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   StreamSubscription? _notifyEventSubscription;
   StreamSubscription? _connectionSubscription;
   StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
+  StreamSubscription<ProgressorEvent>? _protocolSubscription;
   Timer? _scanTimeoutTimer;
+  Timer? _simulatorTimer;
+  int _simulatorTimestampUs = 0;
+  final _simulatorRng = Random();
   DateTime? _lastNotifyTime;
   DateTime? _lastUiUpdateTime;
   DateTime? _lastMeasurementReceivedAt;
   final List<WeightMeasurement> _recentMeasurements = [];
   final List<WeightMeasurement> _pendingMeasurements = [];
   final List<double> _notifyIntervalHistory = [];
-  final List<int> _rxBuffer = [];
   double _currentNotifyIntervalMs = 0.0;
   int _dataPacketCount = 0;
   double? _calibrationFactor;
   final List<List<double>> _calibrationPoints = [];
 
+  ProgressorProtocol? _protocol;
+
   @override
   ProgressorState build() {
     ref.onDispose(() {
+      _simulatorTimer?.cancel();
+      _simulatorTimer = null;
       _cleanupSubscriptions();
       _cancelScanTimeoutTimer();
       _adapterStateSubscription?.cancel();
       _adapterStateSubscription = null;
+      _protocol?.dispose();
+      _protocol = null;
     });
 
     _initializeBle();
@@ -53,6 +92,165 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   void _log(String message) {
     debugPrint('[ProgressorNotifier] $message');
   }
+
+  // ── Protocol event handler ─────────────────────────────────────
+
+  void _handleProtocolEvent(ProgressorEvent event) {
+    switch (event) {
+      case WeightEvent():
+        _handleWeightMeasurements(event.measurements);
+      case FirmwareVersionEvent():
+        _log('Firmware version: ${event.version}');
+        state = state.copyWith(
+          deviceInfo:
+              state.deviceInfo.copyWith(firmwareVersion: event.version),
+        );
+      case BatteryVoltageEvent():
+        _log('Battery voltage: ${event.millivolts} mV');
+        state = state.copyWith(
+          deviceInfo: state.deviceInfo.copyWith(
+            batteryVoltage: event.millivolts.toString(),
+          ),
+        );
+      case LowBatteryEvent():
+        _log('Low battery warning received');
+      case CalibrationFactorEvent():
+        _calibrationPoints.clear();
+        _calibrationFactor = event.factor;
+        _updateCalibrationInfo();
+      case CalibrationPointEvent():
+        _appendCalibrationPoint(event.valueA, event.valueB);
+        _updateCalibrationInfo();
+    }
+  }
+
+  // ── Weight measurement UI handling ─────────────────────────────
+
+  void _handleWeightMeasurements(List<WeightMeasurement> newMeasurements) {
+    if (newMeasurements.isEmpty) return;
+
+    final now = DateTime.now();
+    _lastMeasurementReceivedAt = now;
+
+    // Performance tracking
+    if (_lastNotifyTime != null) {
+      final currentNotifyIntervalMs =
+          now.difference(_lastNotifyTime!).inMicroseconds / 1000.0;
+      _currentNotifyIntervalMs = currentNotifyIntervalMs;
+      _notifyIntervalHistory.add(currentNotifyIntervalMs);
+      if (_notifyIntervalHistory.length > AppConstants.maxIntervalHistorySize) {
+        _notifyIntervalHistory.removeAt(0);
+      }
+    }
+    _lastNotifyTime = now;
+
+    final samplesPerPacket = newMeasurements.length;
+
+    for (final m in newMeasurements) {
+      _recentMeasurements.add(m);
+    }
+
+    _dataPacketCount++;
+
+    _pendingMeasurements.addAll(newMeasurements);
+    final shouldPublish =
+        _lastUiUpdateTime == null ||
+        now.difference(_lastUiUpdateTime!) >= _uiUpdateInterval;
+    if (!shouldPublish) return;
+    _lastUiUpdateTime = now;
+
+    final publishMeasurements = List<WeightMeasurement>.from(
+      _pendingMeasurements,
+    );
+    _pendingMeasurements.clear();
+
+    final lastMeasurement = publishMeasurements.last;
+    final newWeightHistory = List<FlSpot>.from(
+      state.measurement.weightHistory,
+    )..add(FlSpot(lastMeasurement.timestampSec, lastMeasurement.weight));
+
+    if (newWeightHistory.length > AppConstants.maxHistorySize) {
+      newWeightHistory.removeAt(0);
+    }
+
+    final newReceivedData = List<WeightMeasurement>.from(
+      publishMeasurements.reversed,
+    )..addAll(state.measurement.receivedData);
+
+    if (newReceivedData.length > AppConstants.maxReceivedDataSize) {
+      newReceivedData.removeRange(
+        AppConstants.maxReceivedDataSize,
+        newReceivedData.length,
+      );
+    }
+
+    // Calculate Hz based on actual timestamps from device
+    final oneSecondInMicroseconds = 1000000;
+    if (_recentMeasurements.isNotEmpty) {
+      final latestTimestamp = _recentMeasurements.last.timestampUs;
+      _recentMeasurements.removeWhere(
+        (measurement) =>
+            (latestTimestamp - measurement.timestampUs) >
+            oneSecondInMicroseconds,
+      );
+    }
+    final currentHz = _recentMeasurements.length.toDouble();
+
+    state = state.copyWith(
+      measurement: state.measurement.copyWith(
+        currentWeight: lastMeasurement.weight,
+        maxWeight: lastMeasurement.weight > state.measurement.maxWeight
+            ? lastMeasurement.weight
+            : state.measurement.maxWeight,
+        minWeight:
+            state.measurement.minWeight == 0.0 ||
+                lastMeasurement.weight < state.measurement.minWeight
+            ? lastMeasurement.weight
+            : state.measurement.minWeight,
+        sampleCount: lastMeasurement.timestampUs,
+        weightHistory: newWeightHistory,
+        receivedData: newReceivedData,
+      ),
+      performance: state.performance.copyWith(
+        currentNotifyIntervalMs: _currentNotifyIntervalMs,
+        notifyIntervalHistory: List<double>.from(_notifyIntervalHistory),
+        currentHz: currentHz,
+        dataPacketCount: _dataPacketCount,
+        samplesPerPacket: samplesPerPacket,
+      ),
+    );
+  }
+
+  // ── Calibration display ────────────────────────────────────────
+
+  void _appendCalibrationPoint(double valueA, double valueB) {
+    _calibrationPoints.add([valueA, valueB]);
+    if (_calibrationPoints.length > 20) {
+      _calibrationPoints.removeAt(0);
+    }
+  }
+
+  void _updateCalibrationInfo() {
+    final lines = <String>[];
+
+    if (_calibrationFactor != null) {
+      lines.add(
+        'Calibration factor: ${_calibrationFactor!.toStringAsFixed(6)}',
+      );
+    }
+
+    if (_calibrationPoints.isNotEmpty) {
+      lines.add(
+        'Calibration points: ${_calibrationPoints.map((point) => '(${point[0].toStringAsFixed(3)}, ${point[1].toStringAsFixed(3)})').join(', ')}',
+      );
+    }
+
+    state = state.copyWith(
+      errorMessage: lines.isEmpty ? null : lines.join('\n'),
+    );
+  }
+
+  // ── BLE initialization ────────────────────────────────────────
 
   Future<void> _initializeBle() async {
     if (await FlutterBluePlus.isSupported == false) {
@@ -179,8 +377,15 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     });
   }
 
+  // ── Scanning / connecting ──────────────────────────────────────
+
   Future<void> startScanning() async {
     if (!state.connection.bluetoothReady || state.connection.isScanning) return;
+
+    if (state.connection.isSimulator) {
+      await _simulatorConnect();
+      return;
+    }
 
     state = state.copyWith(
       connection: state.connection.copyWith(
@@ -192,8 +397,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     try {
       await FlutterBluePlus.startScan(
         timeout: AppConstants.scanTimeout,
-        withServices: [Guid(ProgressorConstants.instance.serviceUuid)],
-        webOptionalServices: [Guid(ProgressorConstants.instance.serviceUuid)],
+        withServices: [Guid(ProgressorConstants.serviceUuid)],
+        webOptionalServices: [Guid(ProgressorConstants.serviceUuid)],
       );
 
       _scanSubscription?.cancel();
@@ -206,7 +411,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
               result.advertisementData.serviceUuids.any(
                 (uuid) =>
                     uuid.toString().toLowerCase() ==
-                    ProgressorConstants.instance.serviceUuid.toLowerCase(),
+                    ProgressorConstants.serviceUuid.toLowerCase(),
               )) {
             unawaited(_connectToDevice(result.device));
             break;
@@ -284,7 +489,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       BluetoothService? progressorService;
       for (final service in services) {
         if (service.uuid.toString().toLowerCase() ==
-            ProgressorConstants.instance.serviceUuid.toLowerCase()) {
+            ProgressorConstants.serviceUuid.toLowerCase()) {
           progressorService = service;
           break;
         }
@@ -301,11 +506,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         final charUuid = characteristic.uuid.toString().toLowerCase();
 
         if (charUuid ==
-            ProgressorConstants.instance.notifyCharUuid.toLowerCase()) {
+            ProgressorConstants.notifyCharUuid.toLowerCase()) {
           notifyChar = characteristic;
-          await _subscribeToNotifications(characteristic);
         } else if (charUuid ==
-            ProgressorConstants.instance.writeCharUuid.toLowerCase()) {
+            ProgressorConstants.writeCharUuid.toLowerCase()) {
           writeChar = characteristic;
         }
       }
@@ -317,6 +521,15 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         );
         return;
       }
+
+      // Create protocol instance and subscribe to events.
+      _protocol?.dispose();
+      _protocol = ProgressorProtocol(_FlutterBluePlusTransport(writeChar));
+      _protocolSubscription?.cancel();
+      _protocolSubscription = _protocol!.events.listen(_handleProtocolEvent);
+
+      // Subscribe to BLE notifications and forward to protocol.
+      await _subscribeToNotifications(notifyChar);
 
       state = state.copyWith(
         connection: state.connection.copyWith(
@@ -348,9 +561,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   ) async {
     try {
       await device.disconnect();
-    } catch (_) {
-      // Device might already be disconnected.
-    }
+    } catch (_) {}
 
     _cleanupSubscriptions();
     state = state.copyWith(
@@ -390,8 +601,6 @@ class ProgressorNotifier extends _$ProgressorNotifier {
             .toLowerCase();
         final targetCharUuid = characteristic.uuid.toString().toLowerCase();
 
-        // Web fallback: bypass strict characteristic stream matching
-        // (instanceId/primaryServiceUuid) and match by device+UUIDs only.
         _notifyEventSubscription = FlutterBluePlus
             .events
             .onCharacteristicReceived
@@ -419,14 +628,13 @@ class ProgressorNotifier extends _$ProgressorNotifier {
                 'chr=${event.characteristic.characteristicUuid} '
                 'instance=${event.characteristic.instanceId}',
               );
-              _handleIncomingNotificationChunk(event.value);
+              _protocol?.handleNotification(event.value);
             });
       } else {
-        // Listen before enabling notifications to avoid missing early packets.
         _notifySubscription = characteristic.onValueReceived.listen((value) {
           if (value.isEmpty) return;
           _log('Characteristic stream RX (${value.length} bytes)');
-          _handleIncomingNotificationChunk(value);
+          _protocol?.handleNotification(value);
         });
       }
 
@@ -444,442 +652,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
   }
 
-  void _handleIncomingNotificationChunk(List<int> chunk) {
-    if (chunk.isEmpty) return;
-
-    _rxBuffer.addAll(chunk);
-
-    // Reassemble framed packets: [messageType, payloadLength, payload...].
-    // Web Bluetooth may surface smaller chunks than native platforms.
-    while (_rxBuffer.isNotEmpty) {
-      final messageType = _rxBuffer.first;
-
-      // Low battery can be a single-byte message on some firmware variants.
-      if (messageType == ProgressorConstants.instance.lowBatteryWarning &&
-          _rxBuffer.length == 1) {
-        _parseReceivedData(List<int>.from(_rxBuffer));
-        _rxBuffer.clear();
-        return;
-      }
-
-      if (_rxBuffer.length < 2) {
-        return;
-      }
-
-      final payloadLength = _rxBuffer[1];
-      final expectedFrameLength = payloadLength + 2;
-
-      // Some firmware variants send battery command responses as
-      // [0, v0, v1, v2, v3] (no payload-length byte).
-      // When Web Bluetooth batches this legacy 5-byte frame with following
-      // notifications in the same chunk, consume only the first 5 bytes.
-      if (messageType == ProgressorConstants.instance.commandResponse &&
-          _rxBuffer.length >= 5) {
-        final legacyBatteryFrame = List<int>.from(_rxBuffer.take(5));
-        if (_looksLikeLegacyBatteryFrame(legacyBatteryFrame)) {
-          _parseReceivedData(legacyBatteryFrame);
-          _rxBuffer.removeRange(0, 5);
-          continue;
-        }
-      }
-
-      if (expectedFrameLength <= 1 || expectedFrameLength > 512) {
-        _log(
-          'Dropping desynced byte while parsing notifications (type=$messageType, lenByte=$payloadLength)',
-        );
-        _rxBuffer.removeAt(0);
-        continue;
-      }
-
-      // Legacy firmware variants may omit the payload-length byte for calibration.
-      if (messageType == 5 && _rxBuffer.length == 5) {
-        _parseReceivedData(List<int>.from(_rxBuffer));
-        _rxBuffer.clear();
-        return;
-      }
-      if (messageType == 6 && _rxBuffer.length == 9) {
-        _parseReceivedData(List<int>.from(_rxBuffer));
-        _rxBuffer.clear();
-        return;
-      }
-
-      if (_rxBuffer.length < expectedFrameLength) {
-        return;
-      }
-
-      final frame = List<int>.from(_rxBuffer.take(expectedFrameLength));
-      _rxBuffer.removeRange(0, expectedFrameLength);
-      _parseReceivedData(frame);
-    }
-  }
-
-  void _parseReceivedData(List<int> rawData) {
-    if (rawData.isEmpty) return;
-
-    final messageType = rawData[0];
-
-    switch (messageType) {
-      case 1: // WEIGHT_MEASURE
-        _handleWeightMeasurement(rawData);
-        break;
-      case 0: // COMMAND_RESPONSE
-        _handleCommandResponse(rawData);
-        break;
-      case 5: // CALIBRATION_RESPONSE
-        _handleCalibrationResponse(rawData);
-        break;
-      case 6: // CALIBRATION_POINT_RESPONSE
-        _handleCalibrationPointResponse(rawData);
-        break;
-      case 4: // LOW_BATTERY_WARNING
-        _log('Low battery warning received');
-        break;
-      default:
-        _log('Unknown message type: $messageType');
-    }
-  }
-
-  bool _looksLikeLegacyBatteryFrame(List<int> frame) {
-    if (frame.length != 5 ||
-        frame.first != ProgressorConstants.instance.commandResponse) {
-      return false;
-    }
-
-    final voltage =
-        frame[1] | (frame[2] << 8) | (frame[3] << 16) | (frame[4] << 24);
-
-    // Typical battery voltage range (mV) reported by this device.
-    return voltage >= 1000 && voltage <= 10000;
-  }
-
-  void _handleWeightMeasurement(List<int> data) {
-    if (data.length < 2) return;
-
-    final now = DateTime.now();
-    _lastMeasurementReceivedAt = now;
-
-    // Performance tracking
-    if (_lastNotifyTime != null) {
-      final currentNotifyIntervalMs =
-          now.difference(_lastNotifyTime!).inMicroseconds / 1000.0;
-      _currentNotifyIntervalMs = currentNotifyIntervalMs;
-      _notifyIntervalHistory.add(currentNotifyIntervalMs);
-      if (_notifyIntervalHistory.length > AppConstants.maxIntervalHistorySize) {
-        _notifyIntervalHistory.removeAt(0);
-      }
-    }
-    _lastNotifyTime = now;
-
-    final payload = data.sublist(2);
-    if (payload.length % 8 != 0) return;
-
-    final samplesPerPacket = payload.length ~/ 8;
-    final bytes = Uint8List.fromList(payload);
-    final byteData = ByteData.view(bytes.buffer);
-
-    final newMeasurements = <WeightMeasurement>[];
-
-    for (int i = 0; i < samplesPerPacket; i++) {
-      final offset = i * 8;
-      final weight = byteData.getFloat32(offset, Endian.little);
-      final timestampUs = byteData.getUint32(offset + 4, Endian.little);
-
-      final measurement = WeightMeasurement(
-        weight: weight,
-        timestampUs: timestampUs,
-        receivedAt: now,
-      );
-
-      newMeasurements.add(measurement);
-      _recentMeasurements.add(measurement);
-    }
-
-    _dataPacketCount++;
-
-    // Process every sample, but publish state on a throttled cadence for web/browser smoothness.
-    if (newMeasurements.isNotEmpty) {
-      _pendingMeasurements.addAll(newMeasurements);
-      final shouldPublish =
-          _lastUiUpdateTime == null ||
-          now.difference(_lastUiUpdateTime!) >= _uiUpdateInterval;
-      if (!shouldPublish) return;
-      _lastUiUpdateTime = now;
-
-      final publishMeasurements = List<WeightMeasurement>.from(
-        _pendingMeasurements,
-      );
-      _pendingMeasurements.clear();
-
-      final lastMeasurement = publishMeasurements.last;
-      final newWeightHistory = List<FlSpot>.from(
-        state.measurement.weightHistory,
-      )..add(FlSpot(lastMeasurement.timestampSec, lastMeasurement.weight));
-
-      if (newWeightHistory.length > AppConstants.maxHistorySize) {
-        newWeightHistory.removeAt(0);
-      }
-
-      final newReceivedData = List<WeightMeasurement>.from(
-        publishMeasurements.reversed,
-      )..addAll(state.measurement.receivedData);
-
-      if (newReceivedData.length > AppConstants.maxReceivedDataSize) {
-        newReceivedData.removeRange(
-          AppConstants.maxReceivedDataSize,
-          newReceivedData.length,
-        );
-      }
-
-      // Calculate Hz based on actual timestamps from device
-      final oneSecondInMicroseconds = 1000000;
-      if (_recentMeasurements.isNotEmpty) {
-        final latestTimestamp = _recentMeasurements.last.timestampUs;
-        _recentMeasurements.removeWhere(
-          (measurement) =>
-              (latestTimestamp - measurement.timestampUs) >
-              oneSecondInMicroseconds,
-        );
-      }
-      final currentHz = _recentMeasurements.length.toDouble();
-
-      state = state.copyWith(
-        measurement: state.measurement.copyWith(
-          currentWeight: lastMeasurement.weight,
-          maxWeight: lastMeasurement.weight > state.measurement.maxWeight
-              ? lastMeasurement.weight
-              : state.measurement.maxWeight,
-          minWeight:
-              state.measurement.minWeight == 0.0 ||
-                  lastMeasurement.weight < state.measurement.minWeight
-              ? lastMeasurement.weight
-              : state.measurement.minWeight,
-          sampleCount: lastMeasurement.timestampUs,
-          weightHistory: newWeightHistory,
-          receivedData: newReceivedData,
-        ),
-        performance: state.performance.copyWith(
-          currentNotifyIntervalMs: _currentNotifyIntervalMs,
-          notifyIntervalHistory: List<double>.from(_notifyIntervalHistory),
-          currentHz: currentHz,
-          dataPacketCount: _dataPacketCount,
-          samplesPerPacket: samplesPerPacket,
-        ),
-      );
-    }
-  }
-
-  void _handleCommandResponse(List<int> rawData) {
-    if (rawData.length < 2) return;
-
-    try {
-      final framedPayload = _payloadFromDataMessage(rawData);
-      final responseData =
-          framedPayload ??
-          Uint8List.fromList(
-            rawData.length > 1 ? rawData.sublist(1) : const <int>[],
-          );
-      if (responseData.isEmpty) return;
-
-      // Try to parse as string first (firmware version)
-      try {
-        final stringResponse = String.fromCharCodes(
-          responseData,
-        ).replaceAll('\x00', '').trim();
-        final looksPrintable =
-            stringResponse.isNotEmpty &&
-            stringResponse.runes.every(
-              (r) => r == 9 || r == 10 || r == 13 || (r >= 32 && r <= 126),
-            );
-        if (looksPrintable) {
-          _log('Command response (string): $stringResponse');
-          state = state.copyWith(
-            deviceInfo: state.deviceInfo.copyWith(
-              firmwareVersion: stringResponse,
-            ),
-          );
-          return;
-        }
-      } catch (_) {
-        // Not a string, try other formats
-      }
-
-      // Try to parse as battery voltage (uint32)
-      if (responseData.length >= 4) {
-        final byteData = ByteData.view(responseData.buffer);
-        final voltage = byteData.getUint32(0, Endian.little);
-        _log('Command response (u32): $voltage');
-
-        state = state.copyWith(
-          deviceInfo: state.deviceInfo.copyWith(
-            batteryVoltage: voltage.toString(),
-          ),
-        );
-      }
-    } catch (e) {
-      _log('Error parsing command response: $e');
-    }
-  }
-
-  void _handleCalibrationResponse(List<int> rawData) {
-    if (rawData.length < 5) return;
-
-    try {
-      final responseData = _payloadFromCalibrationMessage(rawData, 4);
-      if (responseData == null) return;
-
-      final byteData = ByteData.view(
-        responseData.buffer,
-        responseData.offsetInBytes,
-      );
-      final calibrationFactor = byteData.getFloat32(0, Endian.little);
-      _calibrationPoints.clear();
-      _calibrationFactor = calibrationFactor;
-      _updateCalibrationInfo();
-    } catch (e) {
-      _log('Error parsing calibration response: $e');
-    }
-  }
-
-  void _handleCalibrationPointResponse(List<int> rawData) {
-    if (rawData.length < 9) return;
-
-    try {
-      final responseData = _payloadFromCalibrationMessage(rawData, 8);
-      if (responseData == null) return;
-
-      final byteData = ByteData.view(
-        responseData.buffer,
-        responseData.offsetInBytes,
-      );
-      final valueA = byteData.getFloat32(0, Endian.little);
-      final valueB = byteData.getFloat32(4, Endian.little);
-      _appendCalibrationPoint(valueA, valueB);
-      _updateCalibrationInfo();
-    } catch (e) {
-      _log('Error parsing calibration point response: $e');
-    }
-  }
-
-  Uint8List? _payloadFromDataMessage(List<int> rawData) {
-    if (rawData.length < 2) return null;
-
-    final payloadSize = rawData[1];
-    if (rawData.length < payloadSize + 2) {
-      return null;
-    }
-
-    return Uint8List.fromList(rawData.sublist(2, payloadSize + 2));
-  }
-
-  Uint8List? _payloadFromCalibrationMessage(List<int> rawData, int minBytes) {
-    final payloadWithLength = _payloadFromDataMessage(rawData);
-    if (payloadWithLength != null && payloadWithLength.length >= minBytes) {
-      return payloadWithLength;
-    }
-
-    // Some firmware variants send calibration notifications as:
-    // [messageType, payload...] without a payload-length byte.
-    if (rawData.length - 1 < minBytes) return null;
-    return Uint8List.fromList(rawData.sublist(1));
-  }
-
-  void _appendCalibrationPoint(double valueA, double valueB) {
-    _calibrationPoints.add([valueA, valueB]);
-    if (_calibrationPoints.length > 20) {
-      _calibrationPoints.removeAt(0);
-    }
-  }
-
-  void _updateCalibrationInfo() {
-    final lines = <String>[];
-
-    if (_calibrationFactor != null) {
-      lines.add(
-        'Calibration factor: ${_calibrationFactor!.toStringAsFixed(6)}',
-      );
-    }
-
-    if (_calibrationPoints.isNotEmpty) {
-      lines.add(
-        'Calibration points: ${_calibrationPoints.map((point) => '(${point[0].toStringAsFixed(3)}, ${point[1].toStringAsFixed(3)})').join(', ')}',
-      );
-    }
-
-    state = state.copyWith(
-      errorMessage: lines.isEmpty ? null : lines.join('\n'),
-    );
-  }
-
-  Future<void> _sendCommand(String command) async {
-    await _writeToDevice(utf8.encode(command), action: 'command "$command"');
-  }
-
-  Future<void> _writeToDevice(List<int> data, {required String action}) async {
-    final writeChar = state.connection.writeCharacteristic;
-    if (writeChar == null) {
-      state = state.copyWith(
-        connection: state.connection.copyWith(
-          status: 'Cannot send $action: write characteristic unavailable',
-        ),
-      );
-      return;
-    }
-    try {
-      final supportsWrite = writeChar.properties.write;
-      final supportsWriteNoResponse = writeChar.properties.writeWithoutResponse;
-      if (!supportsWrite && !supportsWriteNoResponse) {
-        state = state.copyWith(
-          connection: state.connection.copyWith(
-            status: 'Cannot send $action: characteristic is not writable',
-          ),
-        );
-        return;
-      }
-
-      final preferredWithoutResponse = supportsWrite ? false : true;
-      _log(
-        'Sending $action (${data.length} bytes) '
-        'with withoutResponse=$preferredWithoutResponse',
-      );
-
-      try {
-        await writeChar.write(data, withoutResponse: preferredWithoutResponse);
-      } catch (e) {
-        final canRetryWithAlternateMode =
-            (preferredWithoutResponse && supportsWrite) ||
-            (!preferredWithoutResponse && supportsWriteNoResponse);
-        if (!canRetryWithAlternateMode) rethrow;
-
-        final alternateWithoutResponse = !preferredWithoutResponse;
-        _log(
-          'Retrying $action with withoutResponse=$alternateWithoutResponse after write failure: $e',
-        );
-        await writeChar.write(data, withoutResponse: alternateWithoutResponse);
-      }
-    } catch (e) {
-      state = state.copyWith(
-        connection: state.connection.copyWith(
-          status: 'Failed to send $action: $e',
-        ),
-      );
-      _log('Failed to send $action: $e');
-    }
-  }
-
-  Future<void> _sendControlOpCode(
-    int opCode, [
-    List<int> payload = const [],
-  ]) async {
-    final data = Uint8List(1 + payload.length);
-    data[0] = opCode;
-    if (payload.isNotEmpty) {
-      data.setRange(1, data.length, payload);
-    }
-    await _writeToDevice(
-      data,
-      action: 'control opcode 0x${opCode.toRadixString(16)}',
-    );
-  }
+  // ── Commands ───────────────────────────────────────────────────
 
   Future<void> _requestInitialDeviceInfo() async {
     const maxAttempts = 2;
@@ -887,9 +660,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     for (var attempt = 0; attempt < maxAttempts; attempt++) {
       if (state.connection.device == null) return;
 
-      await _getFirmwareVersion();
+      await _protocol?.getFirmwareVersion();
       await Future.delayed(_commandSettleDelay);
-      await _getBatteryVoltage();
+      await _protocol?.getBatteryVoltage();
       await Future.delayed(_commandSettleDelay);
       await getCalibration();
 
@@ -903,15 +676,20 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
   }
 
-  Future<void> _getFirmwareVersion() => _sendCommand('k');
-  Future<void> _getBatteryVoltage() => _sendCommand('o');
-
   Future<void> tareScale() async {
+    if (state.connection.isSimulator) {
+      final tareWeight = state.measurement.currentWeight;
+      _resetMeasurementState();
+      state = state.copyWith(
+        deviceInfo: state.deviceInfo.copyWith(tareValue: tareWeight),
+      );
+      return;
+    }
     final wasMeasuring = state.measurement.isMeasuring;
     var tareWeight = state.measurement.currentWeight;
 
     if (wasMeasuring) {
-      await _sendCommand('f');
+      await _protocol?.stopMeasurement();
       _flushPendingMeasurements();
       tareWeight = state.measurement.currentWeight;
       state = state.copyWith(
@@ -920,7 +698,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       await Future.delayed(_commandSettleDelay);
     }
 
-    await _sendCommand('d');
+    await _protocol?.tareScale();
     _resetMeasurementState();
     state = state.copyWith(
       deviceInfo: state.deviceInfo.copyWith(tareValue: tareWeight),
@@ -929,22 +707,24 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     if (wasMeasuring) {
       await Future.delayed(_commandSettleDelay);
       final lastMeasurementBeforeResume = _lastMeasurementReceivedAt;
-      await _sendCommand('e');
+      await _protocol?.startMeasurement();
       state = state.copyWith(
         measurement: state.measurement.copyWith(isMeasuring: true),
       );
 
-      // Some devices ignore an immediate start after tare, so retry once if
-      // no fresh measurement packet arrives shortly after resuming.
       await Future.delayed(_resumeCheckDelay);
       if (_lastMeasurementReceivedAt == lastMeasurementBeforeResume) {
-        await _sendCommand('e');
+        await _protocol?.startMeasurement();
       }
     }
   }
 
   Future<void> startMeasurement() async {
-    await _sendCommand('e');
+    if (state.connection.isSimulator) {
+      _simulatorStartMeasurement();
+      return;
+    }
+    await _protocol?.startMeasurement();
     _resetMeasurementRuntimeState();
     state = state.copyWith(
       measurement: state.measurement.copyWith(
@@ -958,13 +738,35 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> stopMeasurement() async {
-    await _sendCommand('f');
+    if (state.connection.isSimulator) {
+      _simulatorStopMeasurement();
+      return;
+    }
+    await _protocol?.stopMeasurement();
     _flushPendingMeasurements();
 
     state = state.copyWith(
       measurement: state.measurement.copyWith(isMeasuring: false),
     );
   }
+
+  Future<void> addCalibrationPoint(double weightKg) =>
+      _protocol?.addCalibrationPoint(weightKg) ?? Future.value();
+
+  Future<void> getCalibration() async {
+    _calibrationPoints.clear();
+    _updateCalibrationInfo();
+    await _protocol?.getCalibration();
+  }
+
+  Future<void> defaultCalibration() async {
+    _calibrationFactor = null;
+    _calibrationPoints.clear();
+    _updateCalibrationInfo();
+    await _protocol?.defaultCalibration();
+  }
+
+  // ── Internal state helpers ─────────────────────────────────────
 
   void _resetMeasurementState() {
     state = state.copyWith(
@@ -991,12 +793,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _lastMeasurementReceivedAt = null;
 
     if (clearRxBuffer) {
-      _rxBuffer.clear();
+      _protocol?.resetBuffer();
     }
   }
 
   void _flushPendingMeasurements() {
-    // Flush throttled samples so the UI reflects the latest value immediately.
     if (_pendingMeasurements.isEmpty) return;
 
     final publishMeasurements = List<WeightMeasurement>.from(
@@ -1041,26 +842,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     );
   }
 
-  Future<void> addCalibrationPoint(double weightKg) async {
-    final payload = ByteData(4)..setFloat32(0, weightKg, Endian.little);
-    await _sendControlOpCode(
-      ControlOpCode.addCalibrationPoint.value,
-      payload.buffer.asUint8List(),
-    );
-  }
-
-  Future<void> getCalibration() async {
-    _calibrationPoints.clear();
-    _updateCalibrationInfo();
-    await _sendControlOpCode(ControlOpCode.getCalibration.value);
-  }
-
-  Future<void> defaultCalibration() async {
-    _calibrationFactor = null;
-    _calibrationPoints.clear();
-    _updateCalibrationInfo();
-    await _sendControlOpCode(ControlOpCode.defaultCalibration.value);
-  }
+  // ── Disconnect ─────────────────────────────────────────────────
 
   void _handleUnexpectedDisconnect() {
     _cleanupSubscriptions();
@@ -1102,6 +884,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> disconnectDevice() async {
+    if (state.connection.isSimulator) {
+      _simulatorDisconnect();
+      return;
+    }
+
     final bluetoothReady = state.connection.bluetoothReady;
     final device = state.connection.device;
 
@@ -1122,7 +909,6 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       _log('Failed to disconnect: $e');
     }
 
-    // Connection-state listener may have already handled the disconnect.
     if (state.connection.device == null) {
       return;
     }
@@ -1148,16 +934,181 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     );
   }
 
+  // ── Simulator ──────────────────────────────────────────────────
+
+  Future<void> connectSimulator() async {
+    state = state.copyWith(
+      connection: state.connection.copyWith(isSimulator: true),
+    );
+    await _simulatorConnect();
+  }
+
+  Future<void> _simulatorConnect() async {
+    state = state.copyWith(
+      connection: state.connection.copyWith(
+        isScanning: true,
+        status: 'Scanning (simulator)...',
+      ),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    state = state.copyWith(
+      connection: state.connection.copyWith(
+        isScanning: false,
+        isSimulator: true,
+        bluetoothReady: true,
+        status: 'Connected (simulator)',
+      ),
+      deviceInfo: const DeviceInfo(
+        firmwareVersion: 'SIM-1.0.0',
+        batteryVoltage: '4200',
+      ),
+    );
+  }
+
+  void _simulatorStartMeasurement() {
+    _resetMeasurementRuntimeState();
+    _simulatorTimestampUs = 0;
+    state = state.copyWith(
+      measurement: state.measurement.copyWith(
+        isMeasuring: true,
+        weightHistory: [],
+        maxWeight: 0.0,
+        minWeight: 0.0,
+        sampleCount: 0,
+      ),
+    );
+
+    _simulatorTimer?.cancel();
+    _simulatorTimer = Timer.periodic(
+      const Duration(milliseconds: 12),
+      (_) => _simulatorTick(),
+    );
+  }
+
+  void _simulatorTick() {
+    final now = DateTime.now();
+    _simulatorTimestampUs += 12500;
+
+    final weight = _simulatorRng.nextDouble() * 40.0;
+
+    final measurement = WeightMeasurement(
+      weight: weight,
+      timestampUs: _simulatorTimestampUs,
+      receivedAt: now,
+    );
+
+    _recentMeasurements.add(measurement);
+    _dataPacketCount++;
+
+    if (_lastNotifyTime != null) {
+      final intervalMs =
+          now.difference(_lastNotifyTime!).inMicroseconds / 1000.0;
+      _currentNotifyIntervalMs = intervalMs;
+      _notifyIntervalHistory.add(intervalMs);
+      if (_notifyIntervalHistory.length > AppConstants.maxIntervalHistorySize) {
+        _notifyIntervalHistory.removeAt(0);
+      }
+    }
+    _lastNotifyTime = now;
+
+    final shouldPublish =
+        _lastUiUpdateTime == null ||
+        now.difference(_lastUiUpdateTime!) >= _uiUpdateInterval;
+    if (!shouldPublish) return;
+    _lastUiUpdateTime = now;
+
+    final newWeightHistory = List<FlSpot>.from(state.measurement.weightHistory)
+      ..add(FlSpot(measurement.timestampSec, measurement.weight));
+    if (newWeightHistory.length > AppConstants.maxHistorySize) {
+      newWeightHistory.removeAt(0);
+    }
+
+    final newReceivedData = <WeightMeasurement>[
+      measurement,
+      ...state.measurement.receivedData,
+    ];
+    if (newReceivedData.length > AppConstants.maxReceivedDataSize) {
+      newReceivedData.removeRange(
+        AppConstants.maxReceivedDataSize,
+        newReceivedData.length,
+      );
+    }
+
+    final oneSecondInMicroseconds = 1000000;
+    final latestTs = _recentMeasurements.last.timestampUs;
+    _recentMeasurements.removeWhere(
+      (m) => (latestTs - m.timestampUs) > oneSecondInMicroseconds,
+    );
+    final currentHz = _recentMeasurements.length.toDouble();
+
+    state = state.copyWith(
+      measurement: state.measurement.copyWith(
+        currentWeight: measurement.weight,
+        maxWeight: measurement.weight > state.measurement.maxWeight
+            ? measurement.weight
+            : state.measurement.maxWeight,
+        minWeight:
+            state.measurement.minWeight == 0.0 ||
+                measurement.weight < state.measurement.minWeight
+            ? measurement.weight
+            : state.measurement.minWeight,
+        sampleCount: measurement.timestampUs,
+        weightHistory: newWeightHistory,
+        receivedData: newReceivedData,
+      ),
+      performance: state.performance.copyWith(
+        currentNotifyIntervalMs: _currentNotifyIntervalMs,
+        notifyIntervalHistory: List<double>.from(_notifyIntervalHistory),
+        currentHz: currentHz,
+        dataPacketCount: _dataPacketCount,
+        samplesPerPacket: 1,
+      ),
+    );
+  }
+
+  void _simulatorStopMeasurement() {
+    _simulatorTimer?.cancel();
+    _simulatorTimer = null;
+    state = state.copyWith(
+      measurement: state.measurement.copyWith(isMeasuring: false),
+    );
+  }
+
+  void _simulatorDisconnect() {
+    _simulatorTimer?.cancel();
+    _simulatorTimer = null;
+    _resetMeasurementRuntimeState(clearRxBuffer: true);
+    state = state.copyWith(
+      connection: ConnectionState(
+        bluetoothReady: true,
+        isSimulator: true,
+        status: 'Simulator mode — no Bluetooth available',
+      ),
+      deviceInfo: const DeviceInfo(),
+      measurement: const MeasurementState(),
+      performance: const PerformanceMetrics(),
+      errorMessage: null,
+    );
+  }
+
+  // ── Subscriptions cleanup ────────────────────────────────────
+
   void _cleanupSubscriptions() {
     _cancelScanTimeoutTimer();
     _scanSubscription?.cancel();
     _notifySubscription?.cancel();
     _notifyEventSubscription?.cancel();
     _connectionSubscription?.cancel();
+    _protocolSubscription?.cancel();
     _scanSubscription = null;
     _notifySubscription = null;
     _notifyEventSubscription = null;
     _connectionSubscription = null;
+    _protocolSubscription = null;
+    _protocol?.dispose();
+    _protocol = null;
   }
 
   void _cancelScanTimeoutTimer() {

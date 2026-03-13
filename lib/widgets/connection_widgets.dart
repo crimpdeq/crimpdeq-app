@@ -41,7 +41,7 @@ class ConnectionControlsCard extends StatelessWidget {
                   child: Text(
                     connection.status,
                     style: TextStyle(
-                      color: connection.device != null
+                      color: connection.isConnected
                           ? Colors.greenAccent.shade400
                           : connection.isScanning || connection.isConnecting
                           ? colorScheme.primary
@@ -69,7 +69,7 @@ class ConnectionControlsCard extends StatelessWidget {
                         connection.bluetoothReady &&
                             !connection.isScanning &&
                             !connection.isConnecting &&
-                            connection.device == null
+                            !connection.isConnected
                         ? onStartScanning
                         : null,
                     icon: const Icon(Icons.search),
@@ -83,7 +83,7 @@ class ConnectionControlsCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: connection.device != null ? onDisconnect : null,
+                    onPressed: connection.isConnected ? onDisconnect : null,
                     icon: const Icon(Icons.bluetooth_disabled),
                     label: const Text('Disconnect'),
                     style: ElevatedButton.styleFrom(

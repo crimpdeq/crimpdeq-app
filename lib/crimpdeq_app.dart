@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -342,14 +343,14 @@ class CrimpdeqScreen extends ConsumerWidget {
         connection.bluetoothReady &&
         !connection.isScanning &&
         !connection.isConnecting &&
-        connection.device == null;
-    final showDisconnectButton = connection.device != null;
-    final statusColor = connection.device != null
+        !connection.isConnected;
+    final showDisconnectButton = connection.isConnected;
+    final statusColor = connection.isConnected
         ? Colors.greenAccent.shade400
         : connection.isScanning || connection.isConnecting
         ? colorScheme.primary
         : Colors.orangeAccent.shade200;
-    final statusLabel = connection.device != null
+    final statusLabel = connection.isConnected
         ? 'Connected'
         : connection.isScanning
         ? 'Scanning'
@@ -359,7 +360,7 @@ class CrimpdeqScreen extends ConsumerWidget {
         ? 'Ready'
         : 'Offline';
     final isDeviceNotConnected =
-        connection.device == null &&
+        !connection.isConnected &&
         connection.bluetoothReady &&
         !connection.isScanning &&
         !connection.isConnecting;
@@ -370,12 +371,12 @@ class CrimpdeqScreen extends ConsumerWidget {
       if (state.deviceInfo.batteryVoltage.isNotEmpty)
         'Battery: ${state.deviceInfo.batteryVoltage} mV',
     ];
-    final statusText = connection.device != null
+    final statusText = connection.isConnected
         ? connectedStatusLines.join('\n')
         : isDeviceNotConnected
         ? 'Device Not Connected'
         : 'Connection: $statusLabel';
-    final compactStatusText = connection.device != null
+    final compactStatusText = connection.isConnected
         ? 'Connected'
         : 'Not Connected';
     final compactFirmwareText = state.deviceInfo.firmwareVersion.isNotEmpty
@@ -684,27 +685,47 @@ class CrimpdeqScreen extends ConsumerWidget {
             ),
             Padding(
               padding: const EdgeInsets.all(16.0),
-              child: state.connection.device == null
+              child: !state.connection.isConnected
                   ? Align(
                       alignment: Alignment.topCenter,
                       child: Padding(
                         padding: const EdgeInsets.only(top: 72),
                         child: showScanButton
-                            ? FilledButton.icon(
-                                onPressed: notifier.startScanning,
-                                icon: const Icon(Icons.search, size: 24),
-                                label: const Text('Scan'),
-                                style: FilledButton.styleFrom(
-                                  minimumSize: const Size(280, 56),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 28,
-                                    vertical: 14,
+                            ? Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  FilledButton.icon(
+                                    onPressed: notifier.startScanning,
+                                    icon: const Icon(Icons.search, size: 24),
+                                    label: const Text('Scan'),
+                                    style: FilledButton.styleFrom(
+                                      minimumSize: const Size(280, 56),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 28,
+                                        vertical: 14,
+                                      ),
+                                      textStyle: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 18,
+                                      ),
+                                    ),
                                   ),
-                                  textStyle: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 18,
-                                  ),
-                                ),
+                                  if (kDebugMode) ...[
+                                    const SizedBox(height: 12),
+                                    OutlinedButton.icon(
+                                      onPressed: notifier.connectSimulator,
+                                      icon: const Icon(Icons.bug_report, size: 20),
+                                      label: const Text('Debug'),
+                                      style: OutlinedButton.styleFrom(
+                                        minimumSize: const Size(280, 48),
+                                        textStyle: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               )
                             : const SizedBox.shrink(),
                       ),
