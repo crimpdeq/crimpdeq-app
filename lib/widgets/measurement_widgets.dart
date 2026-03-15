@@ -206,63 +206,137 @@ class _CalibrationCardState extends State<CalibrationCard> {
   @override
   Widget build(BuildContext context) {
     final isConnected = widget.connection.isConnected;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Add Calibration Point',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _controller,
-              enabled: isConnected,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final mutedColor = isDark ? const Color(0xFF8B8B8B) : const Color(0xFF6E6E6E);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Input row
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    enabled: isConnected,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                    ],
+                    decoration: const InputDecoration(
+                      hintText: 'Weight (kg)',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                FilledButton(
+                  onPressed: isConnected ? _submitCalibration : null,
+                  child: const Text('Add'),
+                ),
               ],
-              decoration: const InputDecoration(
-                labelText: 'Attached weight (kg)',
-                hintText: 'e.g. 20.0',
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Action buttons as 3 columns
+        Row(
+          children: [
+            Expanded(
+              child: _CalibrationAction(
+                icon: Icons.add_circle_outline,
+                label: 'Add Point',
+                onTap: isConnected ? _submitCalibration : null,
+                color: colorScheme.onSurface,
+                mutedColor: mutedColor,
               ),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: isConnected ? _submitCalibration : null,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Calibration Point'),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _CalibrationAction(
+                icon: Icons.refresh,
+                label: 'Get',
+                onTap: isConnected ? widget.onGetCalibration : null,
+                color: colorScheme.onSurface,
+                mutedColor: mutedColor,
               ),
             ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: isConnected ? widget.onGetCalibration : null,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Get Calibration'),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _CalibrationAction(
+                icon: Icons.settings_backup_restore,
+                label: 'Reset',
+                onTap: isConnected ? widget.onDefaultCalibration : null,
+                color: colorScheme.onSurface,
+                mutedColor: mutedColor,
               ),
             ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: isConnected ? widget.onDefaultCalibration : null,
-                icon: const Icon(Icons.settings_backup_restore),
-                label: const Text('Reset Calibration To Default'),
-              ),
-            ),
-            if ((widget.calibrationInfo ?? '').trim().isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(widget.calibrationInfo!),
-            ],
           ],
+        ),
+        if ((widget.calibrationInfo ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            widget.calibrationInfo!,
+            style: TextStyle(fontSize: 12, color: mutedColor),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _CalibrationAction extends StatelessWidget {
+  const _CalibrationAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.color,
+    required this.mutedColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final Color color;
+  final Color mutedColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final disabled = onTap == null;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                size: 26,
+                color: disabled
+                    ? colorScheme.outline.withValues(alpha: 0.4)
+                    : color,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: disabled
+                      ? colorScheme.outline.withValues(alpha: 0.4)
+                      : mutedColor,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

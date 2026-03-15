@@ -11,6 +11,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../constants/progressor_constants.dart';
 import '../models/progressor_models.dart';
+import '../models/session_models.dart';
+import 'session_provider.dart';
 
 part 'progressor_provider.g.dart';
 
@@ -43,7 +45,7 @@ class _FlutterBluePlusTransport implements BleTransport {
 
 // ── Notifier ──────────────────────────────────────────────────────
 
-@riverpod
+@Riverpod(keepAlive: true)
 class ProgressorNotifier extends _$ProgressorNotifier {
   static const Duration _uiUpdateInterval = Duration(milliseconds: 66);
   static const Duration _commandSettleDelay = Duration(milliseconds: 120);
@@ -58,7 +60,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   Timer? _scanTimeoutTimer;
   Timer? _simulatorTimer;
   int _simulatorTimestampUs = 0;
+  DateTime? _simulatorStartTime;
   final _simulatorRng = Random();
+  ProtocolConfig? _simulatorConfig;
   DateTime? _lastNotifyTime;
   DateTime? _lastUiUpdateTime;
   DateTime? _lastMeasurementReceivedAt;
@@ -936,6 +940,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   // ── Simulator ──────────────────────────────────────────────────
 
+  void configureSimulator(ProtocolConfig config) {
+    _simulatorConfig = config;
+  }
+
   Future<void> connectSimulator() async {
     state = state.copyWith(
       connection: state.connection.copyWith(isSimulator: true),
@@ -970,6 +978,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   void _simulatorStartMeasurement() {
     _resetMeasurementRuntimeState();
     _simulatorTimestampUs = 0;
+    _simulatorStartTime = DateTime.now();
     state = state.copyWith(
       measurement: state.measurement.copyWith(
         isMeasuring: true,
@@ -982,16 +991,18 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
     _simulatorTimer?.cancel();
     _simulatorTimer = Timer.periodic(
-      const Duration(milliseconds: 12),
+      const Duration(milliseconds: 50),
       (_) => _simulatorTick(),
     );
   }
 
   void _simulatorTick() {
     final now = DateTime.now();
-    _simulatorTimestampUs += 12500;
+    // Use real wall-clock elapsed time — web timers don't fire at 12ms
+    _simulatorStartTime ??= now;
+    _simulatorTimestampUs = now.difference(_simulatorStartTime!).inMicroseconds;
 
-    final weight = _simulatorRng.nextDouble() * 40.0;
+    final weight = _computeSimulatorWeight();
 
     final measurement = WeightMeasurement(
       weight: weight,
@@ -1066,6 +1077,43 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         samplesPerPacket: 1,
       ),
     );
+  }
+
+  /// Computes simulated weight by reading the session's current phase.
+  /// This keeps the simulator perfectly in sync with the session state machine.
+  double _computeSimulatorWeight() {
+    final config = _simulatorConfig;
+    final sessionState = ref.read(sessionProvider);
+
+    // No active session: fallback to simple cycle (freeform measurement mode)
+    if (sessionState == null || config == null) {
+      final cycleMs = (_simulatorTimestampUs ~/ 1000) % 10000;
+      if (cycleMs < 7000) {
+        return 17.0 + (_simulatorRng.nextDouble() - 0.5) * 4.0;
+      }
+      return _simulatorRng.nextDouble() * 1.5;
+    }
+
+    switch (sessionState.phase) {
+      case SessionPhase.hanging:
+        // Max hang simulator: drop weight after 10s to trigger rep detection
+        if (config.type == ProtocolType.maxHang &&
+            sessionState.phaseElapsedMs > 10000) {
+          return _simulatorRng.nextDouble() * 0.5;
+        }
+        final targetAvg = config.targetWeightKg > 0 ? config.targetWeightKg : 17.0;
+        final setIndex = sessionState.currentSetIndex;
+        final repIndex = sessionState.currentSetReps.length;
+        final fatigue = 1.0 - (setIndex * 0.03) - (repIndex * 0.01);
+        final noise = (_simulatorRng.nextDouble() - 0.5) * (targetAvg * 0.15);
+        return (targetAvg * fatigue + noise).clamp(0.5, targetAvg * 1.5);
+      case SessionPhase.idle:
+      case SessionPhase.countdown:
+      case SessionPhase.resting:
+      case SessionPhase.restBetweenSets:
+      case SessionPhase.complete:
+        return _simulatorRng.nextDouble() * 0.5;
+    }
   }
 
   void _simulatorStopMeasurement() {

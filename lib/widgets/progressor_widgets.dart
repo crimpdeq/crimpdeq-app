@@ -1,4 +1,5 @@
 // Barrel file for all progressor widgets
+export 'calibration_widgets.dart';
 export 'chart_widgets.dart';
 export 'connection_widgets.dart';
 export 'data_widgets.dart';

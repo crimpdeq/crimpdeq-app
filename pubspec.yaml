@@ -1,7 +1,7 @@
 name: crimpdeq
 description: "Crimpdeq - Tindeq Progressor BLE Client"
 publish_to: "none"
-version: 0.4.2
+version: 0.5.0
 
 environment:
   sdk: ">=3.10.3 <4.0.0"
@@ -20,7 +20,21 @@ dependencies:
   # Code generation
   freezed_annotation: ^3.1.0
   json_annotation: ^4.10.0
+  # Navigation
+  go_router: ^14.8.1
+  # UI
   google_fonts: ^8.0.1
+  # Audio
+  just_audio: ^0.9.42
+  # Database
+  drift: ^2.26.1
+  sqlite3_flutter_libs: ^0.5.31
+  # Utilities
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  share_plus: ^10.1.4
+  shared_preferences: ^2.5.3
+  # Local package
   crimpdeq_protocol:
     path: packages/crimpdeq_protocol
 
@@ -30,6 +44,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   # Code generation
   build_runner: ^2.4.13
+  drift_dev: ^2.26.1
   freezed: ^3.2.5
   json_serializable: ^6.12.0
   riverpod_generator: ^4.0.3
@@ -44,6 +59,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+    - assets/audio/
 
 # App icon configuration for all platforms
 flutter_launcher_icons:

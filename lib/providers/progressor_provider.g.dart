@@ -20,7 +20,7 @@ final class ProgressorNotifierProvider
         argument: null,
         retry: null,
         name: r'progressorProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -42,7 +42,7 @@ final class ProgressorNotifierProvider
 }
 
 String _$progressorNotifierHash() =>
-    r'5a75765b229e8f4e7a77e24dcf73ee544a9f1f1a';
+    r'a1722f25b40e9fd432c1f24e4c8a551c8dc87a03';
 
 abstract class _$ProgressorNotifier extends $Notifier<ProgressorState> {
   ProgressorState build();
