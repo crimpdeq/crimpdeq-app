@@ -29,6 +29,8 @@ dependencies:
   # Database
   drift: ^2.26.1
   sqlite3_flutter_libs: ^0.5.31
+  # Screen
+  wakelock_plus: ^1.2.8
   # Utilities
   path_provider: ^2.1.5
   path: ^1.9.1

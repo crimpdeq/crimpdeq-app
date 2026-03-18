@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../models/session_models.dart';
@@ -30,7 +29,7 @@ class PrCard extends ConsumerWidget {
                     const SizedBox(width: 8),
                     Text(
                       'Personal Records',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                      style: tsInterW700S14,
                     ),
                   ],
                 ),
@@ -43,18 +42,11 @@ class PrCard extends ConsumerWidget {
                       children: [
                         Text(
                           _protocolLabel(entry.key),
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
+                          style: tsInterW600S14,
                         ),
                         Text(
                           '${entry.value.toStringAsFixed(1)} kg',
-                          style: GoogleFonts.spaceGrotesk(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                            color: webAccent,
-                          ),
+                          style: tsGrotesk700S16.copyWith(color: dataAccent),
                         ),
                       ],
                     ),

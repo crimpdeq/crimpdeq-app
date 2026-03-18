@@ -1398,7 +1398,7 @@ $ProtocolConfigCopyWith<$Res> get protocolConfig {
 /// @nodoc
 mixin _$ActiveSessionState {
 
- ProtocolConfig get protocol; int get currentSetIndex; SessionPhase get phase; int get phaseRemainingMs; int get phaseElapsedMs; Rep? get currentRep; List<TrainingSet> get completedSets; List<Rep> get currentSetReps; double get liveWeightKg; double get peakWeightKg; List<WeightSample> get liveWeightHistory; bool get isPaused;
+ ProtocolConfig get protocol; int get currentSetIndex; SessionPhase get phase; int get phaseRemainingMs; int get phaseElapsedMs; int get phaseDeadlineMs; int get phaseStartMs; Rep? get currentRep; List<TrainingSet> get completedSets; List<Rep> get currentSetReps; double get liveWeightKg; double get peakWeightKg; List<WeightSample> get liveWeightHistory; bool get isPaused;
 /// Create a copy of ActiveSessionState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1409,16 +1409,16 @@ $ActiveSessionStateCopyWith<ActiveSessionState> get copyWith => _$ActiveSessionS
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ActiveSessionState&&(identical(other.protocol, protocol) || other.protocol == protocol)&&(identical(other.currentSetIndex, currentSetIndex) || other.currentSetIndex == currentSetIndex)&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.phaseRemainingMs, phaseRemainingMs) || other.phaseRemainingMs == phaseRemainingMs)&&(identical(other.phaseElapsedMs, phaseElapsedMs) || other.phaseElapsedMs == phaseElapsedMs)&&(identical(other.currentRep, currentRep) || other.currentRep == currentRep)&&const DeepCollectionEquality().equals(other.completedSets, completedSets)&&const DeepCollectionEquality().equals(other.currentSetReps, currentSetReps)&&(identical(other.liveWeightKg, liveWeightKg) || other.liveWeightKg == liveWeightKg)&&(identical(other.peakWeightKg, peakWeightKg) || other.peakWeightKg == peakWeightKg)&&const DeepCollectionEquality().equals(other.liveWeightHistory, liveWeightHistory)&&(identical(other.isPaused, isPaused) || other.isPaused == isPaused));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ActiveSessionState&&(identical(other.protocol, protocol) || other.protocol == protocol)&&(identical(other.currentSetIndex, currentSetIndex) || other.currentSetIndex == currentSetIndex)&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.phaseRemainingMs, phaseRemainingMs) || other.phaseRemainingMs == phaseRemainingMs)&&(identical(other.phaseElapsedMs, phaseElapsedMs) || other.phaseElapsedMs == phaseElapsedMs)&&(identical(other.phaseDeadlineMs, phaseDeadlineMs) || other.phaseDeadlineMs == phaseDeadlineMs)&&(identical(other.phaseStartMs, phaseStartMs) || other.phaseStartMs == phaseStartMs)&&(identical(other.currentRep, currentRep) || other.currentRep == currentRep)&&const DeepCollectionEquality().equals(other.completedSets, completedSets)&&const DeepCollectionEquality().equals(other.currentSetReps, currentSetReps)&&(identical(other.liveWeightKg, liveWeightKg) || other.liveWeightKg == liveWeightKg)&&(identical(other.peakWeightKg, peakWeightKg) || other.peakWeightKg == peakWeightKg)&&const DeepCollectionEquality().equals(other.liveWeightHistory, liveWeightHistory)&&(identical(other.isPaused, isPaused) || other.isPaused == isPaused));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,protocol,currentSetIndex,phase,phaseRemainingMs,phaseElapsedMs,currentRep,const DeepCollectionEquality().hash(completedSets),const DeepCollectionEquality().hash(currentSetReps),liveWeightKg,peakWeightKg,const DeepCollectionEquality().hash(liveWeightHistory),isPaused);
+int get hashCode => Object.hash(runtimeType,protocol,currentSetIndex,phase,phaseRemainingMs,phaseElapsedMs,phaseDeadlineMs,phaseStartMs,currentRep,const DeepCollectionEquality().hash(completedSets),const DeepCollectionEquality().hash(currentSetReps),liveWeightKg,peakWeightKg,const DeepCollectionEquality().hash(liveWeightHistory),isPaused);
 
 @override
 String toString() {
-  return 'ActiveSessionState(protocol: $protocol, currentSetIndex: $currentSetIndex, phase: $phase, phaseRemainingMs: $phaseRemainingMs, phaseElapsedMs: $phaseElapsedMs, currentRep: $currentRep, completedSets: $completedSets, currentSetReps: $currentSetReps, liveWeightKg: $liveWeightKg, peakWeightKg: $peakWeightKg, liveWeightHistory: $liveWeightHistory, isPaused: $isPaused)';
+  return 'ActiveSessionState(protocol: $protocol, currentSetIndex: $currentSetIndex, phase: $phase, phaseRemainingMs: $phaseRemainingMs, phaseElapsedMs: $phaseElapsedMs, phaseDeadlineMs: $phaseDeadlineMs, phaseStartMs: $phaseStartMs, currentRep: $currentRep, completedSets: $completedSets, currentSetReps: $currentSetReps, liveWeightKg: $liveWeightKg, peakWeightKg: $peakWeightKg, liveWeightHistory: $liveWeightHistory, isPaused: $isPaused)';
 }
 
 
@@ -1429,7 +1429,7 @@ abstract mixin class $ActiveSessionStateCopyWith<$Res>  {
   factory $ActiveSessionStateCopyWith(ActiveSessionState value, $Res Function(ActiveSessionState) _then) = _$ActiveSessionStateCopyWithImpl;
 @useResult
 $Res call({
- ProtocolConfig protocol, int currentSetIndex, SessionPhase phase, int phaseRemainingMs, int phaseElapsedMs, Rep? currentRep, List<TrainingSet> completedSets, List<Rep> currentSetReps, double liveWeightKg, double peakWeightKg, List<WeightSample> liveWeightHistory, bool isPaused
+ ProtocolConfig protocol, int currentSetIndex, SessionPhase phase, int phaseRemainingMs, int phaseElapsedMs, int phaseDeadlineMs, int phaseStartMs, Rep? currentRep, List<TrainingSet> completedSets, List<Rep> currentSetReps, double liveWeightKg, double peakWeightKg, List<WeightSample> liveWeightHistory, bool isPaused
 });
 
 
@@ -1446,13 +1446,15 @@ class _$ActiveSessionStateCopyWithImpl<$Res>
 
 /// Create a copy of ActiveSessionState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? protocol = null,Object? currentSetIndex = null,Object? phase = null,Object? phaseRemainingMs = null,Object? phaseElapsedMs = null,Object? currentRep = freezed,Object? completedSets = null,Object? currentSetReps = null,Object? liveWeightKg = null,Object? peakWeightKg = null,Object? liveWeightHistory = null,Object? isPaused = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? protocol = null,Object? currentSetIndex = null,Object? phase = null,Object? phaseRemainingMs = null,Object? phaseElapsedMs = null,Object? phaseDeadlineMs = null,Object? phaseStartMs = null,Object? currentRep = freezed,Object? completedSets = null,Object? currentSetReps = null,Object? liveWeightKg = null,Object? peakWeightKg = null,Object? liveWeightHistory = null,Object? isPaused = null,}) {
   return _then(_self.copyWith(
 protocol: null == protocol ? _self.protocol : protocol // ignore: cast_nullable_to_non_nullable
 as ProtocolConfig,currentSetIndex: null == currentSetIndex ? _self.currentSetIndex : currentSetIndex // ignore: cast_nullable_to_non_nullable
 as int,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
 as SessionPhase,phaseRemainingMs: null == phaseRemainingMs ? _self.phaseRemainingMs : phaseRemainingMs // ignore: cast_nullable_to_non_nullable
 as int,phaseElapsedMs: null == phaseElapsedMs ? _self.phaseElapsedMs : phaseElapsedMs // ignore: cast_nullable_to_non_nullable
+as int,phaseDeadlineMs: null == phaseDeadlineMs ? _self.phaseDeadlineMs : phaseDeadlineMs // ignore: cast_nullable_to_non_nullable
+as int,phaseStartMs: null == phaseStartMs ? _self.phaseStartMs : phaseStartMs // ignore: cast_nullable_to_non_nullable
 as int,currentRep: freezed == currentRep ? _self.currentRep : currentRep // ignore: cast_nullable_to_non_nullable
 as Rep?,completedSets: null == completedSets ? _self.completedSets : completedSets // ignore: cast_nullable_to_non_nullable
 as List<TrainingSet>,currentSetReps: null == currentSetReps ? _self.currentSetReps : currentSetReps // ignore: cast_nullable_to_non_nullable
@@ -1563,10 +1565,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( ProtocolConfig protocol,  int currentSetIndex,  SessionPhase phase,  int phaseRemainingMs,  int phaseElapsedMs,  Rep? currentRep,  List<TrainingSet> completedSets,  List<Rep> currentSetReps,  double liveWeightKg,  double peakWeightKg,  List<WeightSample> liveWeightHistory,  bool isPaused)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( ProtocolConfig protocol,  int currentSetIndex,  SessionPhase phase,  int phaseRemainingMs,  int phaseElapsedMs,  int phaseDeadlineMs,  int phaseStartMs,  Rep? currentRep,  List<TrainingSet> completedSets,  List<Rep> currentSetReps,  double liveWeightKg,  double peakWeightKg,  List<WeightSample> liveWeightHistory,  bool isPaused)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ActiveSessionState() when $default != null:
-return $default(_that.protocol,_that.currentSetIndex,_that.phase,_that.phaseRemainingMs,_that.phaseElapsedMs,_that.currentRep,_that.completedSets,_that.currentSetReps,_that.liveWeightKg,_that.peakWeightKg,_that.liveWeightHistory,_that.isPaused);case _:
+return $default(_that.protocol,_that.currentSetIndex,_that.phase,_that.phaseRemainingMs,_that.phaseElapsedMs,_that.phaseDeadlineMs,_that.phaseStartMs,_that.currentRep,_that.completedSets,_that.currentSetReps,_that.liveWeightKg,_that.peakWeightKg,_that.liveWeightHistory,_that.isPaused);case _:
   return orElse();
 
 }
@@ -1584,10 +1586,10 @@ return $default(_that.protocol,_that.currentSetIndex,_that.phase,_that.phaseRema
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( ProtocolConfig protocol,  int currentSetIndex,  SessionPhase phase,  int phaseRemainingMs,  int phaseElapsedMs,  Rep? currentRep,  List<TrainingSet> completedSets,  List<Rep> currentSetReps,  double liveWeightKg,  double peakWeightKg,  List<WeightSample> liveWeightHistory,  bool isPaused)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( ProtocolConfig protocol,  int currentSetIndex,  SessionPhase phase,  int phaseRemainingMs,  int phaseElapsedMs,  int phaseDeadlineMs,  int phaseStartMs,  Rep? currentRep,  List<TrainingSet> completedSets,  List<Rep> currentSetReps,  double liveWeightKg,  double peakWeightKg,  List<WeightSample> liveWeightHistory,  bool isPaused)  $default,) {final _that = this;
 switch (_that) {
 case _ActiveSessionState():
-return $default(_that.protocol,_that.currentSetIndex,_that.phase,_that.phaseRemainingMs,_that.phaseElapsedMs,_that.currentRep,_that.completedSets,_that.currentSetReps,_that.liveWeightKg,_that.peakWeightKg,_that.liveWeightHistory,_that.isPaused);}
+return $default(_that.protocol,_that.currentSetIndex,_that.phase,_that.phaseRemainingMs,_that.phaseElapsedMs,_that.phaseDeadlineMs,_that.phaseStartMs,_that.currentRep,_that.completedSets,_that.currentSetReps,_that.liveWeightKg,_that.peakWeightKg,_that.liveWeightHistory,_that.isPaused);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -1601,10 +1603,10 @@ return $default(_that.protocol,_that.currentSetIndex,_that.phase,_that.phaseRema
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( ProtocolConfig protocol,  int currentSetIndex,  SessionPhase phase,  int phaseRemainingMs,  int phaseElapsedMs,  Rep? currentRep,  List<TrainingSet> completedSets,  List<Rep> currentSetReps,  double liveWeightKg,  double peakWeightKg,  List<WeightSample> liveWeightHistory,  bool isPaused)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( ProtocolConfig protocol,  int currentSetIndex,  SessionPhase phase,  int phaseRemainingMs,  int phaseElapsedMs,  int phaseDeadlineMs,  int phaseStartMs,  Rep? currentRep,  List<TrainingSet> completedSets,  List<Rep> currentSetReps,  double liveWeightKg,  double peakWeightKg,  List<WeightSample> liveWeightHistory,  bool isPaused)?  $default,) {final _that = this;
 switch (_that) {
 case _ActiveSessionState() when $default != null:
-return $default(_that.protocol,_that.currentSetIndex,_that.phase,_that.phaseRemainingMs,_that.phaseElapsedMs,_that.currentRep,_that.completedSets,_that.currentSetReps,_that.liveWeightKg,_that.peakWeightKg,_that.liveWeightHistory,_that.isPaused);case _:
+return $default(_that.protocol,_that.currentSetIndex,_that.phase,_that.phaseRemainingMs,_that.phaseElapsedMs,_that.phaseDeadlineMs,_that.phaseStartMs,_that.currentRep,_that.completedSets,_that.currentSetReps,_that.liveWeightKg,_that.peakWeightKg,_that.liveWeightHistory,_that.isPaused);case _:
   return null;
 
 }
@@ -1616,7 +1618,7 @@ return $default(_that.protocol,_that.currentSetIndex,_that.phase,_that.phaseRema
 
 
 class _ActiveSessionState implements ActiveSessionState {
-  const _ActiveSessionState({required this.protocol, this.currentSetIndex = 0, this.phase = SessionPhase.idle, this.phaseRemainingMs = 0, this.phaseElapsedMs = 0, this.currentRep, final  List<TrainingSet> completedSets = const [], final  List<Rep> currentSetReps = const [], this.liveWeightKg = 0.0, this.peakWeightKg = 0.0, final  List<WeightSample> liveWeightHistory = const [], this.isPaused = false}): _completedSets = completedSets,_currentSetReps = currentSetReps,_liveWeightHistory = liveWeightHistory;
+  const _ActiveSessionState({required this.protocol, this.currentSetIndex = 0, this.phase = SessionPhase.idle, this.phaseRemainingMs = 0, this.phaseElapsedMs = 0, this.phaseDeadlineMs = 0, this.phaseStartMs = 0, this.currentRep, final  List<TrainingSet> completedSets = const [], final  List<Rep> currentSetReps = const [], this.liveWeightKg = 0.0, this.peakWeightKg = 0.0, final  List<WeightSample> liveWeightHistory = const [], this.isPaused = false}): _completedSets = completedSets,_currentSetReps = currentSetReps,_liveWeightHistory = liveWeightHistory;
   
 
 @override final  ProtocolConfig protocol;
@@ -1624,6 +1626,8 @@ class _ActiveSessionState implements ActiveSessionState {
 @override@JsonKey() final  SessionPhase phase;
 @override@JsonKey() final  int phaseRemainingMs;
 @override@JsonKey() final  int phaseElapsedMs;
+@override@JsonKey() final  int phaseDeadlineMs;
+@override@JsonKey() final  int phaseStartMs;
 @override final  Rep? currentRep;
  final  List<TrainingSet> _completedSets;
 @override@JsonKey() List<TrainingSet> get completedSets {
@@ -1660,16 +1664,16 @@ _$ActiveSessionStateCopyWith<_ActiveSessionState> get copyWith => __$ActiveSessi
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ActiveSessionState&&(identical(other.protocol, protocol) || other.protocol == protocol)&&(identical(other.currentSetIndex, currentSetIndex) || other.currentSetIndex == currentSetIndex)&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.phaseRemainingMs, phaseRemainingMs) || other.phaseRemainingMs == phaseRemainingMs)&&(identical(other.phaseElapsedMs, phaseElapsedMs) || other.phaseElapsedMs == phaseElapsedMs)&&(identical(other.currentRep, currentRep) || other.currentRep == currentRep)&&const DeepCollectionEquality().equals(other._completedSets, _completedSets)&&const DeepCollectionEquality().equals(other._currentSetReps, _currentSetReps)&&(identical(other.liveWeightKg, liveWeightKg) || other.liveWeightKg == liveWeightKg)&&(identical(other.peakWeightKg, peakWeightKg) || other.peakWeightKg == peakWeightKg)&&const DeepCollectionEquality().equals(other._liveWeightHistory, _liveWeightHistory)&&(identical(other.isPaused, isPaused) || other.isPaused == isPaused));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ActiveSessionState&&(identical(other.protocol, protocol) || other.protocol == protocol)&&(identical(other.currentSetIndex, currentSetIndex) || other.currentSetIndex == currentSetIndex)&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.phaseRemainingMs, phaseRemainingMs) || other.phaseRemainingMs == phaseRemainingMs)&&(identical(other.phaseElapsedMs, phaseElapsedMs) || other.phaseElapsedMs == phaseElapsedMs)&&(identical(other.phaseDeadlineMs, phaseDeadlineMs) || other.phaseDeadlineMs == phaseDeadlineMs)&&(identical(other.phaseStartMs, phaseStartMs) || other.phaseStartMs == phaseStartMs)&&(identical(other.currentRep, currentRep) || other.currentRep == currentRep)&&const DeepCollectionEquality().equals(other._completedSets, _completedSets)&&const DeepCollectionEquality().equals(other._currentSetReps, _currentSetReps)&&(identical(other.liveWeightKg, liveWeightKg) || other.liveWeightKg == liveWeightKg)&&(identical(other.peakWeightKg, peakWeightKg) || other.peakWeightKg == peakWeightKg)&&const DeepCollectionEquality().equals(other._liveWeightHistory, _liveWeightHistory)&&(identical(other.isPaused, isPaused) || other.isPaused == isPaused));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,protocol,currentSetIndex,phase,phaseRemainingMs,phaseElapsedMs,currentRep,const DeepCollectionEquality().hash(_completedSets),const DeepCollectionEquality().hash(_currentSetReps),liveWeightKg,peakWeightKg,const DeepCollectionEquality().hash(_liveWeightHistory),isPaused);
+int get hashCode => Object.hash(runtimeType,protocol,currentSetIndex,phase,phaseRemainingMs,phaseElapsedMs,phaseDeadlineMs,phaseStartMs,currentRep,const DeepCollectionEquality().hash(_completedSets),const DeepCollectionEquality().hash(_currentSetReps),liveWeightKg,peakWeightKg,const DeepCollectionEquality().hash(_liveWeightHistory),isPaused);
 
 @override
 String toString() {
-  return 'ActiveSessionState(protocol: $protocol, currentSetIndex: $currentSetIndex, phase: $phase, phaseRemainingMs: $phaseRemainingMs, phaseElapsedMs: $phaseElapsedMs, currentRep: $currentRep, completedSets: $completedSets, currentSetReps: $currentSetReps, liveWeightKg: $liveWeightKg, peakWeightKg: $peakWeightKg, liveWeightHistory: $liveWeightHistory, isPaused: $isPaused)';
+  return 'ActiveSessionState(protocol: $protocol, currentSetIndex: $currentSetIndex, phase: $phase, phaseRemainingMs: $phaseRemainingMs, phaseElapsedMs: $phaseElapsedMs, phaseDeadlineMs: $phaseDeadlineMs, phaseStartMs: $phaseStartMs, currentRep: $currentRep, completedSets: $completedSets, currentSetReps: $currentSetReps, liveWeightKg: $liveWeightKg, peakWeightKg: $peakWeightKg, liveWeightHistory: $liveWeightHistory, isPaused: $isPaused)';
 }
 
 
@@ -1680,7 +1684,7 @@ abstract mixin class _$ActiveSessionStateCopyWith<$Res> implements $ActiveSessio
   factory _$ActiveSessionStateCopyWith(_ActiveSessionState value, $Res Function(_ActiveSessionState) _then) = __$ActiveSessionStateCopyWithImpl;
 @override @useResult
 $Res call({
- ProtocolConfig protocol, int currentSetIndex, SessionPhase phase, int phaseRemainingMs, int phaseElapsedMs, Rep? currentRep, List<TrainingSet> completedSets, List<Rep> currentSetReps, double liveWeightKg, double peakWeightKg, List<WeightSample> liveWeightHistory, bool isPaused
+ ProtocolConfig protocol, int currentSetIndex, SessionPhase phase, int phaseRemainingMs, int phaseElapsedMs, int phaseDeadlineMs, int phaseStartMs, Rep? currentRep, List<TrainingSet> completedSets, List<Rep> currentSetReps, double liveWeightKg, double peakWeightKg, List<WeightSample> liveWeightHistory, bool isPaused
 });
 
 
@@ -1697,13 +1701,15 @@ class __$ActiveSessionStateCopyWithImpl<$Res>
 
 /// Create a copy of ActiveSessionState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? protocol = null,Object? currentSetIndex = null,Object? phase = null,Object? phaseRemainingMs = null,Object? phaseElapsedMs = null,Object? currentRep = freezed,Object? completedSets = null,Object? currentSetReps = null,Object? liveWeightKg = null,Object? peakWeightKg = null,Object? liveWeightHistory = null,Object? isPaused = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? protocol = null,Object? currentSetIndex = null,Object? phase = null,Object? phaseRemainingMs = null,Object? phaseElapsedMs = null,Object? phaseDeadlineMs = null,Object? phaseStartMs = null,Object? currentRep = freezed,Object? completedSets = null,Object? currentSetReps = null,Object? liveWeightKg = null,Object? peakWeightKg = null,Object? liveWeightHistory = null,Object? isPaused = null,}) {
   return _then(_ActiveSessionState(
 protocol: null == protocol ? _self.protocol : protocol // ignore: cast_nullable_to_non_nullable
 as ProtocolConfig,currentSetIndex: null == currentSetIndex ? _self.currentSetIndex : currentSetIndex // ignore: cast_nullable_to_non_nullable
 as int,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
 as SessionPhase,phaseRemainingMs: null == phaseRemainingMs ? _self.phaseRemainingMs : phaseRemainingMs // ignore: cast_nullable_to_non_nullable
 as int,phaseElapsedMs: null == phaseElapsedMs ? _self.phaseElapsedMs : phaseElapsedMs // ignore: cast_nullable_to_non_nullable
+as int,phaseDeadlineMs: null == phaseDeadlineMs ? _self.phaseDeadlineMs : phaseDeadlineMs // ignore: cast_nullable_to_non_nullable
+as int,phaseStartMs: null == phaseStartMs ? _self.phaseStartMs : phaseStartMs // ignore: cast_nullable_to_non_nullable
 as int,currentRep: freezed == currentRep ? _self.currentRep : currentRep // ignore: cast_nullable_to_non_nullable
 as Rep?,completedSets: null == completedSets ? _self._completedSets : completedSets // ignore: cast_nullable_to_non_nullable
 as List<TrainingSet>,currentSetReps: null == currentSetReps ? _self._currentSetReps : currentSetReps // ignore: cast_nullable_to_non_nullable

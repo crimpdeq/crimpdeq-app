@@ -92,6 +92,8 @@ sealed class ActiveSessionState with _$ActiveSessionState {
     @Default(SessionPhase.idle) SessionPhase phase,
     @Default(0) int phaseRemainingMs,
     @Default(0) int phaseElapsedMs,
+    @Default(0) int phaseDeadlineMs,
+    @Default(0) int phaseStartMs,
     Rep? currentRep,
     @Default([]) List<TrainingSet> completedSets,
     @Default([]) List<Rep> currentSetReps,

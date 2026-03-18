@@ -1,82 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../providers/progressor_provider.dart';
 import '../../theme/app_theme.dart';
 
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  bool? _lastConnected;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final state = ref.watch(progressorProvider);
     final notifier = ref.read(progressorProvider.notifier);
     final connection = state.connection;
 
-    final statusColor = connection.isConnected
-        ? const Color(0xFF3FB950)
-        : connection.isScanning || connection.isConnecting
-            ? colorScheme.primary
-            : isDark
-                ? webMuted
-                : lightMuted;
-    final statusLabel = connection.isConnected
-        ? 'Connected'
-        : connection.isScanning
-            ? 'Scanning'
-            : connection.isConnecting
-                ? 'Connecting'
-                : connection.bluetoothReady
-                    ? 'Ready'
-                    : 'Offline';
+    // Show toast on connection state changes
+    final isConnected = connection.isConnected;
+    if (_lastConnected != null && _lastConnected != isConnected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        final message = isConnected
+            ? 'Device connected'
+            : 'Device disconnected';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      });
+    }
+    if (!connection.bluetoothReady && _lastConnected == null) {
+      // Show bluetooth unavailable on first build if needed
+    }
+    _lastConnected = isConnected;
 
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 48,
-        leadingWidth: 180,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                statusLabel,
-                style: GoogleFonts.inter(
-                  color: isDark ? webMuted : lightMuted,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 13,
-                ),
-              ),
-              if (connection.isScanning || connection.isConnecting)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: SizedBox(
-                    width: 11,
-                    height: 11,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
+        leadingWidth: 0,
+        leading: const SizedBox.shrink(),
         actions: [
           if (connection.isConnected)
             Padding(
@@ -95,7 +70,7 @@ class AppShell extends ConsumerWidget {
       extendBody: true,
       body: Padding(
         padding: const EdgeInsets.only(bottom: 32),
-        child: navigationShell,
+        child: widget.navigationShell,
       ),
       bottomNavigationBar: Padding(
         padding: EdgeInsets.fromLTRB(
@@ -123,23 +98,23 @@ class AppShell extends ConsumerWidget {
               _NavItem(
                 icon: Icons.home_outlined,
                 activeIcon: Icons.home,
-                selected: navigationShell.currentIndex == 0,
-                onTap: () => navigationShell.goBranch(0,
-                    initialLocation: navigationShell.currentIndex == 0),
+                selected: widget.navigationShell.currentIndex == 0,
+                onTap: () => widget.navigationShell.goBranch(0,
+                    initialLocation: widget.navigationShell.currentIndex == 0),
               ),
               _NavItem(
                 icon: Icons.history_outlined,
                 activeIcon: Icons.history,
-                selected: navigationShell.currentIndex == 1,
-                onTap: () => navigationShell.goBranch(1,
-                    initialLocation: navigationShell.currentIndex == 1),
+                selected: widget.navigationShell.currentIndex == 1,
+                onTap: () => widget.navigationShell.goBranch(1,
+                    initialLocation: widget.navigationShell.currentIndex == 1),
               ),
               _NavItem(
                 icon: Icons.settings_outlined,
                 activeIcon: Icons.settings,
-                selected: navigationShell.currentIndex == 2,
-                onTap: () => navigationShell.goBranch(2,
-                    initialLocation: navigationShell.currentIndex == 2),
+                selected: widget.navigationShell.currentIndex == 2,
+                onTap: () => widget.navigationShell.goBranch(2,
+                    initialLocation: widget.navigationShell.currentIndex == 2),
               ),
             ],
           ),
@@ -167,18 +142,33 @@ class _NavItem extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         width: 44,
         height: 44,
         child: Center(
-          child: Icon(
-            selected ? activeIcon : icon,
-            size: 24,
-            color: selected
-                ? (isDark ? webText : lightText)
-                : (isDark ? webMuted.withValues(alpha: 0.6) : lightMuted.withValues(alpha: 0.6)),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            transitionBuilder: (child, animation) {
+              return ScaleTransition(
+                scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                ),
+                child: FadeTransition(opacity: animation, child: child),
+              );
+            },
+            child: Icon(
+              selected ? activeIcon : icon,
+              key: ValueKey(selected),
+              size: 24,
+              color: selected
+                  ? (isDark ? webText : lightText)
+                  : (isDark ? webMuted.withValues(alpha: 0.6) : lightMuted.withValues(alpha: 0.6)),
+            ),
           ),
         ),
       ),

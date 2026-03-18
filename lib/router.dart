@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'screens/active_session_screen.dart';
+import 'screens/calibration_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/measurement_screen.dart';
 import 'screens/onboarding_screen.dart';
@@ -104,6 +105,11 @@ final router = GoRouter(
         child: SessionDetailScreen(sessionId: state.pathParameters['id']!),
         state: state,
       ),
+    ),
+    GoRoute(
+      path: '/settings/calibration',
+      pageBuilder: (context, state) =>
+          _slidePage(child: const CalibrationScreen(), state: state),
     ),
   ],
 );

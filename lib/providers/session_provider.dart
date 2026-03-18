@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../models/session_models.dart';
 import '../services/audio_service.dart';
@@ -24,11 +26,13 @@ final sessionProvider =
 class SessionNotifier extends Notifier<ActiveSessionState?> {
   Timer? _phaseTimer;
   Timer? _countdownTimer;
+  Timer? _audioCueTimer;
   final RepDetector _repDetector = RepDetector();
   StreamSubscription<dynamic>? _weightSubscription;
   final List<Rep> _currentSetReps = [];
+  final List<WeightSample> _weightSamples = [];
   int _sessionStartMs = 0;
-  int _phaseStartMs = 0;
+  final List<Timer> _scheduledCueTimers = [];
 
   @override
   ActiveSessionState? build() => null;
@@ -36,6 +40,7 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
   AudioService get _audio => ref.read(audioServiceProvider);
 
   void startSession(ProtocolConfig config) {
+    WakelockPlus.enable();
     _repDetector.updateConfig(
       RepDetectorConfig(
         hangThresholdKg: config.hangThresholdKg,
@@ -43,12 +48,15 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     );
     _repDetector.reset();
     _currentSetReps.clear();
+    _weightSamples.clear();
     _sessionStartMs = DateTime.now().millisecondsSinceEpoch;
+    final now = DateTime.now().millisecondsSinceEpoch;
 
     state = ActiveSessionState(
       protocol: config,
       phase: SessionPhase.countdown,
       phaseRemainingMs: 3000,
+      phaseDeadlineMs: now + 3000,
     );
 
     _startCountdown(3000, () {
@@ -67,7 +75,7 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
 
     // Poll weight from progressor state
     _weightSubscription?.cancel();
-    _weightSubscription = Stream.periodic(const Duration(milliseconds: 100))
+    _weightSubscription = Stream.periodic(const Duration(milliseconds: 200))
         .listen((_) {
       final currentState = ref.read(progressorProvider);
       final weight = currentState.measurement.currentWeight;
@@ -81,32 +89,21 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     final current = state;
     if (current == null) return;
 
-    // Update live weight
-    final samples = List<WeightSample>.from(current.liveWeightHistory);
-    samples.add(WeightSample(
+    // Maintain rolling weight buffer outside reactive state to avoid
+    // copying a 600-element list into a new Freezed object every tick.
+    _weightSamples.add(WeightSample(
       weight: weight,
       timestampMs: timestampMs - _sessionStartMs,
     ));
-    // Keep last 600 samples (~30 seconds at 50ms polling)
-    if (samples.length > 600) {
-      samples.removeRange(0, samples.length - 600);
+    if (_weightSamples.length > 600) {
+      _weightSamples.removeRange(0, _weightSamples.length - 600);
     }
 
-    final peakWeight =
-        weight > current.peakWeightKg ? weight : current.peakWeightKg;
-
-    final elapsed = current.protocol.type == ProtocolType.maxHang &&
-            current.phase == SessionPhase.hanging &&
-            _phaseStartMs > 0
-        ? timestampMs - _phaseStartMs
-        : current.phaseElapsedMs;
-
-    state = current.copyWith(
-      liveWeightKg: weight,
-      peakWeightKg: peakWeight,
-      liveWeightHistory: samples,
-      phaseElapsedMs: elapsed,
-    );
+    // Only update state when a new session peak is reached — live weight
+    // is read directly from progressorProvider by the gauge UI.
+    if (weight > current.peakWeightKg) {
+      state = current.copyWith(peakWeightKg: weight);
+    }
 
     // Only run rep detection in freeform or during hang/rest phases
     if (current.phase == SessionPhase.hanging ||
@@ -121,6 +118,7 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
 
   void _onRepCompleted(Rep rep) {
     _currentSetReps.add(rep);
+    HapticFeedback.lightImpact();
     _audio.playRepComplete();
 
     final current = state;
@@ -143,22 +141,27 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
 
   void _startHangPhase() {
     _audio.playHangStart();
+    HapticFeedback.mediumImpact();
     final current = state;
     if (current == null) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
 
     if (current.protocol.type == ProtocolType.maxHang) {
-      // Max hang: no timer — hang until failure (rep detector triggers end)
-      _phaseStartMs = DateTime.now().millisecondsSinceEpoch;
+      // Max hang: count up until failure (rep detector triggers end)
       state = current.copyWith(
         phase: SessionPhase.hanging,
         phaseRemainingMs: 0,
         phaseElapsedMs: 0,
+        phaseDeadlineMs: 0,
+        phaseStartMs: now,
       );
+      // No periodic timer needed — UI reads phaseStartMs via Ticker
     } else if (current.protocol.type == ProtocolType.repeater) {
       final hangMs = current.protocol.hangDurationSec * 1000;
       state = current.copyWith(
         phase: SessionPhase.hanging,
         phaseRemainingMs: hangMs,
+        phaseDeadlineMs: now + hangMs,
       );
       _startPhaseCountdown(hangMs, () {
         _startRestPhase();
@@ -168,19 +171,24 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
       state = current.copyWith(
         phase: SessionPhase.hanging,
         phaseRemainingMs: 0,
+        phaseDeadlineMs: 0,
+        phaseStartMs: now,
       );
     }
   }
 
   void _startRestPhase() {
     _audio.playRestOver();
+    HapticFeedback.lightImpact();
     final current = state;
     if (current == null) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
 
     final restMs = current.protocol.restDurationSec * 1000;
     state = current.copyWith(
       phase: SessionPhase.resting,
       phaseRemainingMs: restMs,
+      phaseDeadlineMs: now + restMs,
     );
 
     _startPhaseCountdown(restMs, () {
@@ -194,6 +202,7 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
   }
 
   void _completeCurrentSet() {
+    HapticFeedback.mediumImpact();
     final current = state;
     if (current == null) return;
 
@@ -215,10 +224,12 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
         phaseRemainingMs: 0,
       );
       _audio.playSessionComplete();
+      HapticFeedback.heavyImpact();
       _cleanup();
       return;
     }
 
+    final now = DateTime.now().millisecondsSinceEpoch;
     final restBetweenMs = current.protocol.restBetweenSetsSec * 1000;
     state = current.copyWith(
       completedSets: sets,
@@ -226,9 +237,11 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
       currentSetIndex: nextSetIndex,
       phase: SessionPhase.restBetweenSets,
       phaseRemainingMs: restBetweenMs,
+      phaseDeadlineMs: now + restBetweenMs,
     );
 
     _startPhaseCountdown(restBetweenMs, () {
+      final cdNow = DateTime.now().millisecondsSinceEpoch;
       _startCountdown(3000, () {
         _startHangPhase();
       });
@@ -237,6 +250,7 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
         state = s.copyWith(
           phase: SessionPhase.countdown,
           phaseRemainingMs: 3000,
+          phaseDeadlineMs: cdNow + 3000,
         );
       }
     });
@@ -244,62 +258,98 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
 
   void _startCountdown(int durationMs, VoidCallback onComplete) {
     _cancelTimers();
-    var remaining = durationMs;
-    _countdownTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      remaining -= 100;
+    // One-shot timer for phase completion — no periodic state mutations
+    _countdownTimer = Timer(Duration(milliseconds: durationMs), () {
       final current = state;
-      if (current == null) {
-        timer.cancel();
-        return;
-      }
-      if (remaining <= 0) {
-        timer.cancel();
-        onComplete();
-      } else {
-        state = current.copyWith(phaseRemainingMs: remaining);
-        // Play countdown beep at each second
-        if (remaining % 1000 < 100) {
-          _audio.playCountdown();
-        }
-      }
+      if (current != null) onComplete();
     });
+    // Schedule audio/haptic cues at each second boundary
+    _scheduleCountdownCues(durationMs);
   }
 
   void _startPhaseCountdown(int durationMs, VoidCallback onComplete) {
     _phaseTimer?.cancel();
-    var remaining = durationMs;
-    _phaseTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      remaining -= 100;
+    // One-shot timer for phase completion — no periodic state mutations
+    _phaseTimer = Timer(Duration(milliseconds: durationMs), () {
       final current = state;
-      if (current == null) {
-        timer.cancel();
-        return;
-      }
-      if (remaining <= 0) {
-        timer.cancel();
-        onComplete();
-      } else {
-        state = current.copyWith(phaseRemainingMs: remaining);
-      }
+      if (current != null) onComplete();
     });
+    // Schedule haptic cues for rest phases (last 3 seconds)
+    final current = state;
+    if (current != null &&
+        (current.phase == SessionPhase.resting ||
+            current.phase == SessionPhase.restBetweenSets)) {
+      _scheduleRestHapticCues(durationMs);
+    }
+  }
+
+  /// Schedule countdown beeps at each second boundary
+  void _scheduleCountdownCues(int durationMs) {
+    final totalSeconds = durationMs ~/ 1000;
+    for (var s = 1; s <= totalSeconds; s++) {
+      final delayMs = durationMs - (s * 1000);
+      if (delayMs > 0) {
+        final timer = Timer(Duration(milliseconds: delayMs), () {
+          _audio.playCountdown();
+          HapticFeedback.selectionClick();
+        });
+        _scheduledCueTimers.add(timer);
+      }
+    }
+  }
+
+  /// Schedule haptic feedback for last 3 seconds of rest phases
+  void _scheduleRestHapticCues(int durationMs) {
+    for (var s = 1; s <= 3; s++) {
+      final delayMs = durationMs - (s * 1000);
+      if (delayMs > 0) {
+        final timer = Timer(Duration(milliseconds: delayMs), () {
+          HapticFeedback.lightImpact();
+        });
+        _scheduledCueTimers.add(timer);
+      }
+    }
   }
 
   void pauseSession() {
     final current = state;
     if (current == null || current.isPaused || current.phase == SessionPhase.complete) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
     _cancelTimers();
     _weightSubscription?.cancel();
     _weightSubscription = null;
-    state = current.copyWith(isPaused: true);
+
+    // Snapshot remaining/elapsed so resume can recompute deadlines
+    final remaining = current.phaseDeadlineMs > 0
+        ? (current.phaseDeadlineMs - now).clamp(0, double.maxFinite).toInt()
+        : 0;
+    final elapsed = current.phaseStartMs > 0
+        ? now - current.phaseStartMs
+        : current.phaseElapsedMs;
+
+    state = current.copyWith(
+      isPaused: true,
+      phaseRemainingMs: remaining,
+      phaseElapsedMs: elapsed,
+      phaseDeadlineMs: 0,
+      phaseStartMs: 0,
+    );
   }
 
   void resumeSession() {
     final current = state;
     if (current == null || !current.isPaused) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
 
-    state = current.copyWith(isPaused: false);
+    final remainingMs = current.phaseRemainingMs;
+    state = current.copyWith(
+      isPaused: false,
+      phaseDeadlineMs: remainingMs > 0 ? now + remainingMs : 0,
+      phaseStartMs: current.phaseElapsedMs > 0 ? now - current.phaseElapsedMs : 0,
+    );
+
     _subscribeToWeight();
-    _resumePhase(current.phase, current.phaseRemainingMs);
+    _resumePhase(current.phase, remainingMs);
   }
 
   void _resumePhase(SessionPhase phase, int remainingMs) {
@@ -311,7 +361,7 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
         if (current != null && current.protocol.type == ProtocolType.repeater) {
           _startPhaseCountdown(remainingMs, () => _startRestPhase());
         }
-        // Max hang & freeform: no timer, wait for rep detector
+        // maxHang: no timer needed — UI reads phaseStartMs via Ticker
       case SessionPhase.resting:
         _startPhaseCountdown(remainingMs, () {
           final current = state;
@@ -323,11 +373,13 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
         });
       case SessionPhase.restBetweenSets:
         _startPhaseCountdown(remainingMs, () {
+          final cdNow = DateTime.now().millisecondsSinceEpoch;
           final s = state;
           if (s != null) {
             state = s.copyWith(
               phase: SessionPhase.countdown,
               phaseRemainingMs: 3000,
+              phaseDeadlineMs: cdNow + 3000,
             );
           }
           _startCountdown(3000, () => _startHangPhase());
@@ -406,11 +458,17 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
   void _cancelTimers() {
     _phaseTimer?.cancel();
     _countdownTimer?.cancel();
+    _audioCueTimer?.cancel();
+    for (final t in _scheduledCueTimers) {
+      t.cancel();
+    }
+    _scheduledCueTimers.clear();
   }
 
   void _cleanup() {
     _cancelTimers();
     _weightSubscription?.cancel();
     _weightSubscription = null;
+    WakelockPlus.disable();
   }
 }

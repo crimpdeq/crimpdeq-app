@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../models/session_models.dart';
 import '../../theme/app_theme.dart';
 
@@ -99,19 +97,12 @@ class _StatItem extends StatelessWidget {
       children: [
         Text(
           value,
-          style: GoogleFonts.spaceGrotesk(
-            fontWeight: FontWeight.w800,
-            fontSize: 24,
-            color: webAccent,
-          ),
+          style: tsGrotesk800S24.copyWith(color: dataAccent),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            color: webMuted,
-          ),
+          style: tsInterS12.copyWith(color: webMuted),
         ),
       ],
     );

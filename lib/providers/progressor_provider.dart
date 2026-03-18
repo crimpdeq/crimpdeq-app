@@ -69,6 +69,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   final List<WeightMeasurement> _recentMeasurements = [];
   final List<WeightMeasurement> _pendingMeasurements = [];
   final List<double> _notifyIntervalHistory = [];
+  // Internal mutable lists — avoids List.from() copies on every UI publish
+  final List<FlSpot> _weightHistory = [];
+  final List<WeightMeasurement> _receivedData = [];
   double _currentNotifyIntervalMs = 0.0;
   int _dataPacketCount = 0;
   double? _calibrationFactor;
@@ -163,33 +166,23 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     if (!shouldPublish) return;
     _lastUiUpdateTime = now;
 
-    final publishMeasurements = List<WeightMeasurement>.from(
-      _pendingMeasurements,
-    );
+    final lastMeasurement = _pendingMeasurements.last;
+
+    // Mutate internal lists in-place, then snapshot for state
+    _weightHistory.add(FlSpot(lastMeasurement.timestampSec, lastMeasurement.weight));
+    if (_weightHistory.length > AppConstants.maxHistorySize) {
+      _weightHistory.removeAt(0);
+    }
+
+    // Prepend pending (reversed) to received data
+    _receivedData.insertAll(0, _pendingMeasurements.reversed);
+    if (_receivedData.length > AppConstants.maxReceivedDataSize) {
+      _receivedData.removeRange(AppConstants.maxReceivedDataSize, _receivedData.length);
+    }
     _pendingMeasurements.clear();
 
-    final lastMeasurement = publishMeasurements.last;
-    final newWeightHistory = List<FlSpot>.from(
-      state.measurement.weightHistory,
-    )..add(FlSpot(lastMeasurement.timestampSec, lastMeasurement.weight));
-
-    if (newWeightHistory.length > AppConstants.maxHistorySize) {
-      newWeightHistory.removeAt(0);
-    }
-
-    final newReceivedData = List<WeightMeasurement>.from(
-      publishMeasurements.reversed,
-    )..addAll(state.measurement.receivedData);
-
-    if (newReceivedData.length > AppConstants.maxReceivedDataSize) {
-      newReceivedData.removeRange(
-        AppConstants.maxReceivedDataSize,
-        newReceivedData.length,
-      );
-    }
-
     // Calculate Hz based on actual timestamps from device
-    final oneSecondInMicroseconds = 1000000;
+    const oneSecondInMicroseconds = 1000000;
     if (_recentMeasurements.isNotEmpty) {
       final latestTimestamp = _recentMeasurements.last.timestampUs;
       _recentMeasurements.removeWhere(
@@ -212,12 +205,12 @@ class ProgressorNotifier extends _$ProgressorNotifier {
             ? lastMeasurement.weight
             : state.measurement.minWeight,
         sampleCount: lastMeasurement.timestampUs,
-        weightHistory: newWeightHistory,
-        receivedData: newReceivedData,
+        weightHistory: List.unmodifiable(_weightHistory),
+        receivedData: List.unmodifiable(_receivedData),
       ),
       performance: state.performance.copyWith(
         currentNotifyIntervalMs: _currentNotifyIntervalMs,
-        notifyIntervalHistory: List<double>.from(_notifyIntervalHistory),
+        notifyIntervalHistory: List.unmodifiable(_notifyIntervalHistory),
         currentHz: currentHz,
         dataPacketCount: _dataPacketCount,
         samplesPerPacket: samplesPerPacket,
@@ -790,6 +783,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _pendingMeasurements.clear();
     _recentMeasurements.clear();
     _notifyIntervalHistory.clear();
+    _weightHistory.clear();
+    _receivedData.clear();
     _currentNotifyIntervalMs = 0.0;
     _dataPacketCount = 0;
     _lastNotifyTime = null;
@@ -804,29 +799,18 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   void _flushPendingMeasurements() {
     if (_pendingMeasurements.isEmpty) return;
 
-    final publishMeasurements = List<WeightMeasurement>.from(
-      _pendingMeasurements,
-    );
+    final lastMeasurement = _pendingMeasurements.last;
+
+    _weightHistory.add(FlSpot(lastMeasurement.timestampSec, lastMeasurement.weight));
+    if (_weightHistory.length > AppConstants.maxHistorySize) {
+      _weightHistory.removeAt(0);
+    }
+
+    _receivedData.insertAll(0, _pendingMeasurements.reversed);
+    if (_receivedData.length > AppConstants.maxReceivedDataSize) {
+      _receivedData.removeRange(AppConstants.maxReceivedDataSize, _receivedData.length);
+    }
     _pendingMeasurements.clear();
-    final lastMeasurement = publishMeasurements.last;
-
-    final newWeightHistory = List<FlSpot>.from(state.measurement.weightHistory)
-      ..add(FlSpot(lastMeasurement.timestampSec, lastMeasurement.weight));
-
-    if (newWeightHistory.length > AppConstants.maxHistorySize) {
-      newWeightHistory.removeAt(0);
-    }
-
-    final newReceivedData = List<WeightMeasurement>.from(
-      publishMeasurements.reversed,
-    )..addAll(state.measurement.receivedData);
-
-    if (newReceivedData.length > AppConstants.maxReceivedDataSize) {
-      newReceivedData.removeRange(
-        AppConstants.maxReceivedDataSize,
-        newReceivedData.length,
-      );
-    }
 
     state = state.copyWith(
       measurement: state.measurement.copyWith(
@@ -840,8 +824,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
             ? lastMeasurement.weight
             : state.measurement.minWeight,
         sampleCount: lastMeasurement.timestampUs,
-        weightHistory: newWeightHistory,
-        receivedData: newReceivedData,
+        weightHistory: List.unmodifiable(_weightHistory),
+        receivedData: List.unmodifiable(_receivedData),
       ),
     );
   }
@@ -1030,24 +1014,17 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     if (!shouldPublish) return;
     _lastUiUpdateTime = now;
 
-    final newWeightHistory = List<FlSpot>.from(state.measurement.weightHistory)
-      ..add(FlSpot(measurement.timestampSec, measurement.weight));
-    if (newWeightHistory.length > AppConstants.maxHistorySize) {
-      newWeightHistory.removeAt(0);
+    _weightHistory.add(FlSpot(measurement.timestampSec, measurement.weight));
+    if (_weightHistory.length > AppConstants.maxHistorySize) {
+      _weightHistory.removeAt(0);
     }
 
-    final newReceivedData = <WeightMeasurement>[
-      measurement,
-      ...state.measurement.receivedData,
-    ];
-    if (newReceivedData.length > AppConstants.maxReceivedDataSize) {
-      newReceivedData.removeRange(
-        AppConstants.maxReceivedDataSize,
-        newReceivedData.length,
-      );
+    _receivedData.insert(0, measurement);
+    if (_receivedData.length > AppConstants.maxReceivedDataSize) {
+      _receivedData.removeRange(AppConstants.maxReceivedDataSize, _receivedData.length);
     }
 
-    final oneSecondInMicroseconds = 1000000;
+    const oneSecondInMicroseconds = 1000000;
     final latestTs = _recentMeasurements.last.timestampUs;
     _recentMeasurements.removeWhere(
       (m) => (latestTs - m.timestampUs) > oneSecondInMicroseconds,
@@ -1066,12 +1043,12 @@ class ProgressorNotifier extends _$ProgressorNotifier {
             ? measurement.weight
             : state.measurement.minWeight,
         sampleCount: measurement.timestampUs,
-        weightHistory: newWeightHistory,
-        receivedData: newReceivedData,
+        weightHistory: List.unmodifiable(_weightHistory),
+        receivedData: List.unmodifiable(_receivedData),
       ),
       performance: state.performance.copyWith(
         currentNotifyIntervalMs: _currentNotifyIntervalMs,
-        notifyIntervalHistory: List<double>.from(_notifyIntervalHistory),
+        notifyIntervalHistory: List.unmodifiable(_notifyIntervalHistory),
         currentHz: currentHz,
         dataPacketCount: _dataPacketCount,
         samplesPerPacket: 1,

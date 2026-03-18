@@ -2,6 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+// ──────────────────────────── Brand accent ─────────────────────────────
+const brandAccent = Color(0xFFFF6B35);
+
+// ──────────────────────────── Cached text styles ────────────────────────
+// Pre-built GoogleFonts styles to avoid repeated instantiation in hot build paths.
+// Use .copyWith(color: ...) when color varies per-widget.
+
+// Inter
+final tsInterW700S20 = GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 20);
+final tsInterW700S16 = GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16);
+final tsInterW700S14 = GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14);
+final tsInterW700S18 = GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18);
+final tsInterW600 = GoogleFonts.inter(fontWeight: FontWeight.w600);
+final tsInterW600S16 = GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16);
+final tsInterW600S14 = GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14);
+final tsInterW600S13 = GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13);
+final tsInterW600S12 = GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12);
+final tsInterW800S24 = GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 24);
+final tsInterS14 = GoogleFonts.inter(fontSize: 14);
+final tsInterS12 = GoogleFonts.inter(fontSize: 12);
+final tsInterS11 = GoogleFonts.inter(fontSize: 11);
+final tsInterS9 = GoogleFonts.inter(fontSize: 9);
+final tsInterW700S11 = GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.8);
+final tsInterW500S12 = GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 12);
+final tsInterW600S16Spaced = GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16, letterSpacing: 1.2);
+
+// Space Grotesk
+final tsGrotesk800S72 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w800, fontSize: 72, height: 1);
+final tsGrotesk800S96 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w800, fontSize: 96, height: 1);
+final tsGrotesk700S18 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700, fontSize: 18);
+final tsGrotesk700S16 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700, fontSize: 16);
+final tsGrotesk700S14 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700, fontSize: 14);
+final tsGrotesk600S28 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w600, fontSize: 28);
+final tsGrotesk600S24 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w600, fontSize: 24);
+final tsGrotesk600S14 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w600, fontSize: 14);
+final tsGrotesk800S24 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w800, fontSize: 24);
+final tsGrotesk500S10 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w500, fontSize: 10);
+
 // ──────────────────────────── Dark palette ────────────────────────────
 const paleRed = Color(0xFFE57373);
 const webBg = Color(0xFF0A0A0A);
@@ -10,6 +48,7 @@ const webPanel = Color(0xFF1A1A1A);
 const webPanelDeep = Color(0xFF0F0F0F);
 const webText = Color(0xFFF0F0F0);
 const webMuted = Color(0xFF8B8B8B);
+const dataAccent = Color(0xFFE0E0E0);
 const webAccent = Color(0xFFE0E0E0);
 const webAccentStrong = Color(0xFFFFFFFF);
 const webBorder = Color(0xFF2A2A2A);
@@ -31,8 +70,8 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 // ──────────────────────────── Dark theme ──────────────────────────────
 ThemeData buildDarkTheme() {
   final colorScheme = const ColorScheme.dark(
-    primary: webAccent,
-    onPrimary: Color(0xFF0A0A0A),
+    primary: brandAccent,
+    onPrimary: Colors.white,
     secondary: webAccentStrong,
     onSecondary: Color(0xFF0A0A0A),
     surface: webPanel,
@@ -42,7 +81,7 @@ ThemeData buildDarkTheme() {
     outline: webBorder,
     outlineVariant: Color(0xFF333333),
   );
-  final baseText = GoogleFonts.spaceGroteskTextTheme(
+  final baseText = GoogleFonts.interTextTheme(
     ThemeData.dark().textTheme,
   );
   final textTheme = baseText.copyWith(
@@ -61,7 +100,15 @@ ThemeData buildDarkTheme() {
       fontWeight: FontWeight.w700,
       color: webText,
     ),
-    bodySmall: GoogleFonts.spaceGrotesk(
+    bodyLarge: GoogleFonts.inter(
+      textStyle: baseText.bodyLarge,
+      color: webText,
+    ),
+    bodyMedium: GoogleFonts.inter(
+      textStyle: baseText.bodyMedium,
+      color: webText,
+    ),
+    bodySmall: GoogleFonts.inter(
       textStyle: baseText.bodySmall,
       color: webMuted,
     ),
@@ -100,7 +147,7 @@ ThemeData buildDarkTheme() {
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: webBg,
-      indicatorColor: webAccent.withValues(alpha: 0.12),
+      indicatorColor: brandAccent.withValues(alpha: 0.12),
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       labelTextStyle: WidgetStatePropertyAll(
@@ -132,8 +179,8 @@ ThemeData buildDarkTheme() {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: webAccent,
-        foregroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: brandAccent,
+        foregroundColor: Colors.white,
         disabledBackgroundColor: webPanelDeep,
         disabledForegroundColor: webMuted,
         textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
@@ -143,8 +190,8 @@ ThemeData buildDarkTheme() {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: webAccent,
-        foregroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: brandAccent,
+        foregroundColor: Colors.white,
         disabledBackgroundColor: webPanelDeep,
         disabledForegroundColor: webMuted,
         elevation: 0,
@@ -228,18 +275,19 @@ const lightPanel = Colors.white;
 const lightText = Color(0xFF1A1A1A);
 const lightMuted = Color(0xFF6E6E6E);
 const lightAccent = Color(0xFF2C2C2C);
+const lightDataAccent = Color(0xFF2C2C2C);
 const lightBorder = Color(0xFFDDDDDD);
 
 // ──────────────────────────── Light theme ─────────────────────────────
 ThemeData buildLightTheme() {
   final dark = buildDarkTheme();
-  final baseText = GoogleFonts.spaceGroteskTextTheme(
+  final baseText = GoogleFonts.interTextTheme(
     ThemeData.light().textTheme,
   );
   return dark.copyWith(
     brightness: Brightness.light,
     colorScheme: const ColorScheme.light(
-      primary: lightAccent,
+      primary: brandAccent,
       onPrimary: Colors.white,
       secondary: Color(0xFF444444),
       onSecondary: Colors.white,
@@ -269,7 +317,15 @@ ThemeData buildLightTheme() {
         fontWeight: FontWeight.w600,
         color: lightText,
       ),
-      bodySmall: GoogleFonts.spaceGrotesk(
+      bodyLarge: GoogleFonts.inter(
+        textStyle: baseText.bodyLarge,
+        color: lightText,
+      ),
+      bodyMedium: GoogleFonts.inter(
+        textStyle: baseText.bodyMedium,
+        color: lightText,
+      ),
+      bodySmall: GoogleFonts.inter(
         textStyle: baseText.bodySmall,
         color: lightMuted,
       ),
@@ -295,7 +351,7 @@ ThemeData buildLightTheme() {
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: lightBg,
-      indicatorColor: lightAccent.withValues(alpha: 0.1),
+      indicatorColor: brandAccent.withValues(alpha: 0.1),
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       labelTextStyle: WidgetStatePropertyAll(
