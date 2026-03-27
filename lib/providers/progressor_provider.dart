@@ -54,6 +54,38 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     debugPrint('[ProgressorNotifier] $message');
   }
 
+  bool _isCandidateDevice(ScanResult result) {
+    final deviceName = result.device.platformName.trim().toLowerCase();
+    final advertisedName = result.advertisementData.advName
+        .trim()
+        .toLowerCase();
+
+    return deviceName.contains('progressor') ||
+        advertisedName.contains('progressor') ||
+        result.advertisementData.serviceUuids.any(
+          (uuid) =>
+              uuid.toString().toLowerCase() ==
+              ProgressorConstants.instance.serviceUuid.toLowerCase(),
+        );
+  }
+
+  DiscoveredDevice _toDiscoveredDevice(ScanResult result) {
+    final deviceName = result.device.platformName.trim();
+    final advertisedName = result.advertisementData.advName.trim();
+    final resolvedName = deviceName.isNotEmpty
+        ? deviceName
+        : advertisedName.isNotEmpty
+        ? advertisedName
+        : 'Unknown device';
+
+    return DiscoveredDevice(
+      id: result.device.remoteId.str,
+      name: resolvedName,
+      rssi: result.rssi,
+      device: result.device,
+    );
+  }
+
   Future<void> _initializeBle() async {
     if (await FlutterBluePlus.isSupported == false) {
       state = state.copyWith(
@@ -172,6 +204,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
             bluetoothReady: false,
             status: 'Please turn on Bluetooth',
             isScanning: false,
+            discoveredDevices: const [],
           ),
         );
         await disconnectDevice();
@@ -185,7 +218,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     state = state.copyWith(
       connection: state.connection.copyWith(
         isScanning: true,
-        status: 'Scanning for Progressor...',
+        discoveredDevices: const [],
+        status: 'Scanning for devices...',
       ),
     );
 
@@ -201,17 +235,49 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         if (state.connection.device != null || state.connection.isConnecting) {
           return;
         }
+
+        final devicesById = <String, DiscoveredDevice>{
+          for (final device in state.connection.discoveredDevices)
+            device.id: device,
+        };
+
         for (final result in results) {
-          if (result.device.platformName.toLowerCase().contains('progressor') ||
-              result.advertisementData.serviceUuids.any(
-                (uuid) =>
-                    uuid.toString().toLowerCase() ==
-                    ProgressorConstants.instance.serviceUuid.toLowerCase(),
-              )) {
-            unawaited(_connectToDevice(result.device));
-            break;
-          }
+          if (!_isCandidateDevice(result)) continue;
+          final discoveredDevice = _toDiscoveredDevice(result);
+          devicesById[discoveredDevice.id] = discoveredDevice;
         }
+
+        final discoveredDevices = devicesById.values.toList()
+          ..sort((a, b) {
+            final nameCompare = a.name.toLowerCase().compareTo(
+              b.name.toLowerCase(),
+            );
+            if (nameCompare != 0) return nameCompare;
+            return b.rssi.compareTo(a.rssi);
+          });
+
+        final previousSignature = state.connection.discoveredDevices
+            .map((device) => '${device.id}:${device.rssi}')
+            .join('|');
+        final nextSignature = discoveredDevices
+            .map((device) => '${device.id}:${device.rssi}')
+            .join('|');
+
+        if (previousSignature != nextSignature &&
+            discoveredDevices.isNotEmpty) {
+          _log(
+            'Possible devices: ${discoveredDevices.map((device) => '${device.name} (${device.id}, RSSI ${device.rssi})').join(', ')}',
+          );
+        }
+
+        state = state.copyWith(
+          connection: state.connection.copyWith(
+            discoveredDevices: discoveredDevices,
+            status: discoveredDevices.isEmpty
+                ? 'Scanning for devices...'
+                : 'Found ${discoveredDevices.length} possible device${discoveredDevices.length == 1 ? '' : 's'}. Select one to connect.',
+          ),
+        );
       });
 
       _cancelScanTimeoutTimer();
@@ -220,7 +286,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
           unawaited(stopScanning());
           state = state.copyWith(
             connection: state.connection.copyWith(
-              status: 'Progressor device not found. Please try scanning again.',
+              status: state.connection.discoveredDevices.isEmpty
+                  ? 'No compatible devices found. Please try scanning again.'
+                  : 'Scan complete. Select a device to connect.',
             ),
           );
         }
@@ -248,7 +316,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         connection: state.connection.copyWith(
           isScanning: false,
           status: state.connection.device == null
-              ? 'Scan stopped'
+              ? state.connection.discoveredDevices.isEmpty
+                    ? 'Scan stopped'
+                    : 'Scan stopped. Select a device to connect.'
               : state.connection.status,
         ),
       );
@@ -257,16 +327,29 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
   }
 
-  Future<void> _connectToDevice(BluetoothDevice device) async {
+  Future<void> connectToDiscoveredDevice(DiscoveredDevice device) async {
+    await _connectToDevice(device.device, displayName: device.name);
+  }
+
+  Future<void> _connectToDevice(
+    BluetoothDevice device, {
+    String? displayName,
+  }) async {
     if (state.connection.device != null || state.connection.isConnecting) {
       return;
     }
     await stopScanning();
 
+    final resolvedDisplayName =
+        displayName ??
+        (device.platformName.trim().isEmpty
+            ? device.remoteId.str
+            : device.platformName.trim());
+
     state = state.copyWith(
       connection: state.connection.copyWith(
         isConnecting: true,
-        status: 'Connecting to ${device.platformName}...',
+        status: 'Connecting to $resolvedDisplayName...',
       ),
     );
 

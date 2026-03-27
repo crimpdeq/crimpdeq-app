@@ -687,26 +687,40 @@ class CrimpdeqScreen extends ConsumerWidget {
               child: state.connection.device == null
                   ? Align(
                       alignment: Alignment.topCenter,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 72),
-                        child: showScanButton
-                            ? FilledButton.icon(
-                                onPressed: notifier.startScanning,
-                                icon: const Icon(Icons.search, size: 24),
-                                label: const Text('Scan'),
-                                style: FilledButton.styleFrom(
-                                  minimumSize: const Size(280, 56),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 28,
-                                    vertical: 14,
+                      child: SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 760),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 56),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (showScanButton)
+                                  FilledButton.icon(
+                                    onPressed: notifier.startScanning,
+                                    icon: const Icon(Icons.search, size: 24),
+                                    label: const Text('Scan'),
+                                    style: FilledButton.styleFrom(
+                                      minimumSize: const Size(280, 56),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 28,
+                                        vertical: 14,
+                                      ),
+                                      textStyle: GoogleFonts.inter(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 18,
+                                      ),
+                                    ),
                                   ),
-                                  textStyle: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 18,
-                                  ),
+                                if (showScanButton) const SizedBox(height: 16),
+                                DiscoveredDevicesCard(
+                                  connection: state.connection,
+                                  onConnect: notifier.connectToDiscoveredDevice,
                                 ),
-                              )
-                            : const SizedBox.shrink(),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     )
                   : DefaultTabController(

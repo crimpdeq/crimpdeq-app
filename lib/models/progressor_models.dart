@@ -52,15 +52,26 @@ sealed class MeasurementState with _$MeasurementState {
 }
 
 @freezed
+sealed class DiscoveredDevice with _$DiscoveredDevice {
+  const factory DiscoveredDevice({
+    required String id,
+    required String name,
+    required int rssi,
+    required BluetoothDevice device,
+  }) = _DiscoveredDevice;
+}
+
+@freezed
 sealed class ConnectionState with _$ConnectionState {
   const factory ConnectionState({
     BluetoothDevice? device,
     BluetoothCharacteristic? notifyCharacteristic,
     BluetoothCharacteristic? writeCharacteristic,
-    @Default('Scanning...') String status,
+    @Default('Initializing Bluetooth...') String status,
     @Default(false) bool isScanning,
     @Default(false) bool isConnecting,
     @Default(false) bool bluetoothReady,
+    @Default([]) List<DiscoveredDevice> discoveredDevices,
   }) = _ConnectionState;
 }
 
