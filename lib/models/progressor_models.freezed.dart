@@ -1079,9 +1079,269 @@ as List<WeightMeasurement>,
 }
 
 /// @nodoc
+mixin _$DiscoveredDevice {
+
+ String get id; String get name; int get rssi; BluetoothDevice get device;
+/// Create a copy of DiscoveredDevice
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$DiscoveredDeviceCopyWith<DiscoveredDevice> get copyWith => _$DiscoveredDeviceCopyWithImpl<DiscoveredDevice>(this as DiscoveredDevice, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DiscoveredDevice&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.rssi, rssi) || other.rssi == rssi)&&(identical(other.device, device) || other.device == device));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,id,name,rssi,device);
+
+@override
+String toString() {
+  return 'DiscoveredDevice(id: $id, name: $name, rssi: $rssi, device: $device)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $DiscoveredDeviceCopyWith<$Res>  {
+  factory $DiscoveredDeviceCopyWith(DiscoveredDevice value, $Res Function(DiscoveredDevice) _then) = _$DiscoveredDeviceCopyWithImpl;
+@useResult
+$Res call({
+ String id, String name, int rssi, BluetoothDevice device
+});
+
+
+
+
+}
+/// @nodoc
+class _$DiscoveredDeviceCopyWithImpl<$Res>
+    implements $DiscoveredDeviceCopyWith<$Res> {
+  _$DiscoveredDeviceCopyWithImpl(this._self, this._then);
+
+  final DiscoveredDevice _self;
+  final $Res Function(DiscoveredDevice) _then;
+
+/// Create a copy of DiscoveredDevice
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? rssi = null,Object? device = null,}) {
+  return _then(_self.copyWith(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,rssi: null == rssi ? _self.rssi : rssi // ignore: cast_nullable_to_non_nullable
+as int,device: null == device ? _self.device : device // ignore: cast_nullable_to_non_nullable
+as BluetoothDevice,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [DiscoveredDevice].
+extension DiscoveredDevicePatterns on DiscoveredDevice {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _DiscoveredDevice value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _DiscoveredDevice() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _DiscoveredDevice value)  $default,){
+final _that = this;
+switch (_that) {
+case _DiscoveredDevice():
+return $default(_that);}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _DiscoveredDevice value)?  $default,){
+final _that = this;
+switch (_that) {
+case _DiscoveredDevice() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  int rssi,  BluetoothDevice device)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _DiscoveredDevice() when $default != null:
+return $default(_that.id,_that.name,_that.rssi,_that.device);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  int rssi,  BluetoothDevice device)  $default,) {final _that = this;
+switch (_that) {
+case _DiscoveredDevice():
+return $default(_that.id,_that.name,_that.rssi,_that.device);}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  int rssi,  BluetoothDevice device)?  $default,) {final _that = this;
+switch (_that) {
+case _DiscoveredDevice() when $default != null:
+return $default(_that.id,_that.name,_that.rssi,_that.device);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+
+
+class _DiscoveredDevice implements DiscoveredDevice {
+  const _DiscoveredDevice({required this.id, required this.name, required this.rssi, required this.device});
+  
+
+@override final  String id;
+@override final  String name;
+@override final  int rssi;
+@override final  BluetoothDevice device;
+
+/// Create a copy of DiscoveredDevice
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$DiscoveredDeviceCopyWith<_DiscoveredDevice> get copyWith => __$DiscoveredDeviceCopyWithImpl<_DiscoveredDevice>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DiscoveredDevice&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.rssi, rssi) || other.rssi == rssi)&&(identical(other.device, device) || other.device == device));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,id,name,rssi,device);
+
+@override
+String toString() {
+  return 'DiscoveredDevice(id: $id, name: $name, rssi: $rssi, device: $device)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$DiscoveredDeviceCopyWith<$Res> implements $DiscoveredDeviceCopyWith<$Res> {
+  factory _$DiscoveredDeviceCopyWith(_DiscoveredDevice value, $Res Function(_DiscoveredDevice) _then) = __$DiscoveredDeviceCopyWithImpl;
+@override @useResult
+$Res call({
+ String id, String name, int rssi, BluetoothDevice device
+});
+
+
+
+
+}
+/// @nodoc
+class __$DiscoveredDeviceCopyWithImpl<$Res>
+    implements _$DiscoveredDeviceCopyWith<$Res> {
+  __$DiscoveredDeviceCopyWithImpl(this._self, this._then);
+
+  final _DiscoveredDevice _self;
+  final $Res Function(_DiscoveredDevice) _then;
+
+/// Create a copy of DiscoveredDevice
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? rssi = null,Object? device = null,}) {
+  return _then(_DiscoveredDevice(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,rssi: null == rssi ? _self.rssi : rssi // ignore: cast_nullable_to_non_nullable
+as int,device: null == device ? _self.device : device // ignore: cast_nullable_to_non_nullable
+as BluetoothDevice,
+  ));
+}
+
+
+}
+
+/// @nodoc
 mixin _$ConnectionState {
 
- BluetoothDevice? get device; BluetoothCharacteristic? get notifyCharacteristic; BluetoothCharacteristic? get writeCharacteristic; String get status; bool get isScanning; bool get isConnecting; bool get bluetoothReady;
+ BluetoothDevice? get device; BluetoothCharacteristic? get notifyCharacteristic; BluetoothCharacteristic? get writeCharacteristic; String get status; bool get isScanning; bool get isConnecting; bool get bluetoothReady; List<DiscoveredDevice> get discoveredDevices;
 /// Create a copy of ConnectionState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1092,16 +1352,16 @@ $ConnectionStateCopyWith<ConnectionState> get copyWith => _$ConnectionStateCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConnectionState&&(identical(other.device, device) || other.device == device)&&(identical(other.notifyCharacteristic, notifyCharacteristic) || other.notifyCharacteristic == notifyCharacteristic)&&(identical(other.writeCharacteristic, writeCharacteristic) || other.writeCharacteristic == writeCharacteristic)&&(identical(other.status, status) || other.status == status)&&(identical(other.isScanning, isScanning) || other.isScanning == isScanning)&&(identical(other.isConnecting, isConnecting) || other.isConnecting == isConnecting)&&(identical(other.bluetoothReady, bluetoothReady) || other.bluetoothReady == bluetoothReady));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConnectionState&&(identical(other.device, device) || other.device == device)&&(identical(other.notifyCharacteristic, notifyCharacteristic) || other.notifyCharacteristic == notifyCharacteristic)&&(identical(other.writeCharacteristic, writeCharacteristic) || other.writeCharacteristic == writeCharacteristic)&&(identical(other.status, status) || other.status == status)&&(identical(other.isScanning, isScanning) || other.isScanning == isScanning)&&(identical(other.isConnecting, isConnecting) || other.isConnecting == isConnecting)&&(identical(other.bluetoothReady, bluetoothReady) || other.bluetoothReady == bluetoothReady)&&const DeepCollectionEquality().equals(other.discoveredDevices, discoveredDevices));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,device,notifyCharacteristic,writeCharacteristic,status,isScanning,isConnecting,bluetoothReady);
+int get hashCode => Object.hash(runtimeType,device,notifyCharacteristic,writeCharacteristic,status,isScanning,isConnecting,bluetoothReady,const DeepCollectionEquality().hash(discoveredDevices));
 
 @override
 String toString() {
-  return 'ConnectionState(device: $device, notifyCharacteristic: $notifyCharacteristic, writeCharacteristic: $writeCharacteristic, status: $status, isScanning: $isScanning, isConnecting: $isConnecting, bluetoothReady: $bluetoothReady)';
+  return 'ConnectionState(device: $device, notifyCharacteristic: $notifyCharacteristic, writeCharacteristic: $writeCharacteristic, status: $status, isScanning: $isScanning, isConnecting: $isConnecting, bluetoothReady: $bluetoothReady, discoveredDevices: $discoveredDevices)';
 }
 
 
@@ -1112,7 +1372,7 @@ abstract mixin class $ConnectionStateCopyWith<$Res>  {
   factory $ConnectionStateCopyWith(ConnectionState value, $Res Function(ConnectionState) _then) = _$ConnectionStateCopyWithImpl;
 @useResult
 $Res call({
- BluetoothDevice? device, BluetoothCharacteristic? notifyCharacteristic, BluetoothCharacteristic? writeCharacteristic, String status, bool isScanning, bool isConnecting, bool bluetoothReady
+ BluetoothDevice? device, BluetoothCharacteristic? notifyCharacteristic, BluetoothCharacteristic? writeCharacteristic, String status, bool isScanning, bool isConnecting, bool bluetoothReady, List<DiscoveredDevice> discoveredDevices
 });
 
 
@@ -1129,7 +1389,7 @@ class _$ConnectionStateCopyWithImpl<$Res>
 
 /// Create a copy of ConnectionState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? device = freezed,Object? notifyCharacteristic = freezed,Object? writeCharacteristic = freezed,Object? status = null,Object? isScanning = null,Object? isConnecting = null,Object? bluetoothReady = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? device = freezed,Object? notifyCharacteristic = freezed,Object? writeCharacteristic = freezed,Object? status = null,Object? isScanning = null,Object? isConnecting = null,Object? bluetoothReady = null,Object? discoveredDevices = null,}) {
   return _then(_self.copyWith(
 device: freezed == device ? _self.device : device // ignore: cast_nullable_to_non_nullable
 as BluetoothDevice?,notifyCharacteristic: freezed == notifyCharacteristic ? _self.notifyCharacteristic : notifyCharacteristic // ignore: cast_nullable_to_non_nullable
@@ -1138,7 +1398,8 @@ as BluetoothCharacteristic?,status: null == status ? _self.status : status // ig
 as String,isScanning: null == isScanning ? _self.isScanning : isScanning // ignore: cast_nullable_to_non_nullable
 as bool,isConnecting: null == isConnecting ? _self.isConnecting : isConnecting // ignore: cast_nullable_to_non_nullable
 as bool,bluetoothReady: null == bluetoothReady ? _self.bluetoothReady : bluetoothReady // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,discoveredDevices: null == discoveredDevices ? _self.discoveredDevices : discoveredDevices // ignore: cast_nullable_to_non_nullable
+as List<DiscoveredDevice>,
   ));
 }
 
@@ -1220,10 +1481,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( BluetoothDevice? device,  BluetoothCharacteristic? notifyCharacteristic,  BluetoothCharacteristic? writeCharacteristic,  String status,  bool isScanning,  bool isConnecting,  bool bluetoothReady)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( BluetoothDevice? device,  BluetoothCharacteristic? notifyCharacteristic,  BluetoothCharacteristic? writeCharacteristic,  String status,  bool isScanning,  bool isConnecting,  bool bluetoothReady,  List<DiscoveredDevice> discoveredDevices)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ConnectionState() when $default != null:
-return $default(_that.device,_that.notifyCharacteristic,_that.writeCharacteristic,_that.status,_that.isScanning,_that.isConnecting,_that.bluetoothReady);case _:
+return $default(_that.device,_that.notifyCharacteristic,_that.writeCharacteristic,_that.status,_that.isScanning,_that.isConnecting,_that.bluetoothReady,_that.discoveredDevices);case _:
   return orElse();
 
 }
@@ -1241,10 +1502,10 @@ return $default(_that.device,_that.notifyCharacteristic,_that.writeCharacteristi
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( BluetoothDevice? device,  BluetoothCharacteristic? notifyCharacteristic,  BluetoothCharacteristic? writeCharacteristic,  String status,  bool isScanning,  bool isConnecting,  bool bluetoothReady)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( BluetoothDevice? device,  BluetoothCharacteristic? notifyCharacteristic,  BluetoothCharacteristic? writeCharacteristic,  String status,  bool isScanning,  bool isConnecting,  bool bluetoothReady,  List<DiscoveredDevice> discoveredDevices)  $default,) {final _that = this;
 switch (_that) {
 case _ConnectionState():
-return $default(_that.device,_that.notifyCharacteristic,_that.writeCharacteristic,_that.status,_that.isScanning,_that.isConnecting,_that.bluetoothReady);}
+return $default(_that.device,_that.notifyCharacteristic,_that.writeCharacteristic,_that.status,_that.isScanning,_that.isConnecting,_that.bluetoothReady,_that.discoveredDevices);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -1258,10 +1519,10 @@ return $default(_that.device,_that.notifyCharacteristic,_that.writeCharacteristi
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( BluetoothDevice? device,  BluetoothCharacteristic? notifyCharacteristic,  BluetoothCharacteristic? writeCharacteristic,  String status,  bool isScanning,  bool isConnecting,  bool bluetoothReady)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( BluetoothDevice? device,  BluetoothCharacteristic? notifyCharacteristic,  BluetoothCharacteristic? writeCharacteristic,  String status,  bool isScanning,  bool isConnecting,  bool bluetoothReady,  List<DiscoveredDevice> discoveredDevices)?  $default,) {final _that = this;
 switch (_that) {
 case _ConnectionState() when $default != null:
-return $default(_that.device,_that.notifyCharacteristic,_that.writeCharacteristic,_that.status,_that.isScanning,_that.isConnecting,_that.bluetoothReady);case _:
+return $default(_that.device,_that.notifyCharacteristic,_that.writeCharacteristic,_that.status,_that.isScanning,_that.isConnecting,_that.bluetoothReady,_that.discoveredDevices);case _:
   return null;
 
 }
@@ -1273,7 +1534,7 @@ return $default(_that.device,_that.notifyCharacteristic,_that.writeCharacteristi
 
 
 class _ConnectionState implements ConnectionState {
-  const _ConnectionState({this.device, this.notifyCharacteristic, this.writeCharacteristic, this.status = 'Scanning...', this.isScanning = false, this.isConnecting = false, this.bluetoothReady = false});
+  const _ConnectionState({this.device, this.notifyCharacteristic, this.writeCharacteristic, this.status = 'Initializing Bluetooth...', this.isScanning = false, this.isConnecting = false, this.bluetoothReady = false, final  List<DiscoveredDevice> discoveredDevices = const []}): _discoveredDevices = discoveredDevices;
   
 
 @override final  BluetoothDevice? device;
@@ -1283,6 +1544,13 @@ class _ConnectionState implements ConnectionState {
 @override@JsonKey() final  bool isScanning;
 @override@JsonKey() final  bool isConnecting;
 @override@JsonKey() final  bool bluetoothReady;
+ final  List<DiscoveredDevice> _discoveredDevices;
+@override@JsonKey() List<DiscoveredDevice> get discoveredDevices {
+  if (_discoveredDevices is EqualUnmodifiableListView) return _discoveredDevices;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_discoveredDevices);
+}
+
 
 /// Create a copy of ConnectionState
 /// with the given fields replaced by the non-null parameter values.
@@ -1294,16 +1562,16 @@ _$ConnectionStateCopyWith<_ConnectionState> get copyWith => __$ConnectionStateCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConnectionState&&(identical(other.device, device) || other.device == device)&&(identical(other.notifyCharacteristic, notifyCharacteristic) || other.notifyCharacteristic == notifyCharacteristic)&&(identical(other.writeCharacteristic, writeCharacteristic) || other.writeCharacteristic == writeCharacteristic)&&(identical(other.status, status) || other.status == status)&&(identical(other.isScanning, isScanning) || other.isScanning == isScanning)&&(identical(other.isConnecting, isConnecting) || other.isConnecting == isConnecting)&&(identical(other.bluetoothReady, bluetoothReady) || other.bluetoothReady == bluetoothReady));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConnectionState&&(identical(other.device, device) || other.device == device)&&(identical(other.notifyCharacteristic, notifyCharacteristic) || other.notifyCharacteristic == notifyCharacteristic)&&(identical(other.writeCharacteristic, writeCharacteristic) || other.writeCharacteristic == writeCharacteristic)&&(identical(other.status, status) || other.status == status)&&(identical(other.isScanning, isScanning) || other.isScanning == isScanning)&&(identical(other.isConnecting, isConnecting) || other.isConnecting == isConnecting)&&(identical(other.bluetoothReady, bluetoothReady) || other.bluetoothReady == bluetoothReady)&&const DeepCollectionEquality().equals(other._discoveredDevices, _discoveredDevices));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,device,notifyCharacteristic,writeCharacteristic,status,isScanning,isConnecting,bluetoothReady);
+int get hashCode => Object.hash(runtimeType,device,notifyCharacteristic,writeCharacteristic,status,isScanning,isConnecting,bluetoothReady,const DeepCollectionEquality().hash(_discoveredDevices));
 
 @override
 String toString() {
-  return 'ConnectionState(device: $device, notifyCharacteristic: $notifyCharacteristic, writeCharacteristic: $writeCharacteristic, status: $status, isScanning: $isScanning, isConnecting: $isConnecting, bluetoothReady: $bluetoothReady)';
+  return 'ConnectionState(device: $device, notifyCharacteristic: $notifyCharacteristic, writeCharacteristic: $writeCharacteristic, status: $status, isScanning: $isScanning, isConnecting: $isConnecting, bluetoothReady: $bluetoothReady, discoveredDevices: $discoveredDevices)';
 }
 
 
@@ -1314,7 +1582,7 @@ abstract mixin class _$ConnectionStateCopyWith<$Res> implements $ConnectionState
   factory _$ConnectionStateCopyWith(_ConnectionState value, $Res Function(_ConnectionState) _then) = __$ConnectionStateCopyWithImpl;
 @override @useResult
 $Res call({
- BluetoothDevice? device, BluetoothCharacteristic? notifyCharacteristic, BluetoothCharacteristic? writeCharacteristic, String status, bool isScanning, bool isConnecting, bool bluetoothReady
+ BluetoothDevice? device, BluetoothCharacteristic? notifyCharacteristic, BluetoothCharacteristic? writeCharacteristic, String status, bool isScanning, bool isConnecting, bool bluetoothReady, List<DiscoveredDevice> discoveredDevices
 });
 
 
@@ -1331,7 +1599,7 @@ class __$ConnectionStateCopyWithImpl<$Res>
 
 /// Create a copy of ConnectionState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? device = freezed,Object? notifyCharacteristic = freezed,Object? writeCharacteristic = freezed,Object? status = null,Object? isScanning = null,Object? isConnecting = null,Object? bluetoothReady = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? device = freezed,Object? notifyCharacteristic = freezed,Object? writeCharacteristic = freezed,Object? status = null,Object? isScanning = null,Object? isConnecting = null,Object? bluetoothReady = null,Object? discoveredDevices = null,}) {
   return _then(_ConnectionState(
 device: freezed == device ? _self.device : device // ignore: cast_nullable_to_non_nullable
 as BluetoothDevice?,notifyCharacteristic: freezed == notifyCharacteristic ? _self.notifyCharacteristic : notifyCharacteristic // ignore: cast_nullable_to_non_nullable
@@ -1340,7 +1608,8 @@ as BluetoothCharacteristic?,status: null == status ? _self.status : status // ig
 as String,isScanning: null == isScanning ? _self.isScanning : isScanning // ignore: cast_nullable_to_non_nullable
 as bool,isConnecting: null == isConnecting ? _self.isConnecting : isConnecting // ignore: cast_nullable_to_non_nullable
 as bool,bluetoothReady: null == bluetoothReady ? _self.bluetoothReady : bluetoothReady // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,discoveredDevices: null == discoveredDevices ? _self._discoveredDevices : discoveredDevices // ignore: cast_nullable_to_non_nullable
+as List<DiscoveredDevice>,
   ));
 }
 
