@@ -6,6 +6,19 @@ part of 'session_models.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
+_SetConfig _$SetConfigFromJson(Map<String, dynamic> json) => _SetConfig(
+  hangDurationSec: (json['hangDurationSec'] as num?)?.toInt() ?? 7,
+  restDurationSec: (json['restDurationSec'] as num?)?.toInt() ?? 3,
+  repsPerSet: (json['repsPerSet'] as num?)?.toInt() ?? 1,
+);
+
+Map<String, dynamic> _$SetConfigToJson(_SetConfig instance) =>
+    <String, dynamic>{
+      'hangDurationSec': instance.hangDurationSec,
+      'restDurationSec': instance.restDurationSec,
+      'repsPerSet': instance.repsPerSet,
+    };
+
 _ProtocolConfig _$ProtocolConfigFromJson(Map<String, dynamic> json) =>
     _ProtocolConfig(
       type: $enumDecode(_$ProtocolTypeEnumMap, json['type']),
@@ -16,6 +29,15 @@ _ProtocolConfig _$ProtocolConfigFromJson(Map<String, dynamic> json) =>
       restBetweenSetsSec: (json['restBetweenSetsSec'] as num?)?.toInt() ?? 180,
       targetWeightKg: (json['targetWeightKg'] as num?)?.toDouble() ?? 0.0,
       hangThresholdKg: (json['hangThresholdKg'] as num?)?.toDouble() ?? 2.0,
+      gripId: json['gripId'] as String?,
+      handMode:
+          $enumDecodeNullable(_$HandModeEnumMap, json['handMode']) ??
+          HandMode.alternatePerRep,
+      setConfigs:
+          (json['setConfigs'] as List<dynamic>?)
+              ?.map((e) => SetConfig.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          null,
     );
 
 Map<String, dynamic> _$ProtocolConfigToJson(_ProtocolConfig instance) =>
@@ -28,12 +50,23 @@ Map<String, dynamic> _$ProtocolConfigToJson(_ProtocolConfig instance) =>
       'restBetweenSetsSec': instance.restBetweenSetsSec,
       'targetWeightKg': instance.targetWeightKg,
       'hangThresholdKg': instance.hangThresholdKg,
+      'gripId': instance.gripId,
+      'handMode': _$HandModeEnumMap[instance.handMode]!,
+      'setConfigs': instance.setConfigs,
     };
 
 const _$ProtocolTypeEnumMap = {
   ProtocolType.maxHang: 'maxHang',
   ProtocolType.repeater: 'repeater',
   ProtocolType.freeform: 'freeform',
+};
+
+const _$HandModeEnumMap = {
+  HandMode.both: 'both',
+  HandMode.alternatePerSet: 'alternatePerSet',
+  HandMode.alternatePerRep: 'alternatePerRep',
+  HandMode.left: 'left',
+  HandMode.right: 'right',
 };
 
 _WeightSample _$WeightSampleFromJson(Map<String, dynamic> json) =>

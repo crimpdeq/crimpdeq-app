@@ -139,11 +139,36 @@ class _ActiveView extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                session.protocol.type == ProtocolType.freeform
-                    ? 'FREEFORM'
-                    : 'SET ${session.currentSetIndex + 1} / ${session.protocol.sets}',
-                style: tsInterW700S16.copyWith(color: webText),
+              Row(
+                children: [
+                  Text(
+                    session.protocol.type == ProtocolType.freeform
+                        ? 'FREEFORM'
+                        : 'SET ${session.currentSetIndex + 1} / ${session.protocol.effectiveSets}',
+                    style: tsInterW700S16.copyWith(color: webText),
+                  ),
+                  if (session.protocol.handMode != HandMode.both) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: brandAccent.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        session.protocol.handMode == HandMode.left
+                            ? 'LEFT'
+                            : session.protocol.handMode == HandMode.right
+                                ? 'RIGHT'
+                                : session.currentHandIndex == 0
+                                    ? 'LEFT'
+                                    : 'RIGHT',
+                        style: tsInterW700S11.copyWith(color: brandAccent),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               Text(
                 '${session.completedSets.expand((s) => s.reps).length + session.currentSetReps.length} reps',
@@ -156,8 +181,8 @@ class _ActiveView extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: LinearProgressIndicator(
-              value: session.protocol.sets > 0
-                  ? session.currentSetIndex / session.protocol.sets
+              value: session.protocol.effectiveSets > 0
+                  ? session.currentSetIndex / session.protocol.effectiveSets
                   : 0,
               backgroundColor: webBorder,
               valueColor: AlwaysStoppedAnimation(colorScheme.primary),
@@ -212,14 +237,18 @@ class _ActiveView extends StatelessWidget {
                     } else {
                       color = brandAccent;
                     }
-                    return SizedBox.expand(
-                      child: CustomPaint(
-                        painter: _WeightGaugePainter(
-                          currentWeight: w,
-                          targetWeight: targetWeight,
-                          thresholdWeight: session.protocol.hangThresholdKg,
-                          peakWeight: peakW,
-                          heroColor: color,
+                    return AnimatedOpacity(
+                      opacity: session.waitingForThreshold ? 0.45 : 0.9,
+                      duration: const Duration(milliseconds: 200),
+                      child: SizedBox.expand(
+                        child: CustomPaint(
+                          painter: _WeightGaugePainter(
+                            currentWeight: w,
+                            targetWeight: targetWeight,
+                            thresholdWeight: session.protocol.hangThresholdKg,
+                            peakWeight: peakW,
+                            heroColor: color,
+                          ),
                         ),
                       ),
                     );

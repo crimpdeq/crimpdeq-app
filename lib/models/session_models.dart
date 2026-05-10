@@ -5,6 +5,8 @@ part 'session_models.g.dart';
 
 enum ProtocolType { maxHang, repeater, freeform }
 
+enum HandMode { both, alternatePerSet, alternatePerRep, left, right }
+
 enum SessionPhase {
   idle,
   countdown,
@@ -15,7 +17,21 @@ enum SessionPhase {
 }
 
 @freezed
+sealed class SetConfig with _$SetConfig {
+  const factory SetConfig({
+    @Default(7) int hangDurationSec,
+    @Default(3) int restDurationSec,
+    @Default(1) int repsPerSet,
+  }) = _SetConfig;
+
+  factory SetConfig.fromJson(Map<String, dynamic> json) =>
+      _$SetConfigFromJson(json);
+}
+
+@freezed
 sealed class ProtocolConfig with _$ProtocolConfig {
+  const ProtocolConfig._();
+
   const factory ProtocolConfig({
     required ProtocolType type,
     @Default(7) int hangDurationSec,
@@ -25,7 +41,21 @@ sealed class ProtocolConfig with _$ProtocolConfig {
     @Default(180) int restBetweenSetsSec,
     @Default(0.0) double targetWeightKg,
     @Default(2.0) double hangThresholdKg,
+    String? gripId,
+    @Default(HandMode.alternatePerRep) HandMode handMode,
+    @Default(null) List<SetConfig>? setConfigs,
   }) = _ProtocolConfig;
+
+  int get effectiveSets => setConfigs?.length ?? sets;
+
+  SetConfig getSetConfig(int index) =>
+      setConfigs != null && index < setConfigs!.length
+          ? setConfigs![index]
+          : SetConfig(
+              hangDurationSec: hangDurationSec,
+              restDurationSec: restDurationSec,
+              repsPerSet: repsPerSet,
+            );
 
   factory ProtocolConfig.fromJson(Map<String, dynamic> json) =>
       _$ProtocolConfigFromJson(json);
@@ -101,5 +131,8 @@ sealed class ActiveSessionState with _$ActiveSessionState {
     @Default(0.0) double peakWeightKg,
     @Default([]) List<WeightSample> liveWeightHistory,
     @Default(false) bool isPaused,
+    @Default(0) int currentHandIndex, // 0 = left, 1 = right
+    // Timer is frozen until weight crosses hangThresholdKg
+    @Default(false) bool waitingForThreshold,
   }) = _ActiveSessionState;
 }

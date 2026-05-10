@@ -105,6 +105,13 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
       state = current.copyWith(peakWeightKg: weight);
     }
 
+    // Start the hang timer the moment weight crosses the threshold
+    if (current.phase == SessionPhase.hanging &&
+        current.waitingForThreshold &&
+        weight > current.protocol.hangThresholdKg) {
+      _onThresholdMet();
+    }
+
     // Only run rep detection in freeform or during hang/rest phases
     if (current.phase == SessionPhase.hanging ||
         current.phase == SessionPhase.resting ||
@@ -130,12 +137,32 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     );
 
     // Check if set is complete (for structured protocols)
+    final setConfig = current.protocol.getSetConfig(current.currentSetIndex);
     if (current.protocol.type == ProtocolType.maxHang) {
       // Max hang: each rep completes the set (hang until failure)
       _completeCurrentSet();
     } else if (current.protocol.type == ProtocolType.repeater &&
-        _currentSetReps.length >= current.protocol.repsPerSet) {
+        _currentSetReps.length >= setConfig.repsPerSet) {
       _completeCurrentSet();
+    }
+  }
+
+  void _toggleHandIfNeeded(SessionPhase trigger) {
+    final current = state;
+    if (current == null) return;
+    final mode = current.protocol.handMode;
+    if (mode == HandMode.both ||
+        mode == HandMode.left ||
+        mode == HandMode.right) {
+      return;
+    }
+    if ((mode == HandMode.alternatePerRep &&
+            trigger == SessionPhase.hanging) ||
+        (mode == HandMode.alternatePerSet &&
+            trigger == SessionPhase.restBetweenSets)) {
+      state = current.copyWith(
+        currentHandIndex: (current.currentHandIndex + 1) % 2,
+      );
     }
   }
 
@@ -144,36 +171,72 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     HapticFeedback.mediumImpact();
     final current = state;
     if (current == null) return;
-    final now = DateTime.now().millisecondsSinceEpoch;
+
+    _toggleHandIfNeeded(SessionPhase.hanging);
+
+    final setConfig = current.protocol.getSetConfig(current.currentSetIndex);
+    final threshold = current.protocol.hangThresholdKg;
+    final gate = threshold > 0;
 
     if (current.protocol.type == ProtocolType.maxHang) {
-      // Max hang: count up until failure (rep detector triggers end)
       state = current.copyWith(
         phase: SessionPhase.hanging,
         phaseRemainingMs: 0,
         phaseElapsedMs: 0,
         phaseDeadlineMs: 0,
-        phaseStartMs: now,
+        phaseStartMs: gate ? 0 : DateTime.now().millisecondsSinceEpoch,
+        waitingForThreshold: gate,
       );
-      // No periodic timer needed — UI reads phaseStartMs via Ticker
     } else if (current.protocol.type == ProtocolType.repeater) {
-      final hangMs = current.protocol.hangDurationSec * 1000;
-      state = current.copyWith(
-        phase: SessionPhase.hanging,
-        phaseRemainingMs: hangMs,
-        phaseDeadlineMs: now + hangMs,
-      );
-      _startPhaseCountdown(hangMs, () {
-        _startRestPhase();
-      });
+      final hangMs = setConfig.hangDurationSec * 1000;
+      if (gate) {
+        // Freeze timer at full hang duration until threshold is crossed
+        state = current.copyWith(
+          phase: SessionPhase.hanging,
+          phaseRemainingMs: hangMs,
+          phaseDeadlineMs: 0,
+          waitingForThreshold: true,
+        );
+      } else {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        state = current.copyWith(
+          phase: SessionPhase.hanging,
+          phaseRemainingMs: hangMs,
+          phaseDeadlineMs: now + hangMs,
+          waitingForThreshold: false,
+        );
+        _startPhaseCountdown(hangMs, () => _startRestPhase());
+      }
     } else {
       // Freeform: no timer, no auto-transition
       state = current.copyWith(
         phase: SessionPhase.hanging,
         phaseRemainingMs: 0,
         phaseDeadlineMs: 0,
+        phaseStartMs: DateTime.now().millisecondsSinceEpoch,
+        waitingForThreshold: false,
+      );
+    }
+  }
+
+  void _onThresholdMet() {
+    final current = state;
+    if (current == null || !current.waitingForThreshold) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    if (current.protocol.type == ProtocolType.maxHang) {
+      state = current.copyWith(
+        waitingForThreshold: false,
         phaseStartMs: now,
       );
+    } else if (current.protocol.type == ProtocolType.repeater) {
+      final setConfig = current.protocol.getSetConfig(current.currentSetIndex);
+      final hangMs = setConfig.hangDurationSec * 1000;
+      state = current.copyWith(
+        waitingForThreshold: false,
+        phaseDeadlineMs: now + hangMs,
+      );
+      _startPhaseCountdown(hangMs, () => _startRestPhase());
     }
   }
 
@@ -184,7 +247,8 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     if (current == null) return;
     final now = DateTime.now().millisecondsSinceEpoch;
 
-    final restMs = current.protocol.restDurationSec * 1000;
+    final setConfig = current.protocol.getSetConfig(current.currentSetIndex);
+    final restMs = setConfig.restDurationSec * 1000;
     state = current.copyWith(
       phase: SessionPhase.resting,
       phaseRemainingMs: restMs,
@@ -193,7 +257,7 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
 
     _startPhaseCountdown(restMs, () {
       // Check if we've completed enough reps for this set
-      if (_currentSetReps.length >= current.protocol.repsPerSet) {
+      if (_currentSetReps.length >= setConfig.repsPerSet) {
         _completeCurrentSet();
       } else {
         _startHangPhase();
@@ -206,6 +270,8 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     final current = state;
     if (current == null) return;
 
+    _toggleHandIfNeeded(SessionPhase.restBetweenSets);
+
     final completedSet = TrainingSet(
       reps: List.unmodifiable(_currentSetReps),
     );
@@ -215,7 +281,7 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     final sets = [...current.completedSets, completedSet];
     final nextSetIndex = current.currentSetIndex + 1;
 
-    if (nextSetIndex >= current.protocol.sets) {
+    if (nextSetIndex >= current.protocol.effectiveSets) {
       // All sets done
       state = current.copyWith(
         completedSets: sets,
@@ -319,10 +385,12 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     _weightSubscription?.cancel();
     _weightSubscription = null;
 
-    // Snapshot remaining/elapsed so resume can recompute deadlines
-    final remaining = current.phaseDeadlineMs > 0
-        ? (current.phaseDeadlineMs - now).clamp(0, double.maxFinite).toInt()
-        : 0;
+    // When waiting for threshold no timer has started yet — preserve full remaining duration
+    final remaining = current.waitingForThreshold
+        ? current.phaseRemainingMs
+        : current.phaseDeadlineMs > 0
+            ? (current.phaseDeadlineMs - now).clamp(0, double.maxFinite).toInt()
+            : 0;
     final elapsed = current.phaseStartMs > 0
         ? now - current.phaseStartMs
         : current.phaseElapsedMs;
@@ -340,6 +408,17 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     final current = state;
     if (current == null || !current.isPaused) return;
     final now = DateTime.now().millisecondsSinceEpoch;
+
+    if (current.waitingForThreshold) {
+      // No timer to restart — just re-subscribe and wait for threshold crossing
+      state = current.copyWith(
+        isPaused: false,
+        phaseDeadlineMs: 0,
+        phaseStartMs: 0,
+      );
+      _subscribeToWeight();
+      return;
+    }
 
     final remainingMs = current.phaseRemainingMs;
     state = current.copyWith(
@@ -365,10 +444,14 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
       case SessionPhase.resting:
         _startPhaseCountdown(remainingMs, () {
           final current = state;
-          if (current != null && _currentSetReps.length >= current.protocol.repsPerSet) {
-            _completeCurrentSet();
-          } else {
-            _startHangPhase();
+          if (current != null) {
+            final setConfig =
+                current.protocol.getSetConfig(current.currentSetIndex);
+            if (_currentSetReps.length >= setConfig.repsPerSet) {
+              _completeCurrentSet();
+            } else {
+              _startHangPhase();
+            }
           }
         });
       case SessionPhase.restBetweenSets:
