@@ -24,6 +24,7 @@ class SessionDao extends DatabaseAccessor<AppDatabase> with _$SessionDaoMixin {
         peakForceKg: Value(session.peakForceKg),
         avgPeakForceKg: Value(session.avgPeakForceKg),
         notes: Value(session.notes),
+        gripId: Value(session.protocolConfig.gripId),
       ),
     );
 

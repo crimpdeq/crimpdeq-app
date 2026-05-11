@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import '../models/grip_models.dart';
 import '../models/session_models.dart';
 import '../providers/database_provider.dart';
+import '../providers/grip_provider.dart';
 import '../services/export_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common/animated_number.dart';
@@ -68,12 +70,17 @@ class SessionDetailScreen extends ConsumerWidget {
               ),
             );
           }
+          final gripMap = ref.watch(gripMapProvider).whenData((m) => m).value ?? {};
+          final grip = session.protocolConfig.gripId != null
+              ? gripMap[session.protocolConfig.gripId!]
+              : null;
+
           return BackgroundGradient(
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 // Hero peak weight header
-                _HeroPeakHeader(session: session),
+                _HeroPeakHeader(session: session, grip: grip),
                 const SizedBox(height: 16),
 
                 SessionSummaryCard(
@@ -109,9 +116,10 @@ class SessionDetailScreen extends ConsumerWidget {
 // ──────────────────────────── Hero peak header ─────────────────────────
 
 class _HeroPeakHeader extends StatelessWidget {
-  const _HeroPeakHeader({required this.session});
+  const _HeroPeakHeader({required this.session, this.grip});
 
   final Session session;
+  final Grip? grip;
 
   @override
   Widget build(BuildContext context) {
@@ -119,32 +127,62 @@ class _HeroPeakHeader extends StatelessWidget {
 
     return Column(
       children: [
-        // Protocol badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: brandAccent.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                _protocolIcon(session.protocolType),
-                size: 14,
-                color: brandAccent,
+        // Protocol + grip badges
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          alignment: WrapAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: brandAccent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
               ),
-              const SizedBox(width: 6),
-              Text(
-                _protocolLabel(session.protocolType),
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                  color: brandAccent,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _protocolIcon(session.protocolType),
+                    size: 14,
+                    color: brandAccent,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _protocolLabel(session.protocolType),
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: brandAccent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (grip != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: webMuted.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.back_hand, size: 12, color: webMuted),
+                    const SizedBox(width: 5),
+                    Text(
+                      grip!.displayLabel,
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        color: webMuted,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+          ],
         ),
         const SizedBox(height: 4),
         Text(
@@ -437,7 +475,7 @@ class _SetBreakdownCard extends StatelessWidget {
 IconData _protocolIcon(ProtocolType type) {
   switch (type) {
     case ProtocolType.maxHang:
-      return Icons.fitness_center;
+      return Icons.timer;
     case ProtocolType.repeater:
       return Icons.repeat;
     case ProtocolType.freeform:

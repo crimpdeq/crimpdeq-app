@@ -57,10 +57,14 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   StreamSubscription? _connectionSubscription;
   StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
   StreamSubscription<ProgressorEvent>? _protocolSubscription;
+  StreamSubscription? _craneScaleScanSubscription;
   Timer? _scanTimeoutTimer;
+  Timer? _craneScaleWatchdogTimer;
   Timer? _simulatorTimer;
   int _simulatorTimestampUs = 0;
   DateTime? _simulatorStartTime;
+  DateTime? _craneScaleStartTime;
+  double _craneScaleTareOffset = 0.0;
   final _simulatorRng = Random();
   ProtocolConfig? _simulatorConfig;
   DateTime? _lastNotifyTime;
@@ -75,6 +79,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   double _currentNotifyIntervalMs = 0.0;
   int _dataPacketCount = 0;
   double? _calibrationFactor;
+  final Map<String, ScanResult> _scanResultCache = {};
   final List<List<double>> _calibrationPoints = [];
 
   ProgressorProtocol? _protocol;
@@ -84,6 +89,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     ref.onDispose(() {
       _simulatorTimer?.cancel();
       _simulatorTimer = null;
+      _craneScaleWatchdogTimer?.cancel();
+      _craneScaleWatchdogTimer = null;
+      _craneScaleScanSubscription?.cancel();
+      _craneScaleScanSubscription = null;
       _cleanupSubscriptions();
       _cancelScanTimeoutTimer();
       _adapterStateSubscription?.cancel();
@@ -384,47 +393,84 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       return;
     }
 
+    _scanResultCache.clear();
     state = state.copyWith(
       connection: state.connection.copyWith(
         isScanning: true,
-        status: 'Scanning for Progressor...',
+        status: 'Scanning for devices...',
       ),
+      discoveredDevices: [],
     );
 
     try {
       await FlutterBluePlus.startScan(
         timeout: AppConstants.scanTimeout,
-        withServices: [Guid(ProgressorConstants.serviceUuid)],
         webOptionalServices: [Guid(ProgressorConstants.serviceUuid)],
       );
 
       _scanSubscription?.cancel();
       _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
-        if (state.connection.device != null || state.connection.isConnecting) {
+        if (state.connection.isConnected || state.connection.isConnecting) {
           return;
         }
+
+        var changed = false;
         for (final result in results) {
-          if (result.device.platformName.toLowerCase().contains('progressor') ||
+          final id = result.device.remoteId.str;
+          final name = result.device.platformName;
+          DeviceType? type;
+
+          if (name.toLowerCase().contains('progressor') ||
               result.advertisementData.serviceUuids.any(
                 (uuid) =>
                     uuid.toString().toLowerCase() ==
                     ProgressorConstants.serviceUuid.toLowerCase(),
               )) {
-            unawaited(_connectToDevice(result.device));
-            break;
+            type = DeviceType.progressor;
+          } else if (result.advertisementData.manufacturerData
+                  .containsKey(CraneScaleProtocol.manufacturerId) ||
+              name.toLowerCase().startsWith('if_')) {
+            type = DeviceType.craneScale;
           }
+
+          if (type == null) continue;
+          if (_scanResultCache.containsKey(id)) continue;
+
+          _scanResultCache[id] = result;
+          changed = true;
+        }
+
+        if (changed) {
+          state = state.copyWith(
+            discoveredDevices: _scanResultCache.entries
+                .map((e) {
+                  final r = e.value;
+                  final name = r.device.platformName;
+                  final isProgressor =
+                      name.toLowerCase().contains('progressor') ||
+                      r.advertisementData.serviceUuids.any(
+                        (uuid) =>
+                            uuid.toString().toLowerCase() ==
+                            ProgressorConstants.serviceUuid.toLowerCase(),
+                      );
+                  return DiscoveredDevice(
+                    name: name.isEmpty ? 'Unknown' : name,
+                    id: e.key,
+                    type: isProgressor
+                        ? DeviceType.progressor
+                        : DeviceType.craneScale,
+                    rssi: r.rssi,
+                  );
+                })
+                .toList(),
+          );
         }
       });
 
       _cancelScanTimeoutTimer();
       _scanTimeoutTimer = Timer(AppConstants.scanExtendedTimeout, () {
-        if (state.connection.device == null && state.connection.isScanning) {
+        if (!state.connection.isConnected && state.connection.isScanning) {
           unawaited(stopScanning());
-          state = state.copyWith(
-            connection: state.connection.copyWith(
-              status: 'Progressor device not found. Please try scanning again.',
-            ),
-          );
         }
       });
     } catch (e) {
@@ -434,6 +480,20 @@ class ProgressorNotifier extends _$ProgressorNotifier {
           status: 'Scan failed: $e',
         ),
       );
+    }
+  }
+
+  Future<void> connectToDiscoveredDevice(String id) async {
+    final scanResult = _scanResultCache[id];
+    if (scanResult == null) return;
+
+    final device = state.discoveredDevices.where((d) => d.id == id).firstOrNull;
+    if (device == null) return;
+
+    if (device.type == DeviceType.craneScale) {
+      await _connectToCraneScale(scanResult);
+    } else {
+      await _connectToDevice(scanResult.device);
     }
   }
 
@@ -550,6 +610,104 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     } catch (e) {
       await _failConnectionSetup(device, 'Connection failed: $e');
     }
+  }
+
+  // ── Crane scale (advertisement-only) connection ──────────────
+
+  Future<void> _connectToCraneScale(ScanResult initialResult) async {
+    if (state.connection.isCraneScale || state.connection.isConnecting) return;
+
+    // Set state immediately (before any async gap) to prevent re-entry.
+    state = state.copyWith(
+      connection: state.connection.copyWith(
+        isScanning: false,
+        isConnecting: false,
+        deviceType: DeviceType.craneScale,
+        status: 'Connected to Crane Scale',
+      ),
+    );
+
+    try {
+      _cancelScanTimeoutTimer();
+      await _scanSubscription?.cancel();
+      _scanSubscription = null;
+
+      // Stop the initial scan — we'll restart with continuousUpdates.
+      try {
+        await FlutterBluePlus.stopScan();
+      } catch (_) {}
+
+      _craneScaleStartTime = null;
+      _craneScaleTareOffset = 0.0;
+      _craneScaleWatchdogTimer?.cancel();
+
+      // Process the first advertisement we already have.
+      _handleCraneScaleAdvertisement(initialResult);
+
+      // Restart scan with continuous updates to keep receiving advertisements.
+      _craneScaleScanSubscription?.cancel();
+      _craneScaleScanSubscription = FlutterBluePlus.scanResults.listen((results) {
+        for (final result in results) {
+          if (result.advertisementData.manufacturerData
+              .containsKey(CraneScaleProtocol.manufacturerId)) {
+            _handleCraneScaleAdvertisement(result);
+            break;
+          }
+        }
+    });
+
+      await FlutterBluePlus.startScan(
+        continuousUpdates: true,
+        continuousDivisor: 1,
+      );
+    } catch (e) {
+      _log('_connectToCraneScale error: $e');
+    }
+  }
+
+  void _resetCraneScaleWatchdog() {
+    _craneScaleWatchdogTimer?.cancel();
+    _craneScaleWatchdogTimer = Timer(const Duration(seconds: 3), () {
+      // No advertisement for 3 s — restart the scan to clear the
+      // flutter_blue_plus result cache so that when the device resumes
+      // advertising (e.g. after physical TARE) its fresh packets are
+      // delivered instead of the stale cached ScanResult.
+      if (state.connection.isCraneScale) {
+        unawaited(FlutterBluePlus.startScan(
+          continuousUpdates: true,
+          continuousDivisor: 1,
+        ));
+      }
+    });
+  }
+
+  void _handleCraneScaleAdvertisement(ScanResult result) {
+    if (!state.connection.isCraneScale) return;
+
+    final mfgData = result
+        .advertisementData.manufacturerData[CraneScaleProtocol.manufacturerId];
+    if (mfgData == null) return;
+
+    final parsed = CraneScaleProtocol.parse(mfgData);
+    if (parsed == null) return;
+
+    // Only feed weight data when actively measuring.
+    if (!state.measurement.isMeasuring) return;
+
+    final now = DateTime.now();
+    _craneScaleStartTime ??= now;
+    final timestampUs = now.difference(_craneScaleStartTime!).inMicroseconds;
+
+    final weight = parsed.weightKg - _craneScaleTareOffset;
+
+    final measurement = WeightMeasurement(
+      weight: weight,
+      timestampUs: timestampUs,
+      receivedAt: now,
+    );
+
+    _resetCraneScaleWatchdog();
+    _handleWeightMeasurements([measurement]);
   }
 
   Future<void> _failConnectionSetup(
@@ -682,6 +840,16 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       );
       return;
     }
+    if (state.connection.isCraneScale) {
+      // Software tare: store current weight as offset.
+      _craneScaleTareOffset += state.measurement.currentWeight;
+      final tareWeight = state.measurement.currentWeight;
+      _resetMeasurementState();
+      state = state.copyWith(
+        deviceInfo: state.deviceInfo.copyWith(tareValue: tareWeight),
+      );
+      return;
+    }
     final wasMeasuring = state.measurement.isMeasuring;
     var tareWeight = state.measurement.currentWeight;
 
@@ -721,6 +889,20 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       _simulatorStartMeasurement();
       return;
     }
+    if (state.connection.isCraneScale) {
+      _craneScaleStartTime = null;
+      _resetMeasurementRuntimeState();
+      state = state.copyWith(
+        measurement: state.measurement.copyWith(
+          isMeasuring: true,
+          weightHistory: [],
+          maxWeight: 0.0,
+          minWeight: 0.0,
+          sampleCount: 0,
+        ),
+      );
+      return;
+    }
     await _protocol?.startMeasurement();
     _resetMeasurementRuntimeState();
     state = state.copyWith(
@@ -739,6 +921,14 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       _simulatorStopMeasurement();
       return;
     }
+    if (state.connection.isCraneScale) {
+      _craneScaleWatchdogTimer?.cancel();
+      _flushPendingMeasurements();
+      state = state.copyWith(
+        measurement: state.measurement.copyWith(isMeasuring: false),
+      );
+      return;
+    }
     await _protocol?.stopMeasurement();
     _flushPendingMeasurements();
 
@@ -747,16 +937,20 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     );
   }
 
-  Future<void> addCalibrationPoint(double weightKg) =>
-      _protocol?.addCalibrationPoint(weightKg) ?? Future.value();
+  Future<void> addCalibrationPoint(double weightKg) {
+    if (state.connection.isCraneScale) return Future.value();
+    return _protocol?.addCalibrationPoint(weightKg) ?? Future.value();
+  }
 
   Future<void> getCalibration() async {
+    if (state.connection.isCraneScale) return;
     _calibrationPoints.clear();
     _updateCalibrationInfo();
     await _protocol?.getCalibration();
   }
 
   Future<void> defaultCalibration() async {
+    if (state.connection.isCraneScale) return;
     _calibrationFactor = null;
     _calibrationPoints.clear();
     _updateCalibrationInfo();
@@ -876,6 +1070,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       _simulatorDisconnect();
       return;
     }
+    if (state.connection.isCraneScale) {
+      _disconnectCraneScale();
+      return;
+    }
 
     final bluetoothReady = state.connection.bluetoothReady;
     final device = state.connection.device;
@@ -918,6 +1116,25 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _cleanupSubscriptions();
     _resetDisconnectedState(
       bluetoothReady: bluetoothReady,
+      status: 'Disconnected',
+    );
+  }
+
+  // ── Crane scale disconnect ────────────────────────────────────
+
+  void _disconnectCraneScale() {
+    _craneScaleScanSubscription?.cancel();
+    _craneScaleScanSubscription = null;
+    _craneScaleStartTime = null;
+    _craneScaleTareOffset = 0.0;
+
+    try {
+      FlutterBluePlus.stopScan();
+    } catch (_) {}
+
+    _resetMeasurementRuntimeState(clearRxBuffer: true);
+    _resetDisconnectedState(
+      bluetoothReady: state.connection.bluetoothReady,
       status: 'Disconnected',
     );
   }
@@ -1127,11 +1344,13 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _notifyEventSubscription?.cancel();
     _connectionSubscription?.cancel();
     _protocolSubscription?.cancel();
+    _craneScaleScanSubscription?.cancel();
     _scanSubscription = null;
     _notifySubscription = null;
     _notifyEventSubscription = null;
     _connectionSubscription = null;
     _protocolSubscription = null;
+    _craneScaleScanSubscription = null;
     _protocol?.dispose();
     _protocol = null;
   }

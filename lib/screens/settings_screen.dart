@@ -106,8 +106,8 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
 
-          // Calibration nav tile — only when connected
-          if (state.connection.isConnected) ...[
+          // Calibration nav tile — only when connected and device supports it
+          if (state.connection.isConnected && state.connection.supportsCalibration) ...[
             const SizedBox(height: 8),
             Card(
               child: ListTile(

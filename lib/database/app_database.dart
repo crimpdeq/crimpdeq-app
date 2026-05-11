@@ -15,6 +15,7 @@ class Sessions extends Table {
   RealColumn get peakForceKg => real().withDefault(const Constant(0.0))();
   RealColumn get avgPeakForceKg => real().withDefault(const Constant(0.0))();
   TextColumn get notes => text().withDefault(const Constant(''))();
+  TextColumn get gripId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -47,9 +48,32 @@ class PersonalRecords extends Table {
   DateTimeColumn get achievedAt => dateTime()();
 }
 
+class SessionTemplates extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get protocolConfigJson => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class Grips extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  RealColumn get edgeDepthMm => real()();
+  TextColumn get fingersJson => text()(); // JSON-encoded list of finger indices
+  IntColumn get gripType => integer()();
+  IntColumn get contractionType => integer()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 // ──────────────────────────── Database ────────────────────────────────
 
-@DriftDatabase(tables: [Sessions, TrainingSets, Reps, PersonalRecords])
+@DriftDatabase(tables: [Sessions, TrainingSets, Reps, PersonalRecords, Grips, SessionTemplates])
 class AppDatabase extends _$AppDatabase {
   AppDatabase._(super.executor);
 
@@ -63,5 +87,21 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 4;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.createTable(grips);
+          }
+          if (from < 3) {
+            await m.addColumn(sessions, sessions.gripId);
+          }
+          if (from < 4) {
+            await m.createTable(sessionTemplates);
+          }
+        },
+      );
 }

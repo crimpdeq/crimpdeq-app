@@ -95,6 +95,15 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
   );
+  static const VerificationMeta _gripIdMeta = const VerificationMeta('gripId');
+  @override
+  late final GeneratedColumn<String> gripId = GeneratedColumn<String>(
+    'grip_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -105,6 +114,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     peakForceKg,
     avgPeakForceKg,
     notes,
+    gripId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -183,6 +193,12 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('grip_id')) {
+      context.handle(
+        _gripIdMeta,
+        gripId.isAcceptableOrUnknown(data['grip_id']!, _gripIdMeta),
+      );
+    }
     return context;
   }
 
@@ -224,6 +240,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       )!,
+      gripId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}grip_id'],
+      ),
     );
   }
 
@@ -242,6 +262,7 @@ class Session extends DataClass implements Insertable<Session> {
   final double peakForceKg;
   final double avgPeakForceKg;
   final String notes;
+  final String? gripId;
   const Session({
     required this.id,
     required this.protocolType,
@@ -251,6 +272,7 @@ class Session extends DataClass implements Insertable<Session> {
     required this.peakForceKg,
     required this.avgPeakForceKg,
     required this.notes,
+    this.gripId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -265,6 +287,9 @@ class Session extends DataClass implements Insertable<Session> {
     map['peak_force_kg'] = Variable<double>(peakForceKg);
     map['avg_peak_force_kg'] = Variable<double>(avgPeakForceKg);
     map['notes'] = Variable<String>(notes);
+    if (!nullToAbsent || gripId != null) {
+      map['grip_id'] = Variable<String>(gripId);
+    }
     return map;
   }
 
@@ -280,6 +305,9 @@ class Session extends DataClass implements Insertable<Session> {
       peakForceKg: Value(peakForceKg),
       avgPeakForceKg: Value(avgPeakForceKg),
       notes: Value(notes),
+      gripId: gripId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(gripId),
     );
   }
 
@@ -299,6 +327,7 @@ class Session extends DataClass implements Insertable<Session> {
       peakForceKg: serializer.fromJson<double>(json['peakForceKg']),
       avgPeakForceKg: serializer.fromJson<double>(json['avgPeakForceKg']),
       notes: serializer.fromJson<String>(json['notes']),
+      gripId: serializer.fromJson<String?>(json['gripId']),
     );
   }
   @override
@@ -313,6 +342,7 @@ class Session extends DataClass implements Insertable<Session> {
       'peakForceKg': serializer.toJson<double>(peakForceKg),
       'avgPeakForceKg': serializer.toJson<double>(avgPeakForceKg),
       'notes': serializer.toJson<String>(notes),
+      'gripId': serializer.toJson<String?>(gripId),
     };
   }
 
@@ -325,6 +355,7 @@ class Session extends DataClass implements Insertable<Session> {
     double? peakForceKg,
     double? avgPeakForceKg,
     String? notes,
+    Value<String?> gripId = const Value.absent(),
   }) => Session(
     id: id ?? this.id,
     protocolType: protocolType ?? this.protocolType,
@@ -334,6 +365,7 @@ class Session extends DataClass implements Insertable<Session> {
     peakForceKg: peakForceKg ?? this.peakForceKg,
     avgPeakForceKg: avgPeakForceKg ?? this.avgPeakForceKg,
     notes: notes ?? this.notes,
+    gripId: gripId.present ? gripId.value : this.gripId,
   );
   Session copyWithCompanion(SessionsCompanion data) {
     return Session(
@@ -353,6 +385,7 @@ class Session extends DataClass implements Insertable<Session> {
           ? data.avgPeakForceKg.value
           : this.avgPeakForceKg,
       notes: data.notes.present ? data.notes.value : this.notes,
+      gripId: data.gripId.present ? data.gripId.value : this.gripId,
     );
   }
 
@@ -366,7 +399,8 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('endedAt: $endedAt, ')
           ..write('peakForceKg: $peakForceKg, ')
           ..write('avgPeakForceKg: $avgPeakForceKg, ')
-          ..write('notes: $notes')
+          ..write('notes: $notes, ')
+          ..write('gripId: $gripId')
           ..write(')'))
         .toString();
   }
@@ -381,6 +415,7 @@ class Session extends DataClass implements Insertable<Session> {
     peakForceKg,
     avgPeakForceKg,
     notes,
+    gripId,
   );
   @override
   bool operator ==(Object other) =>
@@ -393,7 +428,8 @@ class Session extends DataClass implements Insertable<Session> {
           other.endedAt == this.endedAt &&
           other.peakForceKg == this.peakForceKg &&
           other.avgPeakForceKg == this.avgPeakForceKg &&
-          other.notes == this.notes);
+          other.notes == this.notes &&
+          other.gripId == this.gripId);
 }
 
 class SessionsCompanion extends UpdateCompanion<Session> {
@@ -405,6 +441,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<double> peakForceKg;
   final Value<double> avgPeakForceKg;
   final Value<String> notes;
+  final Value<String?> gripId;
   final Value<int> rowid;
   const SessionsCompanion({
     this.id = const Value.absent(),
@@ -415,6 +452,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.peakForceKg = const Value.absent(),
     this.avgPeakForceKg = const Value.absent(),
     this.notes = const Value.absent(),
+    this.gripId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SessionsCompanion.insert({
@@ -426,6 +464,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.peakForceKg = const Value.absent(),
     this.avgPeakForceKg = const Value.absent(),
     this.notes = const Value.absent(),
+    this.gripId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        protocolType = Value(protocolType),
@@ -440,6 +479,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<double>? peakForceKg,
     Expression<double>? avgPeakForceKg,
     Expression<String>? notes,
+    Expression<String>? gripId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -452,6 +492,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       if (peakForceKg != null) 'peak_force_kg': peakForceKg,
       if (avgPeakForceKg != null) 'avg_peak_force_kg': avgPeakForceKg,
       if (notes != null) 'notes': notes,
+      if (gripId != null) 'grip_id': gripId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -465,6 +506,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<double>? peakForceKg,
     Value<double>? avgPeakForceKg,
     Value<String>? notes,
+    Value<String?>? gripId,
     Value<int>? rowid,
   }) {
     return SessionsCompanion(
@@ -476,6 +518,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       peakForceKg: peakForceKg ?? this.peakForceKg,
       avgPeakForceKg: avgPeakForceKg ?? this.avgPeakForceKg,
       notes: notes ?? this.notes,
+      gripId: gripId ?? this.gripId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -507,6 +550,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (gripId.present) {
+      map['grip_id'] = Variable<String>(gripId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -524,6 +570,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('peakForceKg: $peakForceKg, ')
           ..write('avgPeakForceKg: $avgPeakForceKg, ')
           ..write('notes: $notes, ')
+          ..write('gripId: $gripId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1739,6 +1786,803 @@ class PersonalRecordsCompanion extends UpdateCompanion<PersonalRecord> {
   }
 }
 
+class $GripsTable extends Grips with TableInfo<$GripsTable, Grip> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $GripsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _edgeDepthMmMeta = const VerificationMeta(
+    'edgeDepthMm',
+  );
+  @override
+  late final GeneratedColumn<double> edgeDepthMm = GeneratedColumn<double>(
+    'edge_depth_mm',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fingersJsonMeta = const VerificationMeta(
+    'fingersJson',
+  );
+  @override
+  late final GeneratedColumn<String> fingersJson = GeneratedColumn<String>(
+    'fingers_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _gripTypeMeta = const VerificationMeta(
+    'gripType',
+  );
+  @override
+  late final GeneratedColumn<int> gripType = GeneratedColumn<int>(
+    'grip_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contractionTypeMeta = const VerificationMeta(
+    'contractionType',
+  );
+  @override
+  late final GeneratedColumn<int> contractionType = GeneratedColumn<int>(
+    'contraction_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    edgeDepthMm,
+    fingersJson,
+    gripType,
+    contractionType,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'grips';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Grip> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('edge_depth_mm')) {
+      context.handle(
+        _edgeDepthMmMeta,
+        edgeDepthMm.isAcceptableOrUnknown(
+          data['edge_depth_mm']!,
+          _edgeDepthMmMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_edgeDepthMmMeta);
+    }
+    if (data.containsKey('fingers_json')) {
+      context.handle(
+        _fingersJsonMeta,
+        fingersJson.isAcceptableOrUnknown(
+          data['fingers_json']!,
+          _fingersJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_fingersJsonMeta);
+    }
+    if (data.containsKey('grip_type')) {
+      context.handle(
+        _gripTypeMeta,
+        gripType.isAcceptableOrUnknown(data['grip_type']!, _gripTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_gripTypeMeta);
+    }
+    if (data.containsKey('contraction_type')) {
+      context.handle(
+        _contractionTypeMeta,
+        contractionType.isAcceptableOrUnknown(
+          data['contraction_type']!,
+          _contractionTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_contractionTypeMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Grip map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Grip(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      edgeDepthMm: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}edge_depth_mm'],
+      )!,
+      fingersJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fingers_json'],
+      )!,
+      gripType: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}grip_type'],
+      )!,
+      contractionType: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}contraction_type'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $GripsTable createAlias(String alias) {
+    return $GripsTable(attachedDatabase, alias);
+  }
+}
+
+class Grip extends DataClass implements Insertable<Grip> {
+  final String id;
+  final String name;
+  final double edgeDepthMm;
+  final String fingersJson;
+  final int gripType;
+  final int contractionType;
+  final DateTime createdAt;
+  const Grip({
+    required this.id,
+    required this.name,
+    required this.edgeDepthMm,
+    required this.fingersJson,
+    required this.gripType,
+    required this.contractionType,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['edge_depth_mm'] = Variable<double>(edgeDepthMm);
+    map['fingers_json'] = Variable<String>(fingersJson);
+    map['grip_type'] = Variable<int>(gripType);
+    map['contraction_type'] = Variable<int>(contractionType);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  GripsCompanion toCompanion(bool nullToAbsent) {
+    return GripsCompanion(
+      id: Value(id),
+      name: Value(name),
+      edgeDepthMm: Value(edgeDepthMm),
+      fingersJson: Value(fingersJson),
+      gripType: Value(gripType),
+      contractionType: Value(contractionType),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory Grip.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Grip(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      edgeDepthMm: serializer.fromJson<double>(json['edgeDepthMm']),
+      fingersJson: serializer.fromJson<String>(json['fingersJson']),
+      gripType: serializer.fromJson<int>(json['gripType']),
+      contractionType: serializer.fromJson<int>(json['contractionType']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'edgeDepthMm': serializer.toJson<double>(edgeDepthMm),
+      'fingersJson': serializer.toJson<String>(fingersJson),
+      'gripType': serializer.toJson<int>(gripType),
+      'contractionType': serializer.toJson<int>(contractionType),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  Grip copyWith({
+    String? id,
+    String? name,
+    double? edgeDepthMm,
+    String? fingersJson,
+    int? gripType,
+    int? contractionType,
+    DateTime? createdAt,
+  }) => Grip(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    edgeDepthMm: edgeDepthMm ?? this.edgeDepthMm,
+    fingersJson: fingersJson ?? this.fingersJson,
+    gripType: gripType ?? this.gripType,
+    contractionType: contractionType ?? this.contractionType,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  Grip copyWithCompanion(GripsCompanion data) {
+    return Grip(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      edgeDepthMm: data.edgeDepthMm.present
+          ? data.edgeDepthMm.value
+          : this.edgeDepthMm,
+      fingersJson: data.fingersJson.present
+          ? data.fingersJson.value
+          : this.fingersJson,
+      gripType: data.gripType.present ? data.gripType.value : this.gripType,
+      contractionType: data.contractionType.present
+          ? data.contractionType.value
+          : this.contractionType,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Grip(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('edgeDepthMm: $edgeDepthMm, ')
+          ..write('fingersJson: $fingersJson, ')
+          ..write('gripType: $gripType, ')
+          ..write('contractionType: $contractionType, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    edgeDepthMm,
+    fingersJson,
+    gripType,
+    contractionType,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Grip &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.edgeDepthMm == this.edgeDepthMm &&
+          other.fingersJson == this.fingersJson &&
+          other.gripType == this.gripType &&
+          other.contractionType == this.contractionType &&
+          other.createdAt == this.createdAt);
+}
+
+class GripsCompanion extends UpdateCompanion<Grip> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<double> edgeDepthMm;
+  final Value<String> fingersJson;
+  final Value<int> gripType;
+  final Value<int> contractionType;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const GripsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.edgeDepthMm = const Value.absent(),
+    this.fingersJson = const Value.absent(),
+    this.gripType = const Value.absent(),
+    this.contractionType = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  GripsCompanion.insert({
+    required String id,
+    required String name,
+    required double edgeDepthMm,
+    required String fingersJson,
+    required int gripType,
+    required int contractionType,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       edgeDepthMm = Value(edgeDepthMm),
+       fingersJson = Value(fingersJson),
+       gripType = Value(gripType),
+       contractionType = Value(contractionType),
+       createdAt = Value(createdAt);
+  static Insertable<Grip> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<double>? edgeDepthMm,
+    Expression<String>? fingersJson,
+    Expression<int>? gripType,
+    Expression<int>? contractionType,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (edgeDepthMm != null) 'edge_depth_mm': edgeDepthMm,
+      if (fingersJson != null) 'fingers_json': fingersJson,
+      if (gripType != null) 'grip_type': gripType,
+      if (contractionType != null) 'contraction_type': contractionType,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  GripsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<double>? edgeDepthMm,
+    Value<String>? fingersJson,
+    Value<int>? gripType,
+    Value<int>? contractionType,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return GripsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      edgeDepthMm: edgeDepthMm ?? this.edgeDepthMm,
+      fingersJson: fingersJson ?? this.fingersJson,
+      gripType: gripType ?? this.gripType,
+      contractionType: contractionType ?? this.contractionType,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (edgeDepthMm.present) {
+      map['edge_depth_mm'] = Variable<double>(edgeDepthMm.value);
+    }
+    if (fingersJson.present) {
+      map['fingers_json'] = Variable<String>(fingersJson.value);
+    }
+    if (gripType.present) {
+      map['grip_type'] = Variable<int>(gripType.value);
+    }
+    if (contractionType.present) {
+      map['contraction_type'] = Variable<int>(contractionType.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GripsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('edgeDepthMm: $edgeDepthMm, ')
+          ..write('fingersJson: $fingersJson, ')
+          ..write('gripType: $gripType, ')
+          ..write('contractionType: $contractionType, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SessionTemplatesTable extends SessionTemplates
+    with TableInfo<$SessionTemplatesTable, SessionTemplate> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SessionTemplatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _protocolConfigJsonMeta =
+      const VerificationMeta('protocolConfigJson');
+  @override
+  late final GeneratedColumn<String> protocolConfigJson =
+      GeneratedColumn<String>(
+        'protocol_config_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    protocolConfigJson,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'session_templates';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SessionTemplate> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('protocol_config_json')) {
+      context.handle(
+        _protocolConfigJsonMeta,
+        protocolConfigJson.isAcceptableOrUnknown(
+          data['protocol_config_json']!,
+          _protocolConfigJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_protocolConfigJsonMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SessionTemplate map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SessionTemplate(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      protocolConfigJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}protocol_config_json'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SessionTemplatesTable createAlias(String alias) {
+    return $SessionTemplatesTable(attachedDatabase, alias);
+  }
+}
+
+class SessionTemplate extends DataClass implements Insertable<SessionTemplate> {
+  final String id;
+  final String name;
+  final String protocolConfigJson;
+  final DateTime createdAt;
+  const SessionTemplate({
+    required this.id,
+    required this.name,
+    required this.protocolConfigJson,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['protocol_config_json'] = Variable<String>(protocolConfigJson);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  SessionTemplatesCompanion toCompanion(bool nullToAbsent) {
+    return SessionTemplatesCompanion(
+      id: Value(id),
+      name: Value(name),
+      protocolConfigJson: Value(protocolConfigJson),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory SessionTemplate.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SessionTemplate(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      protocolConfigJson: serializer.fromJson<String>(
+        json['protocolConfigJson'],
+      ),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'protocolConfigJson': serializer.toJson<String>(protocolConfigJson),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  SessionTemplate copyWith({
+    String? id,
+    String? name,
+    String? protocolConfigJson,
+    DateTime? createdAt,
+  }) => SessionTemplate(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    protocolConfigJson: protocolConfigJson ?? this.protocolConfigJson,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  SessionTemplate copyWithCompanion(SessionTemplatesCompanion data) {
+    return SessionTemplate(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      protocolConfigJson: data.protocolConfigJson.present
+          ? data.protocolConfigJson.value
+          : this.protocolConfigJson,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SessionTemplate(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('protocolConfigJson: $protocolConfigJson, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, protocolConfigJson, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SessionTemplate &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.protocolConfigJson == this.protocolConfigJson &&
+          other.createdAt == this.createdAt);
+}
+
+class SessionTemplatesCompanion extends UpdateCompanion<SessionTemplate> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> protocolConfigJson;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const SessionTemplatesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.protocolConfigJson = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SessionTemplatesCompanion.insert({
+    required String id,
+    required String name,
+    required String protocolConfigJson,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       protocolConfigJson = Value(protocolConfigJson),
+       createdAt = Value(createdAt);
+  static Insertable<SessionTemplate> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? protocolConfigJson,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (protocolConfigJson != null)
+        'protocol_config_json': protocolConfigJson,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SessionTemplatesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? protocolConfigJson,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return SessionTemplatesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      protocolConfigJson: protocolConfigJson ?? this.protocolConfigJson,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (protocolConfigJson.present) {
+      map['protocol_config_json'] = Variable<String>(protocolConfigJson.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SessionTemplatesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('protocolConfigJson: $protocolConfigJson, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1746,6 +2590,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TrainingSetsTable trainingSets = $TrainingSetsTable(this);
   late final $RepsTable reps = $RepsTable(this);
   late final $PersonalRecordsTable personalRecords = $PersonalRecordsTable(
+    this,
+  );
+  late final $GripsTable grips = $GripsTable(this);
+  late final $SessionTemplatesTable sessionTemplates = $SessionTemplatesTable(
     this,
   );
   @override
@@ -1757,6 +2605,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     trainingSets,
     reps,
     personalRecords,
+    grips,
+    sessionTemplates,
   ];
 }
 
@@ -1770,6 +2620,7 @@ typedef $$SessionsTableCreateCompanionBuilder =
       Value<double> peakForceKg,
       Value<double> avgPeakForceKg,
       Value<String> notes,
+      Value<String?> gripId,
       Value<int> rowid,
     });
 typedef $$SessionsTableUpdateCompanionBuilder =
@@ -1782,6 +2633,7 @@ typedef $$SessionsTableUpdateCompanionBuilder =
       Value<double> peakForceKg,
       Value<double> avgPeakForceKg,
       Value<String> notes,
+      Value<String?> gripId,
       Value<int> rowid,
     });
 
@@ -1877,6 +2729,11 @@ class $$SessionsTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get gripId => $composableBuilder(
+    column: $table.gripId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1979,6 +2836,11 @@ class $$SessionsTableOrderingComposer
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get gripId => $composableBuilder(
+    column: $table.gripId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SessionsTableAnnotationComposer
@@ -2021,6 +2883,9 @@ class $$SessionsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<String> get gripId =>
+      $composableBuilder(column: $table.gripId, builder: (column) => column);
 
   Expression<T> trainingSetsRefs<T extends Object>(
     Expression<T> Function($$TrainingSetsTableAnnotationComposer a) f,
@@ -2112,6 +2977,7 @@ class $$SessionsTableTableManager
                 Value<double> peakForceKg = const Value.absent(),
                 Value<double> avgPeakForceKg = const Value.absent(),
                 Value<String> notes = const Value.absent(),
+                Value<String?> gripId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SessionsCompanion(
                 id: id,
@@ -2122,6 +2988,7 @@ class $$SessionsTableTableManager
                 peakForceKg: peakForceKg,
                 avgPeakForceKg: avgPeakForceKg,
                 notes: notes,
+                gripId: gripId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2134,6 +3001,7 @@ class $$SessionsTableTableManager
                 Value<double> peakForceKg = const Value.absent(),
                 Value<double> avgPeakForceKg = const Value.absent(),
                 Value<String> notes = const Value.absent(),
+                Value<String?> gripId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SessionsCompanion.insert(
                 id: id,
@@ -2144,6 +3012,7 @@ class $$SessionsTableTableManager
                 peakForceKg: peakForceKg,
                 avgPeakForceKg: avgPeakForceKg,
                 notes: notes,
+                gripId: gripId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -3316,6 +4185,432 @@ typedef $$PersonalRecordsTableProcessedTableManager =
       PersonalRecord,
       PrefetchHooks Function({bool sessionId})
     >;
+typedef $$GripsTableCreateCompanionBuilder =
+    GripsCompanion Function({
+      required String id,
+      required String name,
+      required double edgeDepthMm,
+      required String fingersJson,
+      required int gripType,
+      required int contractionType,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$GripsTableUpdateCompanionBuilder =
+    GripsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<double> edgeDepthMm,
+      Value<String> fingersJson,
+      Value<int> gripType,
+      Value<int> contractionType,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$GripsTableFilterComposer extends Composer<_$AppDatabase, $GripsTable> {
+  $$GripsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get edgeDepthMm => $composableBuilder(
+    column: $table.edgeDepthMm,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fingersJson => $composableBuilder(
+    column: $table.fingersJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get gripType => $composableBuilder(
+    column: $table.gripType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get contractionType => $composableBuilder(
+    column: $table.contractionType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$GripsTableOrderingComposer
+    extends Composer<_$AppDatabase, $GripsTable> {
+  $$GripsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get edgeDepthMm => $composableBuilder(
+    column: $table.edgeDepthMm,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fingersJson => $composableBuilder(
+    column: $table.fingersJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get gripType => $composableBuilder(
+    column: $table.gripType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get contractionType => $composableBuilder(
+    column: $table.contractionType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$GripsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $GripsTable> {
+  $$GripsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<double> get edgeDepthMm => $composableBuilder(
+    column: $table.edgeDepthMm,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fingersJson => $composableBuilder(
+    column: $table.fingersJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get gripType =>
+      $composableBuilder(column: $table.gripType, builder: (column) => column);
+
+  GeneratedColumn<int> get contractionType => $composableBuilder(
+    column: $table.contractionType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$GripsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $GripsTable,
+          Grip,
+          $$GripsTableFilterComposer,
+          $$GripsTableOrderingComposer,
+          $$GripsTableAnnotationComposer,
+          $$GripsTableCreateCompanionBuilder,
+          $$GripsTableUpdateCompanionBuilder,
+          (Grip, BaseReferences<_$AppDatabase, $GripsTable, Grip>),
+          Grip,
+          PrefetchHooks Function()
+        > {
+  $$GripsTableTableManager(_$AppDatabase db, $GripsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$GripsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$GripsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$GripsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<double> edgeDepthMm = const Value.absent(),
+                Value<String> fingersJson = const Value.absent(),
+                Value<int> gripType = const Value.absent(),
+                Value<int> contractionType = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => GripsCompanion(
+                id: id,
+                name: name,
+                edgeDepthMm: edgeDepthMm,
+                fingersJson: fingersJson,
+                gripType: gripType,
+                contractionType: contractionType,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required double edgeDepthMm,
+                required String fingersJson,
+                required int gripType,
+                required int contractionType,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => GripsCompanion.insert(
+                id: id,
+                name: name,
+                edgeDepthMm: edgeDepthMm,
+                fingersJson: fingersJson,
+                gripType: gripType,
+                contractionType: contractionType,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$GripsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $GripsTable,
+      Grip,
+      $$GripsTableFilterComposer,
+      $$GripsTableOrderingComposer,
+      $$GripsTableAnnotationComposer,
+      $$GripsTableCreateCompanionBuilder,
+      $$GripsTableUpdateCompanionBuilder,
+      (Grip, BaseReferences<_$AppDatabase, $GripsTable, Grip>),
+      Grip,
+      PrefetchHooks Function()
+    >;
+typedef $$SessionTemplatesTableCreateCompanionBuilder =
+    SessionTemplatesCompanion Function({
+      required String id,
+      required String name,
+      required String protocolConfigJson,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$SessionTemplatesTableUpdateCompanionBuilder =
+    SessionTemplatesCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String> protocolConfigJson,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$SessionTemplatesTableFilterComposer
+    extends Composer<_$AppDatabase, $SessionTemplatesTable> {
+  $$SessionTemplatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get protocolConfigJson => $composableBuilder(
+    column: $table.protocolConfigJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SessionTemplatesTableOrderingComposer
+    extends Composer<_$AppDatabase, $SessionTemplatesTable> {
+  $$SessionTemplatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get protocolConfigJson => $composableBuilder(
+    column: $table.protocolConfigJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SessionTemplatesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SessionTemplatesTable> {
+  $$SessionTemplatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get protocolConfigJson => $composableBuilder(
+    column: $table.protocolConfigJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$SessionTemplatesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SessionTemplatesTable,
+          SessionTemplate,
+          $$SessionTemplatesTableFilterComposer,
+          $$SessionTemplatesTableOrderingComposer,
+          $$SessionTemplatesTableAnnotationComposer,
+          $$SessionTemplatesTableCreateCompanionBuilder,
+          $$SessionTemplatesTableUpdateCompanionBuilder,
+          (
+            SessionTemplate,
+            BaseReferences<
+              _$AppDatabase,
+              $SessionTemplatesTable,
+              SessionTemplate
+            >,
+          ),
+          SessionTemplate,
+          PrefetchHooks Function()
+        > {
+  $$SessionTemplatesTableTableManager(
+    _$AppDatabase db,
+    $SessionTemplatesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SessionTemplatesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SessionTemplatesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SessionTemplatesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> protocolConfigJson = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SessionTemplatesCompanion(
+                id: id,
+                name: name,
+                protocolConfigJson: protocolConfigJson,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required String protocolConfigJson,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => SessionTemplatesCompanion.insert(
+                id: id,
+                name: name,
+                protocolConfigJson: protocolConfigJson,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SessionTemplatesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SessionTemplatesTable,
+      SessionTemplate,
+      $$SessionTemplatesTableFilterComposer,
+      $$SessionTemplatesTableOrderingComposer,
+      $$SessionTemplatesTableAnnotationComposer,
+      $$SessionTemplatesTableCreateCompanionBuilder,
+      $$SessionTemplatesTableUpdateCompanionBuilder,
+      (
+        SessionTemplate,
+        BaseReferences<_$AppDatabase, $SessionTemplatesTable, SessionTemplate>,
+      ),
+      SessionTemplate,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3327,4 +4622,8 @@ class $AppDatabaseManager {
   $$RepsTableTableManager get reps => $$RepsTableTableManager(_db, _db.reps);
   $$PersonalRecordsTableTableManager get personalRecords =>
       $$PersonalRecordsTableTableManager(_db, _db.personalRecords);
+  $$GripsTableTableManager get grips =>
+      $$GripsTableTableManager(_db, _db.grips);
+  $$SessionTemplatesTableTableManager get sessionTemplates =>
+      $$SessionTemplatesTableTableManager(_db, _db.sessionTemplates);
 }

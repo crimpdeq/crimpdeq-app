@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 
 import 'screens/active_session_screen.dart';
 import 'screens/calibration_screen.dart';
+import 'screens/create_grip_screen.dart';
+import 'screens/grips_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/measurement_screen.dart';
 import 'screens/onboarding_screen.dart';
@@ -63,6 +65,16 @@ final router = GoRouter(
         StatefulShellBranch(
           routes: [
             GoRoute(
+              path: '/grips',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: GripsScreen(),
+              ),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
               path: '/history',
               pageBuilder: (context, state) => const NoTransitionPage(
                 child: SessionHistoryScreen(),
@@ -85,14 +97,26 @@ final router = GoRouter(
 
     // Top-level routes — no bottom nav (immersive)
     GoRoute(
+      path: '/grips/create',
+      pageBuilder: (context, state) =>
+          _slidePage(child: const CreateGripScreen(), state: state),
+    ),
+    GoRoute(
       path: '/measurements',
       pageBuilder: (context, state) =>
           _slidePage(child: const MeasurementScreen(), state: state),
     ),
     GoRoute(
       path: '/session/setup',
-      pageBuilder: (context, state) =>
-          _slidePage(child: const ProtocolSetupScreen(), state: state),
+      pageBuilder: (context, state) {
+        final mode = state.uri.queryParameters['mode'] == 'manage'
+            ? SetupMode.manage
+            : SetupMode.train;
+        return _slidePage(
+          child: ProtocolSetupScreen(mode: mode),
+          state: state,
+        );
+      },
     ),
     GoRoute(
       path: '/session/active',

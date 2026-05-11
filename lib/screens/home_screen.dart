@@ -5,9 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../models/progressor_models.dart' as models;
-import '../providers/database_provider.dart';
 import '../providers/progressor_provider.dart';
-import '../models/session_models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common/background_gradient.dart';
 
@@ -27,23 +25,32 @@ class HomeScreen extends ConsumerWidget {
           // Connection pill
           _ConnectionPill(
             connection: connection,
-            onScan: notifier.startScanning,
+            onScan: () {
+              notifier.startScanning();
+              _showDevicePicker(context);
+            },
             onSimulator: notifier.connectSimulator,
           ),
           const SizedBox(height: 24),
 
-          // Hero training CTA
-          _HeroTrainingCard(isConnected: connection.isConnected),
+          // Start Training CTA
+          _ActionCard(
+            title: 'Start Training',
+            icon: Icons.play_circle_filled,
+            enabled: connection.isConnected,
+            disabledHint: 'Connect a device to start',
+            onTap: () => context.go('/session/setup'),
+          ),
+          const SizedBox(height: 12),
 
-          const SizedBox(height: 24),
-
-          // PR carousel
-          const _PrCarousel(),
-
-          const SizedBox(height: 16),
-
-          // Last session snapshot
-          const _LastSessionSnapshot(),
+          // Workouts CTA
+          _ActionCard(
+            title: 'Workouts',
+            icon: Icons.list_alt,
+            enabled: true,
+            primary: false,
+            onTap: () => context.go('/session/setup?mode=manage'),
+          ),
         ],
       ),
     );
@@ -77,7 +84,11 @@ class _ConnectionPill extends StatelessWidget {
       onTap = null;
     } else if (connection.isConnected) {
       dotColor = const Color(0xFF3FB950);
-      label = connection.isSimulator ? 'Simulator' : 'Connected';
+      label = connection.isSimulator
+          ? 'Simulator'
+          : connection.isCraneScale
+              ? 'Crane Scale'
+              : 'Connected';
       onTap = null;
     } else if (connection.isScanning || connection.isConnecting) {
       dotColor = brandAccent;
@@ -85,7 +96,7 @@ class _ConnectionPill extends StatelessWidget {
       onTap = null;
     } else {
       dotColor = webMuted;
-      label = 'Tap to scan';
+      label = 'Connect device';
       onTap = onScan;
     }
 
@@ -211,32 +222,52 @@ class _AnimatedDotState extends State<_AnimatedDot>
   }
 }
 
-// ──────────────────────────── Hero training CTA ─────────────────────────
+// ──────────────────────────── Action cards ─────────────────────────────
 
-class _HeroTrainingCard extends StatelessWidget {
-  const _HeroTrainingCard({required this.isConnected});
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({
+    required this.title,
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+    this.disabledHint,
+    this.primary = true,
+  });
 
-  final bool isConnected;
+  final String title;
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+  final String? disabledHint;
+  final bool primary;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final useGradient = primary && enabled;
+
     return GestureDetector(
-      onTap: isConnected ? () => context.go('/session/setup') : null,
+      onTap: enabled ? onTap : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        height: 120,
+        height: 100,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isConnected
-                ? [brandAccent, brandAccent.withValues(alpha: 0.8)]
-                : [webPanel, webPanelDeep],
-          ),
-          border: isConnected
+          gradient: useGradient
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [brandAccent, brandAccent.withValues(alpha: 0.8)],
+                )
+              : null,
+          color: useGradient ? null : (isDark ? webPanel : lightPanel),
+          border: useGradient
               ? null
-              : Border.all(color: webBorder.withValues(alpha: 0.5)),
+              : Border.all(
+                  color: isDark
+                      ? webBorder.withValues(alpha: 0.5)
+                      : lightBorder.withValues(alpha: 0.5),
+                ),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -248,16 +279,20 @@ class _HeroTrainingCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Start Training',
+                      title,
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.w800,
-                        fontSize: 24,
-                        color: isConnected ? Colors.white : webMuted,
+                        fontSize: 22,
+                        color: useGradient
+                            ? Colors.white
+                            : enabled
+                                ? (isDark ? webText : lightText)
+                                : webMuted,
                       ),
                     ),
-                    if (!isConnected)
+                    if (!enabled && disabledHint != null)
                       Text(
-                        'Connect a device first',
+                        disabledHint!,
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           color: webMuted.withValues(alpha: 0.7),
@@ -267,11 +302,13 @@ class _HeroTrainingCard extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.play_circle_filled,
-                size: 48,
-                color: isConnected
+                icon,
+                size: 40,
+                color: useGradient
                     ? Colors.white.withValues(alpha: 0.9)
-                    : webMuted.withValues(alpha: 0.3),
+                    : enabled
+                        ? brandAccent
+                        : webMuted.withValues(alpha: 0.3),
               ),
             ],
           ),
@@ -281,247 +318,176 @@ class _HeroTrainingCard extends StatelessWidget {
   }
 }
 
-// ──────────────────────────── PR carousel ──────────────────────────────
+// ──────────────────────────── Device picker ──────────────────────────
 
-class _PrCarousel extends ConsumerWidget {
-  const _PrCarousel();
+void _showDevicePicker(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: isDark ? webPanel : lightPanel,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => const _DevicePickerSheet(),
+  );
+}
+
+class _DevicePickerSheet extends ConsumerWidget {
+  const _DevicePickerSheet();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prsAsync = ref.watch(personalRecordsProvider);
+    final state = ref.watch(progressorProvider);
+    final devices = state.discoveredDevices;
+    final isScanning = state.connection.isScanning;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return prsAsync.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
-      data: (prs) {
-        if (prs.isEmpty) {
-          return Container(
-            height: 100,
-            decoration: BoxDecoration(
-              color: isDark ? webPanel : lightPanel,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isDark
-                    ? webBorder.withValues(alpha: 0.5)
-                    : lightBorder.withValues(alpha: 0.5),
+    // Auto-dismiss when connected.
+    if (state.connection.isConnected) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) Navigator.pop(context);
+      });
+    }
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: webMuted.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            child: Center(
-              child: Text(
-                'No records yet',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: webMuted,
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text(
+                  'Devices',
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    color: isDark ? webText : lightText,
+                  ),
+                ),
+                const Spacer(),
+                if (isScanning)
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: brandAccent,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (devices.isEmpty && isScanning)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  'Searching nearby...',
+                  style: GoogleFonts.inter(fontSize: 14, color: webMuted),
+                ),
+              )
+            else if (devices.isEmpty && !isScanning)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  'No devices found',
+                  style: GoogleFonts.inter(fontSize: 14, color: webMuted),
+                ),
+              )
+            else
+              ...devices.map(
+                (d) => _DeviceTile(
+                  device: d,
+                  onTap: () {
+                    ref
+                        .read(progressorProvider.notifier)
+                        .connectToDiscoveredDevice(d.id);
+                  },
                 ),
               ),
-            ),
-          );
-        }
-
-        return SizedBox(
-          height: 110,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: prs.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (context, index) {
-              final entry = prs.entries.elementAt(index);
-              return _PrCarouselCard(
-                protocolType: entry.key,
-                weight: entry.value,
-              );
-            },
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _PrCarouselCard extends StatelessWidget {
-  const _PrCarouselCard({
-    required this.protocolType,
-    required this.weight,
-  });
+class _DeviceTile extends StatelessWidget {
+  const _DeviceTile({required this.device, required this.onTap});
 
-  final ProtocolType protocolType;
-  final double weight;
+  final models.DiscoveredDevice device;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isCrane = device.type == models.DeviceType.craneScale;
 
-    return Container(
-      width: 140,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: isDark ? webPanel : lightPanel,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: brandAccent.withValues(alpha: 0.2),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? webBgSoft : lightBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark
+                ? webBorder.withValues(alpha: 0.6)
+                : lightBorder.withValues(alpha: 0.7),
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            _protocolIcon(protocolType),
-            size: 18,
-            color: brandAccent,
-          ),
-          const Spacer(),
-          Text(
-            weight.toStringAsFixed(1),
-            style: GoogleFonts.spaceGrotesk(
-              fontWeight: FontWeight.w800,
-              fontSize: 28,
-              color: isDark ? webText : lightText,
-              height: 1,
+        child: Row(
+          children: [
+            Icon(
+              isCrane ? Icons.scale : Icons.fitness_center,
+              size: 20,
+              color: brandAccent,
             ),
-          ),
-          Text(
-            'kg',
-            style: GoogleFonts.spaceGrotesk(
-              fontWeight: FontWeight.w500,
-              fontSize: 13,
-              color: webMuted,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            _protocolLabel(protocolType),
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: webMuted,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ──────────────────────────── Last session snapshot ─────────────────────
-
-class _LastSessionSnapshot extends ConsumerWidget {
-  const _LastSessionSnapshot();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final historyAsync = ref.watch(sessionHistoryProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return historyAsync.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
-      data: (sessions) {
-        if (sessions.isEmpty) return const SizedBox.shrink();
-        final last = sessions.first;
-        final timeAgo = _timeAgo(last.startedAt);
-
-        return GestureDetector(
-          onTap: () => context.go('/history/${last.id}'),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isDark ? webPanel : lightPanel,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isDark
-                    ? webBorder.withValues(alpha: 0.6)
-                    : lightBorder.withValues(alpha: 0.7),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    device.name,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: isDark ? webText : lightText,
+                    ),
+                  ),
+                  Text(
+                    isCrane ? 'Crane Scale' : 'Progressor',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: webMuted,
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: brandAccent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(
-                    _protocolIcon(last.protocolType),
-                    size: 16,
-                    color: brandAccent,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Last Session',
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: webMuted,
-                        ),
-                      ),
-                      Text(
-                        '${_protocolLabel(last.protocolType)} \u2022 $timeAgo',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: webMuted.withValues(alpha: 0.7),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  '${last.peakForceKg.toStringAsFixed(1)} kg',
-                  style: GoogleFonts.spaceGrotesk(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
-                    color: isDark ? dataAccent : lightDataAccent,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right,
-                  size: 18,
-                  color: webMuted,
-                ),
-              ],
+            Text(
+              '${device.rssi} dBm',
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 12,
+                color: webMuted,
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
-}
-
-// ──────────────────────────── Helpers ─────────────────────────────────
-
-IconData _protocolIcon(ProtocolType type) {
-  switch (type) {
-    case ProtocolType.maxHang:
-      return Icons.fitness_center;
-    case ProtocolType.repeater:
-      return Icons.repeat;
-    case ProtocolType.freeform:
-      return Icons.explore;
-  }
-}
-
-String _protocolLabel(ProtocolType type) {
-  switch (type) {
-    case ProtocolType.maxHang:
-      return 'Max Hang';
-    case ProtocolType.repeater:
-      return 'Repeater';
-    case ProtocolType.freeform:
-      return 'Freeform';
-  }
-}
-
-String _timeAgo(DateTime dt) {
-  final diff = DateTime.now().difference(dt);
-  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-  if (diff.inHours < 24) return '${diff.inHours}h ago';
-  if (diff.inDays == 1) return 'Yesterday';
-  return '${diff.inDays}d ago';
 }

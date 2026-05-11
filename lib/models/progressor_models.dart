@@ -8,6 +8,22 @@ export 'package:crimpdeq_protocol/crimpdeq_protocol.dart'
 
 part 'progressor_models.freezed.dart';
 
+enum DeviceType { progressor, craneScale, simulator }
+
+class DiscoveredDevice {
+  const DiscoveredDevice({
+    required this.name,
+    required this.id,
+    required this.type,
+    required this.rssi,
+  });
+
+  final String name;
+  final String id;
+  final DeviceType type;
+  final int rssi;
+}
+
 @freezed
 sealed class PerformanceMetrics with _$PerformanceMetrics {
   const factory PerformanceMetrics({
@@ -46,9 +62,13 @@ sealed class ConnectionState with _$ConnectionState {
     @Default(false) bool isConnecting,
     @Default(false) bool bluetoothReady,
     @Default(false) bool isSimulator,
+    @Default(DeviceType.progressor) DeviceType deviceType,
   }) = _ConnectionState;
 
-  bool get isConnected => device != null || isSimulator;
+  bool get isConnected => device != null || isSimulator || isCraneScale;
+  bool get isCraneScale => deviceType == DeviceType.craneScale;
+  bool get supportsTare => true; // all device types support tare
+  bool get supportsCalibration => deviceType == DeviceType.progressor;
 }
 
 @freezed
@@ -58,6 +78,7 @@ sealed class ProgressorState with _$ProgressorState {
     @Default(DeviceInfo()) DeviceInfo deviceInfo,
     @Default(MeasurementState()) MeasurementState measurement,
     @Default(PerformanceMetrics()) PerformanceMetrics performance,
+    @Default([]) List<DiscoveredDevice> discoveredDevices,
     String? errorMessage,
   }) = _ProgressorState;
 }

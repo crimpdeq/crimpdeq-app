@@ -5,8 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import '../models/grip_models.dart';
 import '../models/session_models.dart';
 import '../providers/database_provider.dart';
+import '../providers/grip_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common/background_gradient.dart';
 import '../widgets/common/skeleton_loader.dart';
@@ -26,6 +28,7 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final historyAsync = ref.watch(sessionHistoryProvider);
+    final gripMap = ref.watch(gripMapProvider).whenData((m) => m).value ?? {};
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return BackgroundGradient(
@@ -97,7 +100,13 @@ class _SessionHistoryScreenState extends ConsumerState<SessionHistoryScreen> {
                       ),
                     ),
                     ...entry.value.map(
-                      (s) => _SessionListTile(session: s, ref: ref),
+                      (s) => _SessionListTile(
+                        session: s,
+                        ref: ref,
+                        grip: s.protocolConfig.gripId != null
+                            ? gripMap[s.protocolConfig.gripId!]
+                            : null,
+                      ),
                     ),
                   ]),
             ],
@@ -342,10 +351,15 @@ class _FilterChip extends StatelessWidget {
 // ──────────────────────────── Session tile ──────────────────────────────
 
 class _SessionListTile extends StatelessWidget {
-  const _SessionListTile({required this.session, required this.ref});
+  const _SessionListTile({
+    required this.session,
+    required this.ref,
+    this.grip,
+  });
 
   final Session session;
   final WidgetRef ref;
+  final Grip? grip;
 
   @override
   Widget build(BuildContext context) {
@@ -395,7 +409,8 @@ class _SessionListTile extends StatelessWidget {
           ),
           subtitle: Text(
             '${session.sets.length} sets, $totalReps reps, '
-            '${_formatTime(session.startedAt)}',
+            '${_formatTime(session.startedAt)}'
+            '${grip != null ? ' \u2022 ${grip!.name}' : ''}',
             style: tsInterS12.copyWith(color: webMuted),
           ),
           trailing: Row(
@@ -538,7 +553,7 @@ class _EmptyState extends StatelessWidget {
 IconData _protocolIcon(ProtocolType type) {
   switch (type) {
     case ProtocolType.maxHang:
-      return Icons.fitness_center;
+      return Icons.timer;
     case ProtocolType.repeater:
       return Icons.repeat;
     case ProtocolType.freeform:
