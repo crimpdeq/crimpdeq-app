@@ -133,46 +133,46 @@ class _ActiveView extends StatelessWidget {
 
     return Column(
       children: [
-        // Header: set/rep + progress
+        // Header: reps (left) + grip (center) + set (right)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text(
-                    session.protocol.type == ProtocolType.freeform
-                        ? 'FREEFORM'
-                        : 'SET ${session.currentSetIndex + 1} / ${session.protocol.effectiveSets}',
-                    style: tsInterW700S16.copyWith(color: webText),
-                  ),
-                  if (session.protocol.handMode != HandMode.both) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: brandAccent.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        session.protocol.handMode == HandMode.left
-                            ? 'LEFT'
-                            : session.protocol.handMode == HandMode.right
-                                ? 'RIGHT'
-                                : session.currentHandIndex == 0
-                                    ? 'LEFT'
-                                    : 'RIGHT',
-                        style: tsInterW700S11.copyWith(color: brandAccent),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+              // Left: reps done / reps per set
               Text(
-                '${session.completedSets.expand((s) => s.reps).length + session.currentSetReps.length} reps',
-                style: tsInterW600S14.copyWith(color: webMuted),
+                session.protocol.type == ProtocolType.freeform
+                    ? 'REPS ${session.currentSetReps.length + 1}'
+                    : 'REPS ${session.currentSetReps.length + 1} / ${session.protocol.getSetConfig(session.currentSetIndex).repsPerSet}',
+                style: tsInterW700S16.copyWith(color: webText),
+              ),
+              // Center: hand mode badge
+              if (session.protocol.handMode != HandMode.both)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: brandAccent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    session.protocol.handMode == HandMode.left
+                        ? 'LEFT'
+                        : session.protocol.handMode == HandMode.right
+                            ? 'RIGHT'
+                            : session.currentHandIndex == 0
+                                ? 'LEFT'
+                                : 'RIGHT',
+                    style: tsInterW700S11.copyWith(color: brandAccent),
+                  ),
+                )
+              else
+                const SizedBox.shrink(),
+              // Right: set counter
+              Text(
+                session.protocol.type == ProtocolType.freeform
+                    ? 'FREEFORM'
+                    : 'SET ${session.currentSetIndex + 1} / ${session.protocol.effectiveSets}',
+                style: tsInterW700S16.copyWith(color: webText),
               ),
             ],
           ),
@@ -223,6 +223,9 @@ class _ActiveView extends StatelessWidget {
                     final peakW = ref.watch(sessionProvider.select((s) =>
                       ((s?.peakWeightKg ?? 0.0) * 10).roundToDouble() / 10,
                     ));
+                    final waitingForThreshold = ref.watch(
+                      sessionProvider.select((s) => s?.waitingForThreshold ?? false),
+                    );
                     final w = liveW < 0 ? 0.0 : liveW;
                     Color color;
                     if (targetWeight > 0) {
@@ -238,7 +241,7 @@ class _ActiveView extends StatelessWidget {
                       color = brandAccent;
                     }
                     return AnimatedOpacity(
-                      opacity: session.waitingForThreshold ? 0.45 : 0.9,
+                      opacity: waitingForThreshold ? 0.6 : 1.0,
                       duration: const Duration(milliseconds: 200),
                       child: SizedBox.expand(
                         child: CustomPaint(
@@ -628,9 +631,9 @@ class _WeightGaugePainter extends CustomPainter {
 
     // Compute fill ratio first — needed for both fill and border gradient
     final scaleMax = [
-      if (targetWeight > 0) targetWeight * 1.3,
+      if (targetWeight > 0) targetWeight * 1.25,
       if (peakWeight > 0) peakWeight * 1.15,
-      25.0,
+      15.0,
     ].reduce(max);
     final fillRatio = (currentWeight / scaleMax).clamp(0.0, 1.0);
 
@@ -645,7 +648,7 @@ class _WeightGaugePainter extends CustomPainter {
       ..shader = const LinearGradient(
         begin: Alignment.bottomCenter,
         end: Alignment.topCenter,
-        colors: [Color(0x30808080), Color(0x10808080)],
+        colors: [Color(0x80808080), Color(0x40808080)],
       ).createShader(fillRect);
     canvas.drawRect(fillRect, fillPaint);
 
@@ -666,12 +669,11 @@ class _WeightGaugePainter extends CustomPainter {
         thresholdWeight > 0 ? (thresholdWeight / scaleMax).clamp(0.0, 1.0) : 0.0;
     if (thresholdRatio > 0) {
       final y = h - h * thresholdRatio;
-      final color = brandAccent.withValues(alpha: 0.7);
-      _drawDottedLine(canvas, 12, w - 12, y, color);
+      _drawDottedLine(canvas, 12, w - 12, y, brandAccent.withValues(alpha: 0.35));
       _drawLineLabel(
         canvas, w,
         'goal:  ${thresholdWeight.toStringAsFixed(0)} kg',
-        y, color, labelAbove: false,
+        y, brandAccent.withValues(alpha: 0.7), labelAbove: false,
       );
     }
 
@@ -680,12 +682,11 @@ class _WeightGaugePainter extends CustomPainter {
         peakWeight > 0 ? (peakWeight / scaleMax).clamp(0.0, 1.0) : 0.0;
     if (peakRatio > 0) {
       final y = h - h * peakRatio;
-      final color = webAccentStrong.withValues(alpha: 0.6);
-      _drawDottedLine(canvas, 12, w - 12, y, color);
+      _drawDottedLine(canvas, 12, w - 12, y, webAccentStrong.withValues(alpha: 0.3));
       _drawLineLabel(
         canvas, w,
         'max:  ${peakWeight.toStringAsFixed(1)} kg',
-        y, color, labelAbove: true,
+        y, webAccentStrong.withValues(alpha: 0.6), labelAbove: true,
       );
     }
 
@@ -706,7 +707,7 @@ class _WeightGaugePainter extends CustomPainter {
     )..layout();
 
     final totalTextH = heroTp.height + kgTp.height;
-    final textTop = (h - totalTextH) / 2;
+    final textTop = (h - totalTextH) * 0.85;
     heroTp.paint(canvas, Offset((w - heroTp.width) / 2, textTop));
     kgTp.paint(canvas, Offset((w - kgTp.width) / 2, textTop + heroTp.height));
   }
@@ -715,10 +716,10 @@ class _WeightGaugePainter extends CustomPainter {
       Canvas canvas, double x1, double x2, double y, Color color) {
     final paint = Paint()
       ..color = color
-      ..strokeWidth = 1.5
+      ..strokeWidth = 3.0
       ..strokeCap = StrokeCap.round;
-    const dashW = 4.0;
-    const gap = 4.0;
+    const dashW = 1.2;
+    const gap = 10.0;
     var x = x1;
     while (x < x2) {
       canvas.drawLine(Offset(x, y), Offset(x + dashW, y), paint);
