@@ -10,35 +10,105 @@ const brandAccent = Color(0xFFFF6B35);
 // Use .copyWith(color: ...) when color varies per-widget.
 
 // Inter
-final tsInterW700S20 = GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 20);
-final tsInterW700S16 = GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16);
-final tsInterW700S14 = GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14);
-final tsInterW700S18 = GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18);
+final tsInterW700S20 = GoogleFonts.inter(
+  fontWeight: FontWeight.w700,
+  fontSize: 20,
+);
+final tsInterW700S16 = GoogleFonts.inter(
+  fontWeight: FontWeight.w700,
+  fontSize: 16,
+);
+final tsInterW700S14 = GoogleFonts.inter(
+  fontWeight: FontWeight.w700,
+  fontSize: 14,
+);
+final tsInterW700S18 = GoogleFonts.inter(
+  fontWeight: FontWeight.w700,
+  fontSize: 18,
+);
 final tsInterW600 = GoogleFonts.inter(fontWeight: FontWeight.w600);
-final tsInterW600S16 = GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16);
-final tsInterW600S14 = GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14);
-final tsInterW600S13 = GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13);
-final tsInterW600S12 = GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 12);
-final tsInterW800S24 = GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 24);
+final tsInterW600S16 = GoogleFonts.inter(
+  fontWeight: FontWeight.w600,
+  fontSize: 16,
+);
+final tsInterW600S14 = GoogleFonts.inter(
+  fontWeight: FontWeight.w600,
+  fontSize: 14,
+);
+final tsInterW600S13 = GoogleFonts.inter(
+  fontWeight: FontWeight.w600,
+  fontSize: 13,
+);
+final tsInterW600S12 = GoogleFonts.inter(
+  fontWeight: FontWeight.w600,
+  fontSize: 12,
+);
+final tsInterW800S24 = GoogleFonts.inter(
+  fontWeight: FontWeight.w800,
+  fontSize: 24,
+);
 final tsInterS14 = GoogleFonts.inter(fontSize: 14);
 final tsInterS12 = GoogleFonts.inter(fontSize: 12);
 final tsInterS11 = GoogleFonts.inter(fontSize: 11);
 final tsInterS9 = GoogleFonts.inter(fontSize: 9);
-final tsInterW700S11 = GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.8);
-final tsInterW500S12 = GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 12);
-final tsInterW600S16Spaced = GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 16, letterSpacing: 1.2);
+final tsInterW700S11 = GoogleFonts.inter(
+  fontSize: 11,
+  fontWeight: FontWeight.w700,
+  letterSpacing: 0.8,
+);
+final tsInterW500S12 = GoogleFonts.inter(
+  fontWeight: FontWeight.w500,
+  fontSize: 12,
+);
+final tsInterW600S16Spaced = GoogleFonts.inter(
+  fontWeight: FontWeight.w600,
+  fontSize: 16,
+  letterSpacing: 1.2,
+);
 
 // Space Grotesk
-final tsGrotesk800S72 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w800, fontSize: 72, height: 1);
-final tsGrotesk800S96 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w800, fontSize: 96, height: 1);
-final tsGrotesk700S18 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700, fontSize: 18);
-final tsGrotesk700S16 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700, fontSize: 16);
-final tsGrotesk700S14 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700, fontSize: 14);
-final tsGrotesk600S28 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w600, fontSize: 28);
-final tsGrotesk600S24 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w600, fontSize: 24);
-final tsGrotesk600S14 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w600, fontSize: 14);
-final tsGrotesk800S24 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w800, fontSize: 24);
-final tsGrotesk500S10 = GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w500, fontSize: 10);
+final tsGrotesk800S72 = GoogleFonts.spaceGrotesk(
+  fontWeight: FontWeight.w800,
+  fontSize: 72,
+  height: 1,
+);
+final tsGrotesk800S96 = GoogleFonts.spaceGrotesk(
+  fontWeight: FontWeight.w800,
+  fontSize: 96,
+  height: 1,
+);
+final tsGrotesk700S18 = GoogleFonts.spaceGrotesk(
+  fontWeight: FontWeight.w700,
+  fontSize: 18,
+);
+final tsGrotesk700S16 = GoogleFonts.spaceGrotesk(
+  fontWeight: FontWeight.w700,
+  fontSize: 16,
+);
+final tsGrotesk700S14 = GoogleFonts.spaceGrotesk(
+  fontWeight: FontWeight.w700,
+  fontSize: 14,
+);
+final tsGrotesk600S28 = GoogleFonts.spaceGrotesk(
+  fontWeight: FontWeight.w600,
+  fontSize: 28,
+);
+final tsGrotesk600S24 = GoogleFonts.spaceGrotesk(
+  fontWeight: FontWeight.w600,
+  fontSize: 24,
+);
+final tsGrotesk600S14 = GoogleFonts.spaceGrotesk(
+  fontWeight: FontWeight.w600,
+  fontSize: 14,
+);
+final tsGrotesk800S24 = GoogleFonts.spaceGrotesk(
+  fontWeight: FontWeight.w800,
+  fontSize: 24,
+);
+final tsGrotesk500S10 = GoogleFonts.spaceGrotesk(
+  fontWeight: FontWeight.w500,
+  fontSize: 10,
+);
 
 // ──────────────────────────── Dark palette ────────────────────────────
 const paleRed = Color(0xFFE57373);
@@ -81,9 +151,7 @@ ThemeData buildDarkTheme() {
     outline: webBorder,
     outlineVariant: Color(0xFF333333),
   );
-  final baseText = GoogleFonts.interTextTheme(
-    ThemeData.dark().textTheme,
-  );
+  final baseText = GoogleFonts.interTextTheme(ThemeData.dark().textTheme);
   final textTheme = baseText.copyWith(
     headlineSmall: GoogleFonts.inter(
       textStyle: baseText.headlineSmall,
@@ -100,10 +168,7 @@ ThemeData buildDarkTheme() {
       fontWeight: FontWeight.w700,
       color: webText,
     ),
-    bodyLarge: GoogleFonts.inter(
-      textStyle: baseText.bodyLarge,
-      color: webText,
-    ),
+    bodyLarge: GoogleFonts.inter(textStyle: baseText.bodyLarge, color: webText),
     bodyMedium: GoogleFonts.inter(
       textStyle: baseText.bodyMedium,
       color: webText,
@@ -246,9 +311,7 @@ ThemeData buildDarkTheme() {
       trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
     ),
     dataTableTheme: DataTableThemeData(
-      headingRowColor: WidgetStatePropertyAll(
-        webBgSoft.withValues(alpha: 0.8),
-      ),
+      headingRowColor: WidgetStatePropertyAll(webBgSoft.withValues(alpha: 0.8)),
       headingTextStyle: GoogleFonts.inter(
         color: webText,
         fontWeight: FontWeight.w600,
@@ -281,9 +344,7 @@ const lightBorder = Color(0xFFDDDDDD);
 // ──────────────────────────── Light theme ─────────────────────────────
 ThemeData buildLightTheme() {
   final dark = buildDarkTheme();
-  final baseText = GoogleFonts.interTextTheme(
-    ThemeData.light().textTheme,
-  );
+  final baseText = GoogleFonts.interTextTheme(ThemeData.light().textTheme);
   return dark.copyWith(
     brightness: Brightness.light,
     colorScheme: const ColorScheme.light(
@@ -394,6 +455,38 @@ ThemeData buildLightTheme() {
       }),
       trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
     ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: brandAccent,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: const Color(0xFFF0F0F0),
+        disabledForegroundColor: lightMuted,
+        textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: brandAccent,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: const Color(0xFFF0F0F0),
+        disabledForegroundColor: lightMuted,
+        elevation: 0,
+        textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: lightText,
+        side: BorderSide(color: lightBorder.withValues(alpha: 0.9)),
+        textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    ),
     inputDecorationTheme: dark.inputDecorationTheme.copyWith(
       fillColor: Colors.white,
       labelStyle: const TextStyle(color: lightMuted),
@@ -418,10 +511,7 @@ ThemeData buildLightTheme() {
         fontWeight: FontWeight.w600,
         fontSize: 12,
       ),
-      dataTextStyle: GoogleFonts.spaceGrotesk(
-        color: lightText,
-        fontSize: 12,
-      ),
+      dataTextStyle: GoogleFonts.spaceGrotesk(color: lightText, fontSize: 12),
     ),
     snackBarTheme: dark.snackBarTheme.copyWith(
       backgroundColor: Colors.white,
@@ -430,6 +520,25 @@ ThemeData buildLightTheme() {
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: lightBorder.withValues(alpha: 0.7)),
       ),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: lightPanel,
+      surfaceTintColor: Colors.transparent,
+      titleTextStyle: GoogleFonts.inter(
+        color: lightText,
+        fontWeight: FontWeight.w700,
+        fontSize: 20,
+      ),
+      contentTextStyle: GoogleFonts.inter(color: lightText, fontSize: 14),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: lightPanel,
+      surfaceTintColor: Colors.transparent,
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: lightPanel,
+      textStyle: GoogleFonts.inter(color: lightText),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
   );
 }

@@ -16,13 +16,12 @@ class SessionSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalReps =
-        sets.fold<int>(0, (sum, s) => sum + s.reps.length);
+    final totalReps = sets.fold<int>(0, (sum, s) => sum + s.reps.length);
     final allReps = sets.expand((s) => s.reps).toList();
     final avgPeak = allReps.isEmpty
         ? 0.0
         : allReps.map((r) => r.peakForceKg).reduce((a, b) => a + b) /
-            allReps.length;
+              allReps.length;
     final totalDurationMs = allReps.isEmpty
         ? 0
         : allReps.map((r) => r.durationMs).reduce((a, b) => a + b);
@@ -93,16 +92,19 @@ class _StatItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       children: [
         Text(
           value,
-          style: tsGrotesk800S24.copyWith(color: dataAccent),
+          style: tsGrotesk800S24.copyWith(color: colorScheme.onSurface),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: tsInterS12.copyWith(color: webMuted),
+          style: tsInterS12.copyWith(
+            color: colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
         ),
       ],
     );

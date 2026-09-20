@@ -28,7 +28,7 @@ class ActiveSessionScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: webBg,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: phase == SessionPhase.complete
             ? _CompletedView(session: session, ref: ref)
@@ -124,7 +124,9 @@ class _ActiveView extends StatelessWidget {
                   phaseLabel: _phaseLabel(session.phase),
                   timerFontSize: 144,
                   labelFontSize: 34,
-                  color: isResting ? webText : colorScheme.primary,
+                  color: isResting
+                      ? colorScheme.onSurface
+                      : colorScheme.primary,
                 ),
               ),
             ),
@@ -162,7 +164,7 @@ class _ActiveView extends StatelessWidget {
                 session.protocol.type == ProtocolType.freeform
                     ? 'REPS ${session.currentSetReps.length + 1}'
                     : 'REPS ${session.currentSetReps.length + 1} / ${session.protocol.getSetConfig(session.currentSetIndex).repsPerSet}',
-                style: tsInterW700S16.copyWith(color: webText),
+                style: tsInterW700S16.copyWith(color: colorScheme.onSurface),
               ),
               // Center: hand mode badge
               if (session.protocol.handMode != HandMode.both)
@@ -193,7 +195,7 @@ class _ActiveView extends StatelessWidget {
                 session.protocol.type == ProtocolType.freeform
                     ? 'FREEFORM'
                     : 'SET ${session.currentSetIndex + 1} / ${session.protocol.effectiveSets}',
-                style: tsInterW700S16.copyWith(color: webText),
+                style: tsInterW700S16.copyWith(color: colorScheme.onSurface),
               ),
             ],
           ),
@@ -205,7 +207,7 @@ class _ActiveView extends StatelessWidget {
               value: session.protocol.effectiveSets > 0
                   ? session.currentSetIndex / session.protocol.effectiveSets
                   : 0,
-              backgroundColor: webBorder,
+              backgroundColor: colorScheme.outline.withValues(alpha: 0.35),
               valueColor: AlwaysStoppedAnimation(colorScheme.primary),
               borderRadius: BorderRadius.circular(4),
               minHeight: 4,
@@ -991,7 +993,9 @@ class _CompletedViewState extends State<_CompletedView>
           const SizedBox(height: 16),
           Text(
             'Session Complete',
-            style: tsInterW800S24.copyWith(color: webText),
+            style: tsInterW800S24.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
           const SizedBox(height: 24),
           SessionSummaryCard(
