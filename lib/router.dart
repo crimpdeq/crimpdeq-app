@@ -56,9 +56,8 @@ final router = GoRouter(
           routes: [
             GoRoute(
               path: '/',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: HomeScreen(),
-              ),
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: HomeScreen()),
             ),
           ],
         ),
@@ -66,9 +65,8 @@ final router = GoRouter(
           routes: [
             GoRoute(
               path: '/grips',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: GripsScreen(),
-              ),
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: GripsScreen()),
             ),
           ],
         ),
@@ -76,9 +74,8 @@ final router = GoRouter(
           routes: [
             GoRoute(
               path: '/history',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: SessionHistoryScreen(),
-              ),
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: SessionHistoryScreen()),
             ),
           ],
         ),
@@ -86,9 +83,8 @@ final router = GoRouter(
           routes: [
             GoRoute(
               path: '/settings',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: SettingsScreen(),
-              ),
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: SettingsScreen()),
             ),
           ],
         ),
@@ -109,9 +105,11 @@ final router = GoRouter(
     GoRoute(
       path: '/session/setup',
       pageBuilder: (context, state) {
-        final mode = state.uri.queryParameters['mode'] == 'manage'
-            ? SetupMode.manage
-            : SetupMode.train;
+        final mode = switch (state.uri.queryParameters['mode']) {
+          'manage' => SetupMode.manage,
+          'timer' => SetupMode.timer,
+          _ => SetupMode.train,
+        };
         return _slidePage(
           child: ProtocolSetupScreen(mode: mode),
           state: state,

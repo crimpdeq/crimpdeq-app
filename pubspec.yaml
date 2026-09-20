@@ -39,6 +39,7 @@ dependencies:
   # Local package
   crimpdeq_protocol:
     path: packages/crimpdeq_protocol
+  lucide_icons: ^0.257.0
 
 dev_dependencies:
   flutter_test:

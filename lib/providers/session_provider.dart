@@ -18,8 +18,7 @@ final audioServiceProvider = Provider<AudioService>((ref) {
   return service;
 });
 
-final sessionProvider =
-    NotifierProvider<SessionNotifier, ActiveSessionState?>(
+final sessionProvider = NotifierProvider<SessionNotifier, ActiveSessionState?>(
   SessionNotifier.new,
 );
 
@@ -39,12 +38,10 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
 
   AudioService get _audio => ref.read(audioServiceProvider);
 
-  void startSession(ProtocolConfig config) {
+  void startSession(ProtocolConfig config, {bool timerMode = false}) {
     WakelockPlus.enable();
     _repDetector.updateConfig(
-      RepDetectorConfig(
-        hangThresholdKg: config.hangThresholdKg,
-      ),
+      RepDetectorConfig(hangThresholdKg: config.hangThresholdKg),
     );
     _repDetector.reset();
     _currentSetReps.clear();
@@ -57,16 +54,18 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
       phase: SessionPhase.countdown,
       phaseRemainingMs: 3000,
       phaseDeadlineMs: now + 3000,
+      timerMode: timerMode,
     );
 
     _startCountdown(3000, () {
       _startHangPhase();
     });
 
-    // Configure simulator with session params so mock data aligns
-    ref.read(progressorProvider.notifier).configureSimulator(config);
-
-    _subscribeToWeight();
+    if (!timerMode) {
+      // Configure simulator with session params so mock data aligns.
+      ref.read(progressorProvider.notifier).configureSimulator(config);
+      _subscribeToWeight();
+    }
   }
 
   void _subscribeToWeight() {
@@ -77,12 +76,12 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     _weightSubscription?.cancel();
     _weightSubscription = Stream.periodic(const Duration(milliseconds: 200))
         .listen((_) {
-      final currentState = ref.read(progressorProvider);
-      final weight = currentState.measurement.currentWeight;
-      final now = DateTime.now().millisecondsSinceEpoch;
+          final currentState = ref.read(progressorProvider);
+          final weight = currentState.measurement.currentWeight;
+          final now = DateTime.now().millisecondsSinceEpoch;
 
-      _onWeightUpdate(weight, now);
-    });
+          _onWeightUpdate(weight, now);
+        });
   }
 
   void _onWeightUpdate(double weight, int timestampMs) {
@@ -91,10 +90,9 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
 
     // Maintain rolling weight buffer outside reactive state to avoid
     // copying a 600-element list into a new Freezed object every tick.
-    _weightSamples.add(WeightSample(
-      weight: weight,
-      timestampMs: timestampMs - _sessionStartMs,
-    ));
+    _weightSamples.add(
+      WeightSample(weight: weight, timestampMs: timestampMs - _sessionStartMs),
+    );
     if (_weightSamples.length > 600) {
       _weightSamples.removeRange(0, _weightSamples.length - 600);
     }
@@ -156,8 +154,7 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
         mode == HandMode.right) {
       return;
     }
-    if ((mode == HandMode.alternatePerRep &&
-            trigger == SessionPhase.hanging) ||
+    if ((mode == HandMode.alternatePerRep && trigger == SessionPhase.hanging) ||
         (mode == HandMode.alternatePerSet &&
             trigger == SessionPhase.restBetweenSets)) {
       state = current.copyWith(
@@ -175,6 +172,19 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     _toggleHandIfNeeded(SessionPhase.hanging);
 
     final setConfig = current.protocol.getSetConfig(current.currentSetIndex);
+    if (current.timerMode) {
+      final hangMs = setConfig.hangDurationSec * 1000;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      state = current.copyWith(
+        phase: SessionPhase.hanging,
+        phaseRemainingMs: hangMs,
+        phaseDeadlineMs: now + hangMs,
+        phaseStartMs: now,
+        waitingForThreshold: false,
+      );
+      _startPhaseCountdown(hangMs, _completeTimerRep);
+      return;
+    }
     final threshold = current.protocol.hangThresholdKg;
     final gate = threshold > 0;
 
@@ -219,16 +229,38 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     }
   }
 
+  void _completeTimerRep() {
+    final current = state;
+    if (current == null || !current.timerMode) return;
+
+    final setConfig = current.protocol.getSetConfig(current.currentSetIndex);
+    _currentSetReps.add(
+      Rep(
+        peakForceKg: 0,
+        avgForceKg: 0,
+        durationMs: setConfig.hangDurationSec * 1000,
+        startTimestampMs:
+            DateTime.now().millisecondsSinceEpoch - _sessionStartMs,
+      ),
+    );
+    state = current.copyWith(
+      currentSetReps: List.unmodifiable(_currentSetReps),
+    );
+
+    if (_currentSetReps.length >= setConfig.repsPerSet) {
+      _completeCurrentSet();
+    } else {
+      _startRestPhase();
+    }
+  }
+
   void _onThresholdMet() {
     final current = state;
     if (current == null || !current.waitingForThreshold) return;
     final now = DateTime.now().millisecondsSinceEpoch;
 
     if (current.protocol.type == ProtocolType.maxHang) {
-      state = current.copyWith(
-        waitingForThreshold: false,
-        phaseStartMs: now,
-      );
+      state = current.copyWith(waitingForThreshold: false, phaseStartMs: now);
     } else if (current.protocol.type == ProtocolType.repeater) {
       final setConfig = current.protocol.getSetConfig(current.currentSetIndex);
       final hangMs = setConfig.hangDurationSec * 1000;
@@ -272,9 +304,7 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
 
     _toggleHandIfNeeded(SessionPhase.restBetweenSets);
 
-    final completedSet = TrainingSet(
-      reps: List.unmodifiable(_currentSetReps),
-    );
+    final completedSet = TrainingSet(reps: List.unmodifiable(_currentSetReps));
     _currentSetReps.clear();
     _repDetector.reset();
 
@@ -379,7 +409,11 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
 
   void pauseSession() {
     final current = state;
-    if (current == null || current.isPaused || current.phase == SessionPhase.complete) return;
+    if (current == null ||
+        current.isPaused ||
+        current.phase == SessionPhase.complete) {
+      return;
+    }
     final now = DateTime.now().millisecondsSinceEpoch;
     _cancelTimers();
     _weightSubscription?.cancel();
@@ -389,8 +423,8 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     final remaining = current.waitingForThreshold
         ? current.phaseRemainingMs
         : current.phaseDeadlineMs > 0
-            ? (current.phaseDeadlineMs - now).clamp(0, double.maxFinite).toInt()
-            : 0;
+        ? (current.phaseDeadlineMs - now).clamp(0, double.maxFinite).toInt()
+        : 0;
     final elapsed = current.phaseStartMs > 0
         ? now - current.phaseStartMs
         : current.phaseElapsedMs;
@@ -416,7 +450,9 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
         phaseDeadlineMs: 0,
         phaseStartMs: 0,
       );
-      _subscribeToWeight();
+      if (!current.timerMode) {
+        _subscribeToWeight();
+      }
       return;
     }
 
@@ -424,10 +460,14 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     state = current.copyWith(
       isPaused: false,
       phaseDeadlineMs: remainingMs > 0 ? now + remainingMs : 0,
-      phaseStartMs: current.phaseElapsedMs > 0 ? now - current.phaseElapsedMs : 0,
+      phaseStartMs: current.phaseElapsedMs > 0
+          ? now - current.phaseElapsedMs
+          : 0,
     );
 
-    _subscribeToWeight();
+    if (!current.timerMode) {
+      _subscribeToWeight();
+    }
     _resumePhase(current.phase, remainingMs);
   }
 
@@ -440,13 +480,14 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
         if (current != null && current.protocol.type == ProtocolType.repeater) {
           _startPhaseCountdown(remainingMs, () => _startRestPhase());
         }
-        // maxHang: no timer needed — UI reads phaseStartMs via Ticker
+      // maxHang: no timer needed — UI reads phaseStartMs via Ticker
       case SessionPhase.resting:
         _startPhaseCountdown(remainingMs, () {
           final current = state;
           if (current != null) {
-            final setConfig =
-                current.protocol.getSetConfig(current.currentSetIndex);
+            final setConfig = current.protocol.getSetConfig(
+              current.currentSetIndex,
+            );
             if (_currentSetReps.length >= setConfig.repsPerSet) {
               _completeCurrentSet();
             } else {
@@ -477,8 +518,7 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     final current = state;
     if (current == null) return null;
 
-    final isSimulator =
-        ref.read(progressorProvider).connection.isSimulator;
+    final isSimulator = ref.read(progressorProvider).connection.isSimulator;
 
     _cleanup();
     _currentSetReps.clear();
@@ -508,7 +548,7 @@ class SessionNotifier extends Notifier<ActiveSessionState?> {
     final avgPeak = allReps.isEmpty
         ? 0.0
         : allReps.map((r) => r.peakForceKg).reduce((a, b) => a + b) /
-            allReps.length;
+              allReps.length;
 
     final session = Session(
       id: DateTime.now().millisecondsSinceEpoch.toString(),

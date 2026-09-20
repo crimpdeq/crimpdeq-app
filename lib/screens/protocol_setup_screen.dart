@@ -18,7 +18,7 @@ import '../widgets/common/background_gradient.dart';
 
 // ──────────────────────────── Mode ──────────────────────────────────────
 
-enum SetupMode { train, manage }
+enum SetupMode { train, timer, manage }
 
 // ──────────────────────────── Screen ────────────────────────────────────
 
@@ -58,7 +58,12 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    if (_isTimerMode) {
+      _step = 1;
+      _type = ProtocolType.repeater;
+      _applyDefaults();
+    }
+    _pageController = PageController(initialPage: _step);
     // Pre-select most recently used grip
     Future.microtask(() async {
       final gripId = await ref.read(lastUsedGripIdProvider.future);
@@ -92,15 +97,16 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
     );
   }
 
-  bool get _isConnected =>
-      ref.watch(progressorProvider).connection.isConnected;
+  bool get _isConnected => ref.watch(progressorProvider).connection.isConnected;
+
+  bool get _isTimerMode => widget.mode == SetupMode.timer;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return PopScope(
-      canPop: _step == 0,
+      canPop: _isTimerMode || _step == 0,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _goToStep1();
       },
@@ -108,14 +114,20 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, size: 20),
-            onPressed: _step == 0 ? () => context.go('/') : _goToStep1,
+            onPressed: (_isTimerMode || _step == 0)
+                ? () => context.go('/')
+                : _goToStep1,
           ),
           title: Text(
-            _step == 0
-                ? (widget.mode == SetupMode.manage ? 'Workouts' : 'Choose Workout')
+            _isTimerMode
+                ? 'Timer Mode'
+                : _step == 0
+                ? (widget.mode == SetupMode.manage
+                      ? 'Workouts'
+                      : 'Choose Workout')
                 : widget.mode == SetupMode.manage
-                    ? (_editingTemplateId != null ? 'Edit Workout' : 'New Workout')
-                    : 'Configure',
+                ? (_editingTemplateId != null ? 'Edit Workout' : 'New Workout')
+                : 'Configure',
             style: GoogleFonts.inter(fontWeight: FontWeight.w600),
           ),
           actions: [
@@ -131,10 +143,7 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
           child: PageView(
             controller: _pageController,
             physics: const NeverScrollableScrollPhysics(),
-            children: [
-              _buildStep1(isDark),
-              _buildStep2(isDark),
-            ],
+            children: [_buildStep1(isDark), _buildStep2(isDark)],
           ),
         ),
       ),
@@ -157,8 +166,11 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.fitness_center, size: 48,
-                      color: webMuted.withValues(alpha: 0.3)),
+                  Icon(
+                    Icons.fitness_center,
+                    size: 48,
+                    color: webMuted.withValues(alpha: 0.3),
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'No workouts yet',
@@ -186,28 +198,32 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
           children: [
             ListView(
               padding: EdgeInsets.fromLTRB(
-                20, 8, 20,
+                20,
+                8,
+                20,
                 widget.mode == SetupMode.manage ? 80 : 24,
               ),
               children: [
-                ...templates.map((t) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _TemplateCard(
-                        template: t,
-                        isDark: isDark,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          if (widget.mode == SetupMode.manage) {
-                            _editingTemplateId = t.id;
-                            _editingTemplateName = t.name;
-                          }
-                          _loadTemplate(t);
-                        },
-                        onLongPress: widget.mode == SetupMode.manage
-                            ? () => _showDeleteTemplateDialog(t)
-                            : null,
-                      ),
-                    )),
+                ...templates.map(
+                  (t) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _TemplateCard(
+                      template: t,
+                      isDark: isDark,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        if (widget.mode == SetupMode.manage) {
+                          _editingTemplateId = t.id;
+                          _editingTemplateName = t.name;
+                        }
+                        _loadTemplate(t);
+                      },
+                      onLongPress: widget.mode == SetupMode.manage
+                          ? () => _showDeleteTemplateDialog(t)
+                          : null,
+                    ),
+                  ),
+                ),
               ],
             ),
             if (widget.mode == SetupMode.manage)
@@ -234,40 +250,40 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             children: [
-              // Protocol type
-              _sectionLabel('PROTOCOL', isDark),
-              const SizedBox(height: 10),
-              _ProtocolTypeSelector(
-                selected: _type,
-                onChanged: (type) {
-                  setState(() {
-                    _type = type;
-                    _applyDefaults();
-                  });
-                },
-                isDark: isDark,
-              ),
+              if (!_isTimerMode) ...[
+                _sectionLabel('PROTOCOL', isDark),
+                const SizedBox(height: 10),
+                _ProtocolTypeSelector(
+                  selected: _type,
+                  onChanged: (type) {
+                    setState(() {
+                      _type = type;
+                      _applyDefaults();
+                    });
+                  },
+                  isDark: isDark,
+                ),
+              ],
 
-              // Grip field
-              const SizedBox(height: 24),
-              _sectionLabel('GRIP', isDark),
-              const SizedBox(height: 10),
-              _GripField(
-                selectedGripId: _selectedGripId,
-                onChanged: (id) => setState(() => _selectedGripId = id),
-                isDark: isDark,
-              ),
-
-              // Hand mode
-              const SizedBox(height: 24),
-              _sectionLabel('HAND MODE', isDark),
-              const SizedBox(height: 10),
-              _HandModeSelector(
-                handMode: _handMode,
-                protocolType: _type,
-                onChanged: (mode) => setState(() => _handMode = mode),
-                isDark: isDark,
-              ),
+              if (!_isTimerMode) ...[
+                const SizedBox(height: 24),
+                _sectionLabel('GRIP', isDark),
+                const SizedBox(height: 10),
+                _GripField(
+                  selectedGripId: _selectedGripId,
+                  onChanged: (id) => setState(() => _selectedGripId = id),
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 24),
+                _sectionLabel('HAND MODE', isDark),
+                const SizedBox(height: 10),
+                _HandModeSelector(
+                  handMode: _handMode,
+                  protocolType: _type,
+                  onChanged: (mode) => setState(() => _handMode = mode),
+                  isDark: isDark,
+                ),
+              ],
 
               if (_type != ProtocolType.freeform) ...[
                 // Visual timeline
@@ -313,7 +329,7 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
                                   ),
                                 );
                               }
-                                                    });
+                            });
                           },
                         ),
                       ),
@@ -329,7 +345,7 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
                     onConfigsChanged: (configs) {
                       setState(() {
                         _setConfigs = configs;
-                                        });
+                      });
                     },
                     isDark: isDark,
                   ),
@@ -343,7 +359,8 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
                         value: _restBetweenSets,
                         unit: 's',
                         step: 10,
-                        onChanged: (v) => _onValueChanged(() => _restBetweenSets = v),
+                        onChanged: (v) =>
+                            _onValueChanged(() => _restBetweenSets = v),
                       ),
                     ),
                   ),
@@ -366,14 +383,16 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
                                 label: 'Hang',
                                 value: _hangDuration,
                                 unit: 's',
-                                onChanged: (v) => _onValueChanged(() => _hangDuration = v),
+                                onChanged: (v) =>
+                                    _onValueChanged(() => _hangDuration = v),
                               ),
                               _divider(colorScheme),
                               _StepperRow(
                                 label: 'Rest',
                                 value: _restDuration,
                                 unit: 's',
-                                onChanged: (v) => _onValueChanged(() => _restDuration = v),
+                                onChanged: (v) =>
+                                    _onValueChanged(() => _restDuration = v),
                               ),
                               _divider(colorScheme),
                             ],
@@ -382,7 +401,8 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
                               value: _restBetweenSets,
                               unit: 's',
                               step: 10,
-                              onChanged: (v) => _onValueChanged(() => _restBetweenSets = v),
+                              onChanged: (v) =>
+                                  _onValueChanged(() => _restBetweenSets = v),
                             ),
                           ],
                         ),
@@ -406,14 +426,16 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
                             _StepperRow(
                               label: 'Sets',
                               value: _sets,
-                              onChanged: (v) => _onValueChanged(() => _sets = v),
+                              onChanged: (v) =>
+                                  _onValueChanged(() => _sets = v),
                             ),
                             if (_type == ProtocolType.repeater) ...[
                               _divider(colorScheme),
                               _StepperRow(
                                 label: 'Reps / Set',
                                 value: _repsPerSet,
-                                onChanged: (v) => _onValueChanged(() => _repsPerSet = v),
+                                onChanged: (v) =>
+                                    _onValueChanged(() => _repsPerSet = v),
                               ),
                             ],
                           ],
@@ -424,37 +446,42 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
                 ],
               ],
 
-              // Load section
-              const SizedBox(height: 20),
-              _CollapsibleSection(
-                title: 'LOAD',
-                summary: _targetWeight > 0
-                    ? '${_targetWeight.round()} kg target / ${_hangThreshold.round()} kg threshold'
-                    : '${_hangThreshold.round()} kg threshold',
-                isDark: isDark,
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Column(
-                      children: [
-                        _StepperRow(
-                          label: 'Target',
-                          value: _targetWeight.round(),
-                          unit: 'kg',
-                          onChanged: (v) => _onValueChanged(() => _targetWeight = v.toDouble()),
-                        ),
-                        _divider(colorScheme),
-                        _StepperRow(
-                          label: 'Threshold',
-                          value: _hangThreshold.round(),
-                          unit: 'kg',
-                          onChanged: (v) => _onValueChanged(() => _hangThreshold = v.toDouble()),
-                        ),
-                      ],
+              if (!_isTimerMode) ...[
+                const SizedBox(height: 20),
+                _CollapsibleSection(
+                  title: 'LOAD',
+                  summary: _targetWeight > 0
+                      ? '${_targetWeight.round()} kg target / ${_hangThreshold.round()} kg threshold'
+                      : '${_hangThreshold.round()} kg threshold',
+                  isDark: isDark,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Column(
+                        children: [
+                          _StepperRow(
+                            label: 'Target',
+                            value: _targetWeight.round(),
+                            unit: 'kg',
+                            onChanged: (v) => _onValueChanged(
+                              () => _targetWeight = v.toDouble(),
+                            ),
+                          ),
+                          _divider(colorScheme),
+                          _StepperRow(
+                            label: 'Threshold',
+                            value: _hangThreshold.round(),
+                            unit: 'kg',
+                            onChanged: (v) => _onValueChanged(
+                              () => _hangThreshold = v.toDouble(),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
               // Estimated duration
               if (_type != ProtocolType.freeform) ...[
                 const SizedBox(height: 16),
@@ -496,13 +523,18 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
                     ),
                   ),
                   child: Text(
-                      _editingTemplateId != null ? 'Save Changes' : 'Save Workout'),
+                    _editingTemplateId != null
+                        ? 'Save Changes'
+                        : 'Save Workout',
+                  ),
                 )
               : Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     FilledButton(
-                      onPressed: _isConnected ? _startSession : null,
+                      onPressed: (_isConnected || _isTimerMode)
+                          ? _startSession
+                          : null,
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(double.infinity, 52),
                         textStyle: GoogleFonts.inter(
@@ -512,7 +544,7 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
                       ),
                       child: const Text('Start Session'),
                     ),
-                    if (!_isConnected)
+                    if (!_isConnected && !_isTimerMode)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
@@ -615,16 +647,16 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
 
   ProtocolConfig _buildConfig() {
     return ProtocolConfig(
-      type: _type,
+      type: _isTimerMode ? ProtocolType.repeater : _type,
       hangDurationSec: _hangDuration,
       restDurationSec: _restDuration,
       sets: _sets,
       repsPerSet: _repsPerSet,
       restBetweenSetsSec: _restBetweenSets,
-      targetWeightKg: _targetWeight,
-      hangThresholdKg: _hangThreshold,
-      gripId: _selectedGripId,
-      handMode: _handMode,
+      targetWeightKg: _isTimerMode ? 0 : _targetWeight,
+      hangThresholdKg: _isTimerMode ? 0 : _hangThreshold,
+      gripId: _isTimerMode ? null : _selectedGripId,
+      handMode: _isTimerMode ? HandMode.both : _handMode,
       setConfigs: _perSetCustomization && _setConfigs.isNotEmpty
           ? _setConfigs
           : null,
@@ -633,14 +665,16 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
 
   void _startSession() {
     HapticFeedback.heavyImpact();
-    ref.read(sessionProvider.notifier).startSession(_buildConfig());
+    ref
+        .read(sessionProvider.notifier)
+        .startSession(_buildConfig(), timerMode: _isTimerMode);
     context.go('/session/active');
   }
 
   void _loadTemplate(SessionTemplate template) {
     final c = template.protocolConfig;
     setState(() {
-      _type = c.type;
+      _type = _isTimerMode ? ProtocolType.repeater : c.type;
       _hangDuration = c.hangDurationSec;
       _restDuration = c.restDurationSec;
       _sets = c.sets;
@@ -675,8 +709,10 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Save as Template',
-            style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18)),
+        title: Text(
+          'Save as Template',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18),
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -748,7 +784,8 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
           var total = 0;
           for (var i = 0; i < _setConfigs.length; i++) {
             final sc = _setConfigs[i];
-            total += sc.hangDurationSec * sc.repsPerSet +
+            total +=
+                sc.hangDurationSec * sc.repsPerSet +
                 sc.restDurationSec * (sc.repsPerSet - 1) +
                 countdownPerSet;
             if (i < _setConfigs.length - 1) total += _restBetweenSets;
@@ -773,7 +810,6 @@ class _ProtocolSetupScreenState extends ConsumerState<ProtocolSetupScreen> {
     if (s == 0) return 'Est. ${m}m';
     return 'Est. ${m}m ${s}s';
   }
-
 }
 
 // ──────────────────────────── Grip field (tappable → bottom sheet) ────
@@ -812,8 +848,8 @@ class _GripField extends ConsumerWidget {
                 color: selectedGrip != null
                     ? brandAccent.withValues(alpha: 0.5)
                     : isDark
-                        ? webBorder.withValues(alpha: 0.4)
-                        : lightBorder.withValues(alpha: 0.5),
+                    ? webBorder.withValues(alpha: 0.4)
+                    : lightBorder.withValues(alpha: 0.5),
               ),
             ),
             child: Row(
@@ -827,24 +863,27 @@ class _GripField extends ConsumerWidget {
                 Expanded(
                   child: selectedGrip != null
                       ? Text.rich(
-                          TextSpan(children: [
-                            TextSpan(
-                              text: selectedGrip.gripTypeLabel,
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w500,
-                                fontSize: 14,
-                                color: isDark ? webText : lightText,
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: selectedGrip.gripTypeLabel,
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                  color: isDark ? webText : lightText,
+                                ),
                               ),
-                            ),
-                            TextSpan(
-                              text: '  ${selectedGrip.edgeDepthMm.toStringAsFixed(0)}mm',
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w500,
-                                fontSize: 14,
-                                color: webMuted,
+                              TextSpan(
+                                text:
+                                    '  ${selectedGrip.edgeDepthMm.toStringAsFixed(0)}mm',
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                  color: webMuted,
+                                ),
                               ),
-                            ),
-                          ]),
+                            ],
+                          ),
                         )
                       : Text(
                           'Select grip',
@@ -855,11 +894,7 @@ class _GripField extends ConsumerWidget {
                           ),
                         ),
                 ),
-                Icon(
-                  Icons.keyboard_arrow_down,
-                  size: 20,
-                  color: webMuted,
-                ),
+                Icon(Icons.keyboard_arrow_down, size: 20, color: webMuted),
               ],
             ),
           ),
@@ -869,7 +904,10 @@ class _GripField extends ConsumerWidget {
   }
 
   void _showGripBottomSheet(
-      BuildContext context, WidgetRef ref, List<Grip> grips) {
+    BuildContext context,
+    WidgetRef ref,
+    List<Grip> grips,
+  ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
@@ -899,50 +937,53 @@ class _GripField extends ConsumerWidget {
                 leading: Icon(Icons.close, size: 20, color: webMuted),
                 title: Text(
                   'Clear selection',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: webMuted,
-                  ),
+                  style: GoogleFonts.inter(fontSize: 14, color: webMuted),
                 ),
                 onTap: () {
                   onChanged(null);
                   Navigator.pop(ctx);
                 },
               ),
-            ...grips.map((grip) => ListTile(
-              leading: Icon(
-                Icons.pan_tool_alt_outlined,
-                size: 20,
-                color: grip.id == selectedGripId ? brandAccent : webMuted,
-              ),
-              title: Text.rich(
-                TextSpan(children: [
+            ...grips.map(
+              (grip) => ListTile(
+                leading: Icon(
+                  Icons.pan_tool_alt_outlined,
+                  size: 20,
+                  color: grip.id == selectedGripId ? brandAccent : webMuted,
+                ),
+                title: Text.rich(
                   TextSpan(
-                    text: grip.gripTypeLabel,
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                      color: grip.id == selectedGripId
-                          ? brandAccent
-                          : isDark ? webText : lightText,
-                    ),
+                    children: [
+                      TextSpan(
+                        text: grip.gripTypeLabel,
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
+                          color: grip.id == selectedGripId
+                              ? brandAccent
+                              : isDark
+                              ? webText
+                              : lightText,
+                        ),
+                      ),
+                      TextSpan(
+                        text: '  ${grip.edgeDepthMm.toStringAsFixed(0)}mm',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
+                          color: webMuted,
+                        ),
+                      ),
+                    ],
                   ),
-                  TextSpan(
-                    text: '  ${grip.edgeDepthMm.toStringAsFixed(0)}mm',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                      color: webMuted,
-                    ),
-                  ),
-                ]),
+                ),
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onChanged(grip.id);
+                  Navigator.pop(ctx);
+                },
               ),
-              onTap: () {
-                HapticFeedback.lightImpact();
-                onChanged(grip.id);
-                Navigator.pop(ctx);
-              },
-            )),
+            ),
             const Divider(height: 1),
             ListTile(
               leading: Icon(Icons.add, size: 20, color: brandAccent),
@@ -992,13 +1033,19 @@ class _ProtocolTimeline extends StatelessWidget {
 
     for (var s = 0; s < sets && s < 4; s++) {
       for (var r = 0; r < reps; r++) {
-        blocks.add(_TimelineBlock(duration: hangDuration, type: _BlockType.hang));
+        blocks.add(
+          _TimelineBlock(duration: hangDuration, type: _BlockType.hang),
+        );
         if (r < reps - 1) {
-          blocks.add(_TimelineBlock(duration: restDuration, type: _BlockType.rest));
+          blocks.add(
+            _TimelineBlock(duration: restDuration, type: _BlockType.rest),
+          );
         }
       }
       if (s < sets - 1) {
-        blocks.add(_TimelineBlock(duration: restBetweenSets, type: _BlockType.setRest));
+        blocks.add(
+          _TimelineBlock(duration: restBetweenSets, type: _BlockType.setRest),
+        );
       }
     }
     if (sets > 4) {
@@ -1019,11 +1066,18 @@ class _ProtocolTimeline extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
                 '\u2026',
-                style: GoogleFonts.inter(fontSize: 10, color: webMuted, height: 0.5),
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  color: webMuted,
+                  height: 0.5,
+                ),
               ),
             );
           }
-          final flex = (block.duration * 100 / totalDuration).round().clamp(1, 100);
+          final flex = (block.duration * 100 / totalDuration).round().clamp(
+            1,
+            100,
+          );
           return Expanded(
             flex: flex,
             child: AnimatedContainer(
@@ -1033,8 +1087,8 @@ class _ProtocolTimeline extends StatelessWidget {
                 color: block.type == _BlockType.hang
                     ? brandAccent
                     : block.type == _BlockType.rest
-                        ? webMuted.withValues(alpha: 0.3)
-                        : webPanelDeep,
+                    ? webMuted.withValues(alpha: 0.3)
+                    : webPanelDeep,
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -1219,7 +1273,8 @@ class _StepperRowState extends State<_StepperRow> {
             icon: Icons.remove,
             onTap: widget.value > 0
                 ? () => widget.onChanged(
-                    (widget.value - widget.step).clamp(0, 9999))
+                    (widget.value - widget.step).clamp(0, 9999),
+                  )
                 : null,
           ),
           GestureDetector(
@@ -1254,9 +1309,7 @@ class _StepperRowState extends State<_StepperRow> {
                           ),
                         ),
                       ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       onSubmitted: (_) => _commitEdit(),
                     )
                   : Center(
@@ -1350,9 +1403,7 @@ class _StepperButtonState extends State<_StepperButton> {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: isDark
-              ? webBgSoft
-              : const Color(0xFFF0F0F0),
+          color: isDark ? webBgSoft : const Color(0xFFF0F0F0),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(
@@ -1361,8 +1412,8 @@ class _StepperButtonState extends State<_StepperButton> {
           color: disabled
               ? colorScheme.outline.withValues(alpha: 0.4)
               : isDark
-                  ? webMuted
-                  : lightMuted,
+              ? webMuted
+              : lightMuted,
         ),
       ),
     );
@@ -1416,7 +1467,9 @@ class _HandModeSelector extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: selected
                           ? brandAccent
-                          : isDark ? webPanel : lightPanel,
+                          : isDark
+                          ? webPanel
+                          : lightPanel,
                       borderRadius: BorderRadius.circular(18),
                       border: selected
                           ? null
@@ -1433,7 +1486,9 @@ class _HandModeSelector extends StatelessWidget {
                         fontSize: 12,
                         color: selected
                             ? Colors.white
-                            : isDark ? webText : lightText,
+                            : isDark
+                            ? webText
+                            : lightText,
                       ),
                     ),
                   ),
@@ -1510,36 +1565,48 @@ class _PerSetTable extends StatelessWidget {
               children: [
                 SizedBox(
                   width: 40,
-                  child: Text('Set',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
-                          color: webMuted)),
+                  child: Text(
+                    'Set',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                      color: webMuted,
+                    ),
+                  ),
                 ),
                 Expanded(
-                  child: Text('Hang(s)',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
-                          color: webMuted)),
+                  child: Text(
+                    'Hang(s)',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                      color: webMuted,
+                    ),
+                  ),
                 ),
                 Expanded(
-                  child: Text('Rest(s)',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
-                          color: webMuted)),
+                  child: Text(
+                    'Rest(s)',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                      color: webMuted,
+                    ),
+                  ),
                 ),
                 Expanded(
-                  child: Text('Reps',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
-                          color: webMuted)),
+                  child: Text(
+                    'Reps',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                      color: webMuted,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 32),
               ],
@@ -1602,9 +1669,11 @@ class _PerSetTable extends StatelessWidget {
                                   ..removeAt(i);
                                 onConfigsChanged(updated);
                               },
-                              child: Icon(Icons.close,
-                                  size: 16,
-                                  color: webMuted.withValues(alpha: 0.6)),
+                              child: Icon(
+                                Icons.close,
+                                size: 16,
+                                color: webMuted.withValues(alpha: 0.6),
+                              ),
                             )
                           : const SizedBox.shrink(),
                     ),
@@ -1615,13 +1684,16 @@ class _PerSetTable extends StatelessWidget {
             const SizedBox(height: 4),
             GestureDetector(
               onTap: () {
-                final last =
-                    setConfigs.isNotEmpty ? setConfigs.last : const SetConfig();
+                final last = setConfigs.isNotEmpty
+                    ? setConfigs.last
+                    : const SetConfig();
                 onConfigsChanged([...setConfigs, last]);
               },
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
@@ -1655,10 +1727,7 @@ class _PerSetTable extends StatelessWidget {
 }
 
 class _MiniStepper extends StatelessWidget {
-  const _MiniStepper({
-    required this.value,
-    required this.onChanged,
-  });
+  const _MiniStepper({required this.value, required this.onChanged});
 
   final int value;
   final ValueChanged<int> onChanged;
@@ -1671,11 +1740,13 @@ class _MiniStepper extends StatelessWidget {
       children: [
         GestureDetector(
           onTap: value > 1 ? () => onChanged(value - 1) : null,
-          child: Icon(Icons.remove,
-              size: 14,
-              color: value > 1
-                  ? (isDark ? webMuted : lightMuted)
-                  : webMuted.withValues(alpha: 0.3)),
+          child: Icon(
+            Icons.remove,
+            size: 14,
+            color: value > 1
+                ? (isDark ? webMuted : lightMuted)
+                : webMuted.withValues(alpha: 0.3),
+          ),
         ),
         SizedBox(
           width: 28,
@@ -1691,8 +1762,11 @@ class _MiniStepper extends StatelessWidget {
         ),
         GestureDetector(
           onTap: () => onChanged(value + 1),
-          child: Icon(Icons.add,
-              size: 14, color: isDark ? webMuted : lightMuted),
+          child: Icon(
+            Icons.add,
+            size: 14,
+            color: isDark ? webMuted : lightMuted,
+          ),
         ),
       ],
     );
@@ -1715,67 +1789,75 @@ class _ProtocolTypeSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: const [ProtocolType.repeater, ProtocolType.maxHang, ProtocolType.freeform].map((type) {
-        final isSelected = type == selected;
-        final icon = type == ProtocolType.maxHang
-            ? Icons.timer
-            : type == ProtocolType.repeater
+      children:
+          const [
+            ProtocolType.repeater,
+            ProtocolType.maxHang,
+            ProtocolType.freeform,
+          ].map((type) {
+            final isSelected = type == selected;
+            final icon = type == ProtocolType.maxHang
+                ? Icons.timer
+                : type == ProtocolType.repeater
                 ? Icons.repeat
                 : Icons.explore;
-        final label = type == ProtocolType.maxHang
-            ? 'Max Hang'
-            : type == ProtocolType.repeater
+            final label = type == ProtocolType.maxHang
+                ? 'Max Hang'
+                : type == ProtocolType.repeater
                 ? 'Repeater'
                 : 'Freeform';
 
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              right: type != ProtocolType.freeform ? 8 : 0,
-            ),
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                onChanged(type);
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? brandAccent.withValues(alpha: 0.12)
-                      : (isDark ? webPanel : lightPanel),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected
-                        ? brandAccent.withValues(alpha: 0.5)
-                        : (isDark
-                            ? webBorder.withValues(alpha: 0.4)
-                            : lightBorder.withValues(alpha: 0.5)),
-                  ),
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  right: type != ProtocolType.freeform ? 8 : 0,
                 ),
-                child: Column(
-                  children: [
-                    Icon(icon, size: 18,
-                        color: isSelected ? brandAccent : webMuted),
-                    const SizedBox(height: 4),
-                    Text(
-                      label,
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    onChanged(type);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? brandAccent.withValues(alpha: 0.12)
+                          : (isDark ? webPanel : lightPanel),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
                         color: isSelected
-                            ? brandAccent
-                            : (isDark ? webText : lightText),
+                            ? brandAccent.withValues(alpha: 0.5)
+                            : (isDark
+                                  ? webBorder.withValues(alpha: 0.4)
+                                  : lightBorder.withValues(alpha: 0.5)),
                       ),
                     ),
-                  ],
+                    child: Column(
+                      children: [
+                        Icon(
+                          icon,
+                          size: 18,
+                          color: isSelected ? brandAccent : webMuted,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          label,
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                            color: isSelected
+                                ? brandAccent
+                                : (isDark ? webText : lightText),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
     );
   }
 }
@@ -1822,11 +1904,7 @@ class _TemplateCard extends StatelessWidget {
                 color: brandAccent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(
-                _typeIcon(config.type),
-                size: 18,
-                color: brandAccent,
-              ),
+              child: Icon(_typeIcon(config.type), size: 18, color: brandAccent),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1843,10 +1921,7 @@ class _TemplateCard extends StatelessWidget {
                   ),
                   Text(
                     _configSummary(config),
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: webMuted,
-                    ),
+                    style: GoogleFonts.inter(fontSize: 12, color: webMuted),
                   ),
                 ],
               ),

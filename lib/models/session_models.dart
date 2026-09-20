@@ -50,12 +50,12 @@ sealed class ProtocolConfig with _$ProtocolConfig {
 
   SetConfig getSetConfig(int index) =>
       setConfigs != null && index < setConfigs!.length
-          ? setConfigs![index]
-          : SetConfig(
-              hangDurationSec: hangDurationSec,
-              restDurationSec: restDurationSec,
-              repsPerSet: repsPerSet,
-            );
+      ? setConfigs![index]
+      : SetConfig(
+          hangDurationSec: hangDurationSec,
+          restDurationSec: restDurationSec,
+          repsPerSet: repsPerSet,
+        );
 
   factory ProtocolConfig.fromJson(Map<String, dynamic> json) =>
       _$ProtocolConfigFromJson(json);
@@ -131,6 +131,8 @@ sealed class ActiveSessionState with _$ActiveSessionState {
     @Default(0.0) double peakWeightKg,
     @Default([]) List<WeightSample> liveWeightHistory,
     @Default(false) bool isPaused,
+    // Timer mode runs the protocol without a connected measurement device.
+    @Default(false) bool timerMode,
     @Default(0) int currentHandIndex, // 0 = left, 1 = right
     // Timer is frozen until weight crosses hangThresholdKg
     @Default(false) bool waitingForThreshold,

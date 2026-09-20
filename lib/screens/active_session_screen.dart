@@ -32,10 +32,7 @@ class ActiveSessionScreen extends ConsumerWidget {
       body: SafeArea(
         child: phase == SessionPhase.complete
             ? _CompletedView(session: session, ref: ref)
-            : _ActiveView(
-                session: session,
-                ref: ref,
-              ),
+            : _ActiveView(session: session, ref: ref),
       ),
     );
   }
@@ -44,10 +41,7 @@ class ActiveSessionScreen extends ConsumerWidget {
 // ──────────────────────────── Active view ─────────────────────────────
 
 class _ActiveView extends StatelessWidget {
-  const _ActiveView({
-    required this.session,
-    required this.ref,
-  });
+  const _ActiveView({required this.session, required this.ref});
 
   final ActiveSessionState session;
   final WidgetRef ref;
@@ -64,10 +58,7 @@ class _ActiveView extends StatelessWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'End Session?',
-              style: tsInterW700S20,
-            ),
+            Text('End Session?', style: tsInterW700S20),
             const SizedBox(height: 8),
             Text(
               'Your progress will be saved.',
@@ -85,10 +76,7 @@ class _ActiveView extends StatelessWidget {
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size(0, 48),
                     ),
-                    child: Text(
-                      'Cancel',
-                      style: tsInterW600,
-                    ),
+                    child: Text('Cancel', style: tsInterW600),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -122,12 +110,42 @@ class _ActiveView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    if (session.timerMode) {
+      final isResting =
+          session.phase == SessionPhase.resting ||
+          session.phase == SessionPhase.restBetweenSets;
+      return Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: RepaintBoundary(
+                child: _TickerTimerDisplay(
+                  phaseLabel: _phaseLabel(session.phase),
+                  timerFontSize: 144,
+                  labelFontSize: 34,
+                  color: isResting ? webText : colorScheme.primary,
+                ),
+              ),
+            ),
+          ),
+          _SessionControls(
+            session: session,
+            colorScheme: colorScheme,
+            onEnd: () => _showEndSessionConfirmation(context, ref),
+            ref: ref,
+          ),
+        ],
+      );
+    }
+
     final targetWeight = session.protocol.targetWeightKg;
 
     final phaseLabel = _phaseLabel(session.phase);
 
     final isHanging = session.phase == SessionPhase.hanging;
-    final isResting = session.phase == SessionPhase.resting ||
+    final isResting =
+        session.phase == SessionPhase.resting ||
         session.phase == SessionPhase.restBetweenSets;
     final isCountdown = session.phase == SessionPhase.countdown;
 
@@ -149,7 +167,10 @@ class _ActiveView extends StatelessWidget {
               // Center: hand mode badge
               if (session.protocol.handMode != HandMode.both)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: brandAccent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
@@ -158,10 +179,10 @@ class _ActiveView extends StatelessWidget {
                     session.protocol.handMode == HandMode.left
                         ? 'LEFT'
                         : session.protocol.handMode == HandMode.right
-                            ? 'RIGHT'
-                            : session.currentHandIndex == 0
-                                ? 'LEFT'
-                                : 'RIGHT',
+                        ? 'RIGHT'
+                        : session.currentHandIndex == 0
+                        ? 'LEFT'
+                        : 'RIGHT',
                     style: tsInterW700S11.copyWith(color: brandAccent),
                   ),
                 )
@@ -216,15 +237,25 @@ class _ActiveView extends StatelessWidget {
                 child: Consumer(
                   builder: (context, ref, _) {
                     // Live weight from hardware provider — independent of session timer
-                    final liveW = ref.watch(progressorProvider.select((s) =>
-                      (s.measurement.currentWeight * 10).roundToDouble() / 10,
-                    ));
+                    final liveW = ref.watch(
+                      progressorProvider.select(
+                        (s) =>
+                            (s.measurement.currentWeight * 10).roundToDouble() /
+                            10,
+                      ),
+                    );
                     // Peak from session (rarely changes — only on new peak)
-                    final peakW = ref.watch(sessionProvider.select((s) =>
-                      ((s?.peakWeightKg ?? 0.0) * 10).roundToDouble() / 10,
-                    ));
+                    final peakW = ref.watch(
+                      sessionProvider.select(
+                        (s) =>
+                            ((s?.peakWeightKg ?? 0.0) * 10).roundToDouble() /
+                            10,
+                      ),
+                    );
                     final waitingForThreshold = ref.watch(
-                      sessionProvider.select((s) => s?.waitingForThreshold ?? false),
+                      sessionProvider.select(
+                        (s) => s?.waitingForThreshold ?? false,
+                      ),
                     );
                     final w = liveW < 0 ? 0.0 : liveW;
                     Color color;
@@ -261,23 +292,19 @@ class _ActiveView extends StatelessWidget {
             ),
           ),
         ] else if (isResting || isCountdown) ...[
-          // Timer dominates center
           Expanded(
-            flex: 6,
+            flex: 3,
             child: Center(
               child: _TickerTimerDisplay(
                 phaseLabel: phaseLabel,
-                timerFontSize: 96,
-                labelFontSize: 16,
+                timerFontSize: 72,
+                labelFontSize: 26,
                 color: colorScheme.primary,
-                timerStyle: tsGrotesk800S96,
-                unitStyle: tsGrotesk600S28,
-                labelStyle: tsInterW600S16Spaced,
               ),
             ),
           ),
           Expanded(
-            flex: 2,
+            flex: 7,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _RepGrid(
@@ -309,12 +336,19 @@ class _ActiveView extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Consumer(
                 builder: (context, ref, _) {
-                  final liveW = ref.watch(progressorProvider.select((s) =>
-                    (s.measurement.currentWeight * 10).roundToDouble() / 10,
-                  ));
-                  final peakW = ref.watch(sessionProvider.select((s) =>
-                    ((s?.peakWeightKg ?? 0.0) * 10).roundToDouble() / 10,
-                  ));
+                  final liveW = ref.watch(
+                    progressorProvider.select(
+                      (s) =>
+                          (s.measurement.currentWeight * 10).roundToDouble() /
+                          10,
+                    ),
+                  );
+                  final peakW = ref.watch(
+                    sessionProvider.select(
+                      (s) =>
+                          ((s?.peakWeightKg ?? 0.0) * 10).roundToDouble() / 10,
+                    ),
+                  );
                   final w = liveW < 0 ? 0.0 : liveW;
                   Color color;
                   if (targetWeight > 0) {
@@ -369,53 +403,77 @@ class _ActiveView extends StatelessWidget {
         const SizedBox(height: 6),
 
         // Pause + End session buttons
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    final notifier = ref.read(sessionProvider.notifier);
-                    if (session.isPaused) {
-                      notifier.resumeSession();
-                    } else {
-                      notifier.pauseSession();
-                    }
-                  },
-                  icon: Icon(
-                    session.isPaused ? Icons.play_arrow : Icons.pause,
-                    color: colorScheme.primary,
-                  ),
-                  label: Text(
-                    session.isPaused ? 'Resume' : 'Pause',
-                    style: tsInterW700S14.copyWith(color: colorScheme.primary),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 44),
-                    side: BorderSide(color: colorScheme.primary),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _showEndSessionConfirmation(context, ref),
-                  icon: const Icon(Icons.stop, color: paleRed),
-                  label: Text(
-                    'End Session',
-                    style: tsInterW700S14.copyWith(color: paleRed),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 44),
-                    side: const BorderSide(color: paleRed),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        _SessionControls(
+          session: session,
+          colorScheme: colorScheme,
+          onEnd: () => _showEndSessionConfirmation(context, ref),
+          ref: ref,
         ),
       ],
+    );
+  }
+}
+
+class _SessionControls extends StatelessWidget {
+  const _SessionControls({
+    required this.session,
+    required this.colorScheme,
+    required this.onEnd,
+    required this.ref,
+  });
+
+  final ActiveSessionState session;
+  final ColorScheme colorScheme;
+  final VoidCallback onEnd;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () {
+                final notifier = ref.read(sessionProvider.notifier);
+                if (session.isPaused) {
+                  notifier.resumeSession();
+                } else {
+                  notifier.pauseSession();
+                }
+              },
+              icon: Icon(
+                session.isPaused ? Icons.play_arrow : Icons.pause,
+                color: colorScheme.primary,
+              ),
+              label: Text(
+                session.isPaused ? 'Resume' : 'Pause',
+                style: tsInterW700S14.copyWith(color: colorScheme.primary),
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 44),
+                side: BorderSide(color: colorScheme.primary),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: onEnd,
+              icon: const Icon(Icons.stop, color: paleRed),
+              label: Text(
+                'End Session',
+                style: tsInterW700S14.copyWith(color: paleRed),
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 44),
+                side: const BorderSide(color: paleRed),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -479,7 +537,8 @@ class _TickerTimerDisplayState extends ConsumerState<_TickerTimerDisplay>
     if (s == null) return;
     _deadlineMs = s.phaseDeadlineMs;
     _startMs = s.phaseStartMs;
-    _isElapsed = s.protocol.type == ProtocolType.maxHang &&
+    _isElapsed =
+        s.protocol.type == ProtocolType.maxHang &&
         s.phase == SessionPhase.hanging;
     _isPaused = s.isPaused;
     _frozenRemainingMs = s.phaseRemainingMs;
@@ -514,15 +573,24 @@ class _TickerTimerDisplayState extends ConsumerState<_TickerTimerDisplay>
     // Sync cached fields when provider state changes (phase transitions, pause/resume)
     ref.listen(sessionProvider, (_, next) => _syncFromProvider(next));
 
-    final timerStyle = widget.timerStyle ??
+    final timerStyle =
+        widget.timerStyle ??
         tsGrotesk800S72.copyWith(
-            fontSize: widget.timerFontSize, color: widget.color);
-    final unitStyle = widget.unitStyle ??
+          fontSize: widget.timerFontSize,
+          color: widget.color,
+        );
+    final unitStyle =
+        widget.unitStyle ??
         tsGrotesk600S24.copyWith(
-            fontSize: widget.timerFontSize * 0.33, color: webMuted);
-    final labelStyle = widget.labelStyle ??
+          fontSize: widget.timerFontSize * 0.33,
+          color: webMuted,
+        );
+    final labelStyle =
+        widget.labelStyle ??
         tsInterW600S16Spaced.copyWith(
-            fontSize: widget.labelFontSize, color: webMuted);
+          fontSize: widget.labelFontSize,
+          color: webMuted,
+        );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -544,10 +612,7 @@ class _TickerTimerDisplayState extends ConsumerState<_TickerTimerDisplay>
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(
-              _displayTime,
-              style: timerStyle.copyWith(color: widget.color),
-            ),
+            Text(_displayTime, style: timerStyle.copyWith(color: widget.color)),
             if (_showUnit) ...[
               const SizedBox(width: 4),
               Text('s', style: unitStyle),
@@ -562,10 +627,7 @@ class _TickerTimerDisplayState extends ConsumerState<_TickerTimerDisplay>
 // ──────────────────────────── Last rep summary ──────────────────────────
 
 class _LastRepSummary extends StatelessWidget {
-  const _LastRepSummary({
-    required this.rep,
-    required this.protocolType,
-  });
+  const _LastRepSummary({required this.rep, required this.protocolType});
 
   final Rep rep;
   final ProtocolType protocolType;
@@ -584,10 +646,7 @@ class _LastRepSummary extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Text(
-            'Last Rep',
-            style: tsInterW600S13.copyWith(color: webMuted),
-          ),
+          Text('Last Rep', style: tsInterW600S13.copyWith(color: webMuted)),
           Text(
             '${rep.peakForceKg.toStringAsFixed(1)} kg',
             style: tsGrotesk700S18.copyWith(color: dataAccent),
@@ -665,28 +724,48 @@ class _WeightGaugePainter extends CustomPainter {
     canvas.restore();
 
     // 4. Threshold dotted line + label
-    final thresholdRatio =
-        thresholdWeight > 0 ? (thresholdWeight / scaleMax).clamp(0.0, 1.0) : 0.0;
+    final thresholdRatio = thresholdWeight > 0
+        ? (thresholdWeight / scaleMax).clamp(0.0, 1.0)
+        : 0.0;
     if (thresholdRatio > 0) {
       final y = h - h * thresholdRatio;
-      _drawDottedLine(canvas, 12, w - 12, y, brandAccent.withValues(alpha: 0.35));
+      _drawDottedLine(
+        canvas,
+        12,
+        w - 12,
+        y,
+        brandAccent.withValues(alpha: 0.35),
+      );
       _drawLineLabel(
-        canvas, w,
+        canvas,
+        w,
         'goal:  ${thresholdWeight.toStringAsFixed(0)} kg',
-        y, brandAccent.withValues(alpha: 0.7), labelAbove: false,
+        y,
+        brandAccent.withValues(alpha: 0.7),
+        labelAbove: false,
       );
     }
 
     // 5. Peak dotted line + label
-    final peakRatio =
-        peakWeight > 0 ? (peakWeight / scaleMax).clamp(0.0, 1.0) : 0.0;
+    final peakRatio = peakWeight > 0
+        ? (peakWeight / scaleMax).clamp(0.0, 1.0)
+        : 0.0;
     if (peakRatio > 0) {
       final y = h - h * peakRatio;
-      _drawDottedLine(canvas, 12, w - 12, y, webAccentStrong.withValues(alpha: 0.3));
+      _drawDottedLine(
+        canvas,
+        12,
+        w - 12,
+        y,
+        webAccentStrong.withValues(alpha: 0.3),
+      );
       _drawLineLabel(
-        canvas, w,
+        canvas,
+        w,
         'max:  ${peakWeight.toStringAsFixed(1)} kg',
-        y, webAccentStrong.withValues(alpha: 0.6), labelAbove: true,
+        y,
+        webAccentStrong.withValues(alpha: 0.6),
+        labelAbove: true,
       );
     }
 
@@ -713,7 +792,12 @@ class _WeightGaugePainter extends CustomPainter {
   }
 
   void _drawDottedLine(
-      Canvas canvas, double x1, double x2, double y, Color color) {
+    Canvas canvas,
+    double x1,
+    double x2,
+    double y,
+    Color color,
+  ) {
     final paint = Paint()
       ..color = color
       ..strokeWidth = 3.0
@@ -728,11 +812,18 @@ class _WeightGaugePainter extends CustomPainter {
   }
 
   void _drawLineLabel(
-    Canvas canvas, double gaugeWidth, String text,
-    double lineY, Color color, {required bool labelAbove,
+    Canvas canvas,
+    double gaugeWidth,
+    String text,
+    double lineY,
+    Color color, {
+    required bool labelAbove,
   }) {
     final tp = TextPainter(
-      text: TextSpan(text: text, style: tsGrotesk700S14.copyWith(color: color)),
+      text: TextSpan(
+        text: text,
+        style: tsGrotesk700S14.copyWith(color: color),
+      ),
       textDirection: TextDirection.ltr,
     )..layout();
 
@@ -743,8 +834,13 @@ class _WeightGaugePainter extends CustomPainter {
     final top = labelAbove ? lineY - 6 - labelH : lineY + 6;
 
     // Label background pill
-    final labelRect = RRect.fromLTRBR(left, top, left + labelW, top + labelH,
-        const Radius.circular(6));
+    final labelRect = RRect.fromLTRBR(
+      left,
+      top,
+      left + labelW,
+      top + labelH,
+      const Radius.circular(6),
+    );
     canvas.drawRRect(labelRect, Paint()..color = color.withValues(alpha: 0.15));
     tp.paint(canvas, Offset(left + px, top + py));
   }
@@ -757,7 +853,6 @@ class _WeightGaugePainter extends CustomPainter {
       targetWeight != old.targetWeight ||
       thresholdWeight != old.thresholdWeight;
 }
-
 
 // ──────────────────────────── Rep grid ────────────────────────────────
 
