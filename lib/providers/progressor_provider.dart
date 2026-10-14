@@ -51,6 +51,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   final _commandResponses = Queue<Completer<Uint8List>>();
 
   var _timestamps = TimestampUnwrapper();
+  // Device time of the latest sample, and of the start of the window, which a
+  // tare or reset moves without restarting the device clock.
+  int _lastDeviceUs = 0;
+  int _windowStartUs = 0;
   var _stats = ForceStats();
   final _pendingSamples = <WeightMeasurement>[];
   final _lastSecondTimestamps = Queue<int>();
@@ -392,18 +396,18 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _lastNotifyTime = now;
     _packetCount++;
 
-    final samples = [
-      for (final sample in rawSamples)
-        WeightMeasurement(
-          weightKg: sample.weightKg,
-          timestampUs: _timestamps.unwrap(sample.timestampUs),
-        ),
-    ];
-    for (final sample in samples) {
+    final samples = <WeightMeasurement>[];
+    for (final rawSample in rawSamples) {
+      _lastDeviceUs = _timestamps.unwrap(rawSample.timestampUs);
+      _lastSecondTimestamps.addLast(_lastDeviceUs);
+      final sample = WeightMeasurement(
+        weightKg: rawSample.weightKg,
+        timestampUs: _lastDeviceUs - _windowStartUs,
+      );
       _stats.add(sample);
-      _lastSecondTimestamps.addLast(sample.timestampUs);
+      samples.add(sample);
     }
-    while (samples.last.timestampUs - _lastSecondTimestamps.first >
+    while (_lastDeviceUs - _lastSecondTimestamps.first >
         Duration.microsecondsPerSecond) {
       _lastSecondTimestamps.removeFirst();
     }
@@ -472,6 +476,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   void _resetMeasurementRuntime() {
     _timestamps = TimestampUnwrapper();
+    _lastDeviceUs = 0;
+    _windowStartUs = 0;
     _stats = ForceStats();
     _pendingSamples.clear();
     _lastSecondTimestamps.clear();
@@ -591,6 +597,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   /// Starts a new measurement window without changing the device.
   void resetMeasurement() {
+    _windowStartUs = _lastDeviceUs;
     _stats = ForceStats();
     _pendingSamples.clear();
     state = state.copyWith(
