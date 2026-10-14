@@ -115,8 +115,12 @@ class PerformanceCard extends StatelessWidget {
                       if (value != null) onSampleRateChanged(value);
                     },
                     items: [
-                      for (final rate in AppConstants.sampleRates)
-                        DropdownMenuItem(value: rate, child: Text('$rate SPS')),
+                      for (final MapEntry(key: rate, value: useCase)
+                          in AppConstants.sampleRateUseCases.entries)
+                        DropdownMenuItem(
+                          value: rate,
+                          child: Text('$useCase · $rate SPS'),
+                        ),
                     ],
                   ),
                 ],

@@ -33,8 +33,18 @@ class AppConstants {
   static const int maxReceivedDataSize = 10;
   static const Duration scanTimeout = Duration(seconds: 10);
   static const Duration scanExtendedTimeout = Duration(seconds: 12);
-  // ADS1220 normal-mode data rates supported by the firmware.
-  static const List<int> sampleRates = [20, 45, 90, 175, 330, 600, 1000];
+  // ADS1220 normal-mode data rates supported by the firmware, with their use
+  // case. Lower rates filter more noise in the ADC; higher rates resolve
+  // faster force changes.
+  static const Map<int, String> sampleRateUseCases = {
+    20: 'Precision',
+    45: 'Precision',
+    90: 'Precision',
+    175: 'Balanced',
+    330: 'Balanced',
+    600: 'Balanced',
+    1000: 'RFD',
+  };
   static const int defaultSampleRate = 600;
 }
 
