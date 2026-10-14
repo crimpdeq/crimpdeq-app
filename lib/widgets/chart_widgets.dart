@@ -63,6 +63,10 @@ class WeightHistoryCard extends StatelessWidget {
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
+                        // The bounds are fractional, so their labels would
+                        // overlap the interval labels.
+                        minIncluded: false,
+                        maxIncluded: false,
                         reservedSize: 40,
                         getTitlesWidget: (value, meta) => Text(
                           '${value.toStringAsFixed(1)}kg',
@@ -73,6 +77,8 @@ class WeightHistoryCard extends StatelessWidget {
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
+                        minIncluded: false,
+                        maxIncluded: false,
                         reservedSize: 30,
                         getTitlesWidget: (value, meta) => Text(
                           '${value.toInt()}',
@@ -160,6 +166,9 @@ class NotifyIntervalCard extends StatelessWidget {
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
+                        // The maximum is fractional, so its label would overlap
+                        // the interval labels.
+                        maxIncluded: false,
                         reservedSize: 40,
                         getTitlesWidget: (value, meta) => Text(
                           '${value.toInt()}ms',
