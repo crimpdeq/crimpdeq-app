@@ -647,7 +647,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   Future<void> getCalibration() => _send(ControlOpCode.getCalibration);
 
-  Future<void> defaultCalibration() => _send(ControlOpCode.defaultCalibration);
+  /// Reads the calibration back, because the firmware clears its points even
+  /// when it fails to store the default factor and skips the notification.
+  Future<void> defaultCalibration() async {
+    if (await _send(ControlOpCode.defaultCalibration)) await getCalibration();
+  }
 
   Future<void> setSampleRate(int samplesPerSecond) =>
       _send(ControlOpCode.setSampleRate, encodeUint16(samplesPerSecond));
