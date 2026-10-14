@@ -206,18 +206,34 @@ class ForceSummaryCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 24,
-              runSpacing: 12,
+            // A fixed grid, so the card does not reflow as the values change
+            // width while measuring.
+            Row(
               children: [
-                _Metric(label: 'Current', value: kg(measurement.currentKg)),
-                _Metric(label: 'Min', value: kg(measurement.minKg)),
-                _Metric(label: 'Peak', value: kg(measurement.peakKg)),
-                _Metric(
-                  label: 'Peak RFD',
-                  value: peakRfd == null
-                      ? '—'
-                      : '${peakRfd.toStringAsFixed(1)} kg/s',
+                Expanded(
+                  child: _Metric(
+                    label: 'Current',
+                    value: kg(measurement.currentKg),
+                  ),
+                ),
+                Expanded(
+                  child: _Metric(label: 'Min', value: kg(measurement.minKg)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _Metric(label: 'Peak', value: kg(measurement.peakKg)),
+                ),
+                Expanded(
+                  child: _Metric(
+                    label: 'Peak RFD',
+                    value: peakRfd == null
+                        ? '—'
+                        : '${peakRfd.toStringAsFixed(1)} kg/s',
+                  ),
                 ),
               ],
             ),
