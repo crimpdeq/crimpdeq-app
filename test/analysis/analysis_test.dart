@@ -1,0 +1,174 @@
+import 'package:crimpdeq/analysis/battery.dart';
+import 'package:crimpdeq/analysis/calibration_check.dart';
+import 'package:crimpdeq/analysis/force_stats.dart';
+import 'package:crimpdeq/analysis/steady_load.dart';
+import 'package:crimpdeq/analysis/timestamp_unwrapper.dart';
+import 'package:crimpdeq/models/progressor_models.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+WeightMeasurement _sample(double weightKg, int timestampMs) =>
+    WeightMeasurement(weightKg: weightKg, timestampUs: timestampMs * 1000);
+
+/// Samples every [intervalMs] from 0 to [durationMs], weighing [weightAt].
+List<WeightMeasurement> _samples(
+  int durationMs,
+  int intervalMs,
+  double Function(int timestampMs) weightAt,
+) => [
+  for (var ms = 0; ms <= durationMs; ms += intervalMs)
+    _sample(weightAt(ms), ms),
+];
+
+void main() {
+  group('ForceStats', () {
+    test('tracks min and peak, including negative loads', () {
+      final stats = ForceStats();
+      for (final sample in [_sample(-2, 0), _sample(-0.5, 10)]) {
+        stats.add(sample);
+      }
+
+      expect(stats.minKg, -2);
+      expect(stats.peakKg, -0.5);
+    });
+
+    test('measures the steepest rise over the RFD span', () {
+      final stats = ForceStats();
+      // 10 kg/s, then 100 kg/s from 500 ms, then flat from 600 ms.
+      for (final sample in _samples(1000, 10, (ms) {
+        if (ms < 500) return ms / 100;
+        if (ms < 600) return 5 + (ms - 500) / 10;
+        return 15;
+      })) {
+        stats.add(sample);
+      }
+
+      expect(stats.peakRfdKgPerS, closeTo(100, 1e-9));
+      expect(stats.peakKg, 15);
+    });
+
+    test('needs samples spanning the RFD span', () {
+      final stats = ForceStats()
+        ..add(_sample(0, 0))
+        ..add(_sample(5, 10));
+
+      expect(stats.peakRfdKgPerS, isNull);
+    });
+
+    test('uses consecutive samples when they are further apart', () {
+      // 20 SPS: 50 ms between samples.
+      final stats = ForceStats();
+      for (final sample in _samples(200, 50, (ms) => ms / 10)) {
+        stats.add(sample);
+      }
+
+      expect(stats.peakRfdKgPerS, closeTo(100, 1e-9));
+    });
+  });
+
+  group('SteadyLoadDetector', () {
+    test('is steady once a still load spans the window', () {
+      final detector = SteadyLoadDetector();
+
+      expect(detector.add(_samples(900, 10, (_) => 20)), isFalse);
+      expect(detector.add([_sample(20, 1000)]), isTrue);
+    });
+
+    test('averages out noise below the tolerance', () {
+      final detector = SteadyLoadDetector();
+
+      expect(
+        detector.add(
+          _samples(1000, 10, (ms) => (ms ~/ 10).isEven ? 20.05 : 19.95),
+        ),
+        isTrue,
+      );
+    });
+
+    test('rejects a creeping load', () {
+      final detector = SteadyLoadDetector();
+
+      expect(
+        detector.add(_samples(2000, 10, (ms) => 20 + ms / 10000)),
+        isFalse,
+      );
+    });
+
+    test('starts a new window when the timeline restarts', () {
+      final detector = SteadyLoadDetector()..add(_samples(1000, 10, (_) => 5));
+
+      expect(detector.add([_sample(5, 0)]), isFalse);
+      expect(detector.receivedSamples, isTrue);
+    });
+
+    test('reports whether samples arrived', () {
+      final detector = SteadyLoadDetector();
+
+      expect(detector.add(const []), isFalse);
+      expect(detector.receivedSamples, isFalse);
+    });
+  });
+
+  group('TimestampUnwrapper', () {
+    test('continues the timeline across the u32 wrap', () {
+      final unwrapper = TimestampUnwrapper();
+
+      expect(unwrapper.unwrap(0xFFFFFF00), 0xFFFFFF00);
+      expect(unwrapper.unwrap(0x100), 0x100000100);
+      expect(unwrapper.unwrap(0x200), 0x100000200);
+    });
+
+    test('does not treat a small step back as a wrap', () {
+      final unwrapper = TimestampUnwrapper()..unwrap(5000000);
+
+      expect(unwrapper.unwrap(1000), 1000);
+    });
+  });
+
+  group('batteryStateOfCharge', () {
+    test('clamps outside the curve', () {
+      expect(batteryStateOfCharge(3000), 0);
+      expect(batteryStateOfCharge(3300), 0);
+      expect(batteryStateOfCharge(4300), 100);
+    });
+
+    test('interpolates between curve points', () {
+      expect(batteryStateOfCharge(3840), 50);
+      expect(batteryStateOfCharge(3845), 53);
+      expect(batteryStateOfCharge(4200), 100);
+    });
+  });
+
+  group('CalibrationCheck', () {
+    test('needs two points', () {
+      expect(CalibrationCheck.of([(raw: 1000, weightKg: 5)], 1), isNull);
+    });
+
+    test('finds no error when the factor fits the points', () {
+      // 1 g per count: 5 kg at 5000 counts above the 1000 count offset.
+      final check = CalibrationCheck.of([
+        (raw: 1000, weightKg: 0),
+        (raw: 6000, weightKg: 5),
+        (raw: 21000, weightKg: 20),
+      ], 1)!;
+
+      expect(check.maxErrorKg, closeTo(0, 1e-9));
+      expect(check.rmsErrorKg, closeTo(0, 1e-9));
+    });
+
+    test('reports the error of each point against the device line', () {
+      final check = CalibrationCheck.of([
+        (raw: 0, weightKg: 0),
+        (raw: 10000, weightKg: 10.3),
+        (raw: 20000, weightKg: 20),
+      ], 1)!;
+
+      // Line through the mean (10000, 10.1) with 1 g per count.
+      expect(
+        [for (final residual in check.residuals) residual.errorKg],
+        [closeTo(0.1, 1e-9), closeTo(-0.2, 1e-9), closeTo(0.1, 1e-9)],
+      );
+      expect(check.maxErrorKg, closeTo(0.2, 1e-9));
+      expect(check.maxErrorPercentOfSpan, closeTo(1, 1e-9));
+    });
+  });
+}
