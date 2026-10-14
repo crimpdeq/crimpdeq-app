@@ -799,6 +799,11 @@ class CrimpdeqScreen extends ConsumerWidget {
                                                 PerformanceCard(
                                                   performance:
                                                       state.performance,
+                                                  sampleRate: state
+                                                      .deviceInfo
+                                                      .sampleRate,
+                                                  onSampleRateChanged:
+                                                      notifier.setSampleRate,
                                                 ),
                                                 const SizedBox(height: 16),
                                                 CurrentWeightCard(
@@ -818,6 +823,11 @@ class CrimpdeqScreen extends ConsumerWidget {
                                                   child: PerformanceCard(
                                                     performance:
                                                         state.performance,
+                                                    sampleRate: state
+                                                        .deviceInfo
+                                                        .sampleRate,
+                                                    onSampleRateChanged:
+                                                        notifier.setSampleRate,
                                                   ),
                                                 ),
                                                 const SizedBox(width: 16),

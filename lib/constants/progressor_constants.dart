@@ -33,12 +33,16 @@ class AppConstants {
   static const int maxReceivedDataSize = 10;
   static const Duration scanTimeout = Duration(seconds: 10);
   static const Duration scanExtendedTimeout = Duration(seconds: 12);
+  // ADS1220 normal-mode data rates supported by the firmware.
+  static const List<int> sampleRates = [20, 45, 90, 175, 330, 600, 1000];
+  static const int defaultSampleRate = 600;
 }
 
 enum ControlOpCode {
   getCalibration(0x72),
   addCalibrationPoint(0x69),
-  defaultCalibration(0x74);
+  defaultCalibration(0x74),
+  setSampleRate(0x75);
 
   const ControlOpCode(this.value);
 

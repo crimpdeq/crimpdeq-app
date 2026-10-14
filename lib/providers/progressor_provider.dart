@@ -36,6 +36,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   int _dataPacketCount = 0;
   double? _calibrationFactor;
   final List<List<double>> _calibrationPoints = [];
+  // The firmware resets the rate on every connection, so it is sent again after connecting.
+  int _selectedSampleRate = AppConstants.defaultSampleRate;
 
   @override
   ProgressorState build() {
@@ -614,6 +616,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       case 6: // CALIBRATION_POINT_RESPONSE
         _handleCalibrationPointResponse(rawData);
         break;
+      case 7: // SAMPLE_RATE_RESPONSE
+        _handleSampleRateResponse(rawData);
+        break;
       case 4: // LOW_BATTERY_WARNING
         _log('Low battery warning received');
         break;
@@ -843,6 +848,20 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
   }
 
+  void _handleSampleRateResponse(List<int> rawData) {
+    final payload = _payloadFromDataMessage(rawData);
+    if (payload == null || payload.length < 2) {
+      _log('Invalid sample rate response: $rawData');
+      return;
+    }
+
+    final sampleRate = payload[0] | (payload[1] << 8);
+    _log('Sample rate: $sampleRate SPS');
+    state = state.copyWith(
+      deviceInfo: state.deviceInfo.copyWith(sampleRate: sampleRate),
+    );
+  }
+
   Uint8List? _payloadFromDataMessage(List<int> rawData) {
     if (rawData.length < 2) return null;
 
@@ -975,6 +994,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       await _getBatteryVoltage();
       await Future.delayed(_commandSettleDelay);
       await getCalibration();
+      await Future.delayed(_commandSettleDelay);
+      await setSampleRate(_selectedSampleRate);
 
       final hasFirmware = state.deviceInfo.firmwareVersion.isNotEmpty;
       final hasBattery = state.deviceInfo.batteryVoltage.isNotEmpty;
@@ -1143,6 +1164,15 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _calibrationPoints.clear();
     _updateCalibrationInfo();
     await _sendControlOpCode(ControlOpCode.defaultCalibration.value);
+  }
+
+  Future<void> setSampleRate(int sampleRate) async {
+    _selectedSampleRate = sampleRate;
+    final payload = ByteData(2)..setUint16(0, sampleRate, Endian.little);
+    await _sendControlOpCode(
+      ControlOpCode.setSampleRate.value,
+      payload.buffer.asUint8List(),
+    );
   }
 
   void _handleUnexpectedDisconnect() {

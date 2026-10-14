@@ -271,7 +271,8 @@ as DateTime,
 /// @nodoc
 mixin _$DeviceInfo {
 
- String get firmwareVersion; String get batteryVoltage; double get tareValue;
+ String get firmwareVersion; String get batteryVoltage; double get tareValue;/// Null until the firmware reports it; firmware without SetSampleRate never does.
+ int? get sampleRate;
 /// Create a copy of DeviceInfo
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -282,16 +283,16 @@ $DeviceInfoCopyWith<DeviceInfo> get copyWith => _$DeviceInfoCopyWithImpl<DeviceI
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceInfo&&(identical(other.firmwareVersion, firmwareVersion) || other.firmwareVersion == firmwareVersion)&&(identical(other.batteryVoltage, batteryVoltage) || other.batteryVoltage == batteryVoltage)&&(identical(other.tareValue, tareValue) || other.tareValue == tareValue));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceInfo&&(identical(other.firmwareVersion, firmwareVersion) || other.firmwareVersion == firmwareVersion)&&(identical(other.batteryVoltage, batteryVoltage) || other.batteryVoltage == batteryVoltage)&&(identical(other.tareValue, tareValue) || other.tareValue == tareValue)&&(identical(other.sampleRate, sampleRate) || other.sampleRate == sampleRate));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,firmwareVersion,batteryVoltage,tareValue);
+int get hashCode => Object.hash(runtimeType,firmwareVersion,batteryVoltage,tareValue,sampleRate);
 
 @override
 String toString() {
-  return 'DeviceInfo(firmwareVersion: $firmwareVersion, batteryVoltage: $batteryVoltage, tareValue: $tareValue)';
+  return 'DeviceInfo(firmwareVersion: $firmwareVersion, batteryVoltage: $batteryVoltage, tareValue: $tareValue, sampleRate: $sampleRate)';
 }
 
 
@@ -302,7 +303,7 @@ abstract mixin class $DeviceInfoCopyWith<$Res>  {
   factory $DeviceInfoCopyWith(DeviceInfo value, $Res Function(DeviceInfo) _then) = _$DeviceInfoCopyWithImpl;
 @useResult
 $Res call({
- String firmwareVersion, String batteryVoltage, double tareValue
+ String firmwareVersion, String batteryVoltage, double tareValue, int? sampleRate
 });
 
 
@@ -319,12 +320,13 @@ class _$DeviceInfoCopyWithImpl<$Res>
 
 /// Create a copy of DeviceInfo
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? firmwareVersion = null,Object? batteryVoltage = null,Object? tareValue = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? firmwareVersion = null,Object? batteryVoltage = null,Object? tareValue = null,Object? sampleRate = freezed,}) {
   return _then(_self.copyWith(
 firmwareVersion: null == firmwareVersion ? _self.firmwareVersion : firmwareVersion // ignore: cast_nullable_to_non_nullable
 as String,batteryVoltage: null == batteryVoltage ? _self.batteryVoltage : batteryVoltage // ignore: cast_nullable_to_non_nullable
 as String,tareValue: null == tareValue ? _self.tareValue : tareValue // ignore: cast_nullable_to_non_nullable
-as double,
+as double,sampleRate: freezed == sampleRate ? _self.sampleRate : sampleRate // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 
@@ -406,10 +408,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String firmwareVersion,  String batteryVoltage,  double tareValue)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String firmwareVersion,  String batteryVoltage,  double tareValue,  int? sampleRate)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _DeviceInfo() when $default != null:
-return $default(_that.firmwareVersion,_that.batteryVoltage,_that.tareValue);case _:
+return $default(_that.firmwareVersion,_that.batteryVoltage,_that.tareValue,_that.sampleRate);case _:
   return orElse();
 
 }
@@ -427,10 +429,10 @@ return $default(_that.firmwareVersion,_that.batteryVoltage,_that.tareValue);case
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String firmwareVersion,  String batteryVoltage,  double tareValue)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String firmwareVersion,  String batteryVoltage,  double tareValue,  int? sampleRate)  $default,) {final _that = this;
 switch (_that) {
 case _DeviceInfo():
-return $default(_that.firmwareVersion,_that.batteryVoltage,_that.tareValue);}
+return $default(_that.firmwareVersion,_that.batteryVoltage,_that.tareValue,_that.sampleRate);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -444,10 +446,10 @@ return $default(_that.firmwareVersion,_that.batteryVoltage,_that.tareValue);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String firmwareVersion,  String batteryVoltage,  double tareValue)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String firmwareVersion,  String batteryVoltage,  double tareValue,  int? sampleRate)?  $default,) {final _that = this;
 switch (_that) {
 case _DeviceInfo() when $default != null:
-return $default(_that.firmwareVersion,_that.batteryVoltage,_that.tareValue);case _:
+return $default(_that.firmwareVersion,_that.batteryVoltage,_that.tareValue,_that.sampleRate);case _:
   return null;
 
 }
@@ -459,12 +461,14 @@ return $default(_that.firmwareVersion,_that.batteryVoltage,_that.tareValue);case
 
 
 class _DeviceInfo implements DeviceInfo {
-  const _DeviceInfo({this.firmwareVersion = '', this.batteryVoltage = '', this.tareValue = 0.0});
+  const _DeviceInfo({this.firmwareVersion = '', this.batteryVoltage = '', this.tareValue = 0.0, this.sampleRate});
   
 
 @override@JsonKey() final  String firmwareVersion;
 @override@JsonKey() final  String batteryVoltage;
 @override@JsonKey() final  double tareValue;
+/// Null until the firmware reports it; firmware without SetSampleRate never does.
+@override final  int? sampleRate;
 
 /// Create a copy of DeviceInfo
 /// with the given fields replaced by the non-null parameter values.
@@ -476,16 +480,16 @@ _$DeviceInfoCopyWith<_DeviceInfo> get copyWith => __$DeviceInfoCopyWithImpl<_Dev
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceInfo&&(identical(other.firmwareVersion, firmwareVersion) || other.firmwareVersion == firmwareVersion)&&(identical(other.batteryVoltage, batteryVoltage) || other.batteryVoltage == batteryVoltage)&&(identical(other.tareValue, tareValue) || other.tareValue == tareValue));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceInfo&&(identical(other.firmwareVersion, firmwareVersion) || other.firmwareVersion == firmwareVersion)&&(identical(other.batteryVoltage, batteryVoltage) || other.batteryVoltage == batteryVoltage)&&(identical(other.tareValue, tareValue) || other.tareValue == tareValue)&&(identical(other.sampleRate, sampleRate) || other.sampleRate == sampleRate));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,firmwareVersion,batteryVoltage,tareValue);
+int get hashCode => Object.hash(runtimeType,firmwareVersion,batteryVoltage,tareValue,sampleRate);
 
 @override
 String toString() {
-  return 'DeviceInfo(firmwareVersion: $firmwareVersion, batteryVoltage: $batteryVoltage, tareValue: $tareValue)';
+  return 'DeviceInfo(firmwareVersion: $firmwareVersion, batteryVoltage: $batteryVoltage, tareValue: $tareValue, sampleRate: $sampleRate)';
 }
 
 
@@ -496,7 +500,7 @@ abstract mixin class _$DeviceInfoCopyWith<$Res> implements $DeviceInfoCopyWith<$
   factory _$DeviceInfoCopyWith(_DeviceInfo value, $Res Function(_DeviceInfo) _then) = __$DeviceInfoCopyWithImpl;
 @override @useResult
 $Res call({
- String firmwareVersion, String batteryVoltage, double tareValue
+ String firmwareVersion, String batteryVoltage, double tareValue, int? sampleRate
 });
 
 
@@ -513,12 +517,13 @@ class __$DeviceInfoCopyWithImpl<$Res>
 
 /// Create a copy of DeviceInfo
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? firmwareVersion = null,Object? batteryVoltage = null,Object? tareValue = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? firmwareVersion = null,Object? batteryVoltage = null,Object? tareValue = null,Object? sampleRate = freezed,}) {
   return _then(_DeviceInfo(
 firmwareVersion: null == firmwareVersion ? _self.firmwareVersion : firmwareVersion // ignore: cast_nullable_to_non_nullable
 as String,batteryVoltage: null == batteryVoltage ? _self.batteryVoltage : batteryVoltage // ignore: cast_nullable_to_non_nullable
 as String,tareValue: null == tareValue ? _self.tareValue : tareValue // ignore: cast_nullable_to_non_nullable
-as double,
+as double,sampleRate: freezed == sampleRate ? _self.sampleRate : sampleRate // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 

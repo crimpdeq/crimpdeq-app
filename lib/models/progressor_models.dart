@@ -23,6 +23,9 @@ sealed class DeviceInfo with _$DeviceInfo {
     @Default('') String firmwareVersion,
     @Default('') String batteryVoltage,
     @Default(0.0) double tareValue,
+
+    /// Null until the firmware reports it; firmware without SetSampleRate never does.
+    int? sampleRate,
   }) = _DeviceInfo;
 }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../constants/progressor_constants.dart';
 import '../models/progressor_models.dart' as progressor_models;
 
 class DeviceInfoCard extends StatelessWidget {
@@ -40,9 +41,17 @@ class DeviceInfoCard extends StatelessWidget {
 }
 
 class PerformanceCard extends StatelessWidget {
-  const PerformanceCard({super.key, required this.performance});
+  const PerformanceCard({
+    super.key,
+    required this.performance,
+    required this.sampleRate,
+    required this.onSampleRateChanged,
+  });
 
   final progressor_models.PerformanceMetrics performance;
+  // Rate reported by the device; null hides the selector.
+  final int? sampleRate;
+  final ValueChanged<int> onSampleRateChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -95,6 +104,23 @@ class PerformanceCard extends StatelessWidget {
                 Text('Samples/packet: ${performance.samplesPerPacket}'),
               ],
             ),
+            if (sampleRate != null)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Sample rate'),
+                  DropdownButton<int>(
+                    value: sampleRate,
+                    onChanged: (value) {
+                      if (value != null) onSampleRateChanged(value);
+                    },
+                    items: [
+                      for (final rate in AppConstants.sampleRates)
+                        DropdownMenuItem(value: rate, child: Text('$rate SPS')),
+                    ],
+                  ),
+                ],
+              ),
             if (performance.duplicatePacketCount > 0)
               Text(
                 '🔴 Duplicates: ${performance.duplicatePacketCount}',
