@@ -2,9 +2,9 @@ import 'dart:math';
 
 import '../models/progressor_models.dart';
 
-/// Detects a load that holds steady: the means of the 100 ms slices of the last
-/// second stay within 20 g. Averaging removes the ADC noise, so the check
-/// catches swinging and creep.
+/// Detects a load that holds steady: every 100 ms slice of the last second has
+/// samples and their means stay within 20 g. Averaging removes the ADC noise,
+/// so the check catches swinging and creep.
 class SteadyLoadDetector {
   static const _windowUs = 1000000;
   static const _sliceUs = 100000;
@@ -37,6 +37,8 @@ class SteadyLoadDetector {
       final slice = (latestUs - sample.timestampUs) ~/ _sliceUs;
       slices.putIfAbsent(slice, () => []).add(sample.weightKg);
     }
+    // A gap in the samples hides the load during it.
+    if (slices.length < _windowUs ~/ _sliceUs) return false;
     final means = slices.values.map(
       (weights) => weights.reduce((a, b) => a + b) / weights.length,
     );

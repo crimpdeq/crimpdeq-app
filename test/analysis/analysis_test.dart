@@ -93,6 +93,12 @@ void main() {
       );
     });
 
+    test('rejects a window with a gap in the samples', () {
+      final detector = SteadyLoadDetector();
+
+      expect(detector.add([_sample(20, 0), _sample(20, 1000)]), isFalse);
+    });
+
     test('starts a new window when the timeline restarts', () {
       final detector = SteadyLoadDetector()..add(_samples(1000, 10, (_) => 5));
 
