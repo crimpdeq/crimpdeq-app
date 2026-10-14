@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -693,31 +694,6 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       if (!shouldPublish) return;
       _lastUiUpdateTime = now;
 
-      final publishMeasurements = List<WeightMeasurement>.from(
-        _pendingMeasurements,
-      );
-      _pendingMeasurements.clear();
-
-      final lastMeasurement = publishMeasurements.last;
-      final newWeightHistory = List<FlSpot>.from(
-        state.measurement.weightHistory,
-      )..add(FlSpot(lastMeasurement.timestampSec, lastMeasurement.weight));
-
-      if (newWeightHistory.length > AppConstants.maxHistorySize) {
-        newWeightHistory.removeAt(0);
-      }
-
-      final newReceivedData = List<WeightMeasurement>.from(
-        publishMeasurements.reversed,
-      )..addAll(state.measurement.receivedData);
-
-      if (newReceivedData.length > AppConstants.maxReceivedDataSize) {
-        newReceivedData.removeRange(
-          AppConstants.maxReceivedDataSize,
-          newReceivedData.length,
-        );
-      }
-
       // Calculate Hz based on actual timestamps from device
       final oneSecondInMicroseconds = 1000000;
       if (_recentMeasurements.isNotEmpty) {
@@ -731,20 +707,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       final currentHz = _recentMeasurements.length.toDouble();
 
       state = state.copyWith(
-        measurement: state.measurement.copyWith(
-          currentWeight: lastMeasurement.weight,
-          maxWeight: lastMeasurement.weight > state.measurement.maxWeight
-              ? lastMeasurement.weight
-              : state.measurement.maxWeight,
-          minWeight:
-              state.measurement.minWeight == 0.0 ||
-                  lastMeasurement.weight < state.measurement.minWeight
-              ? lastMeasurement.weight
-              : state.measurement.minWeight,
-          sampleCount: lastMeasurement.timestampUs,
-          weightHistory: newWeightHistory,
-          receivedData: newReceivedData,
-        ),
+        measurement: _publishPendingMeasurements(),
         performance: state.performance.copyWith(
           currentNotifyIntervalMs: _currentNotifyIntervalMs,
           notifyIntervalHistory: List<double>.from(_notifyIntervalHistory),
@@ -1101,25 +1064,33 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   void _flushPendingMeasurements() {
     // Flush throttled samples so the UI reflects the latest value immediately.
-    if (_pendingMeasurements.isEmpty) return;
+    state = state.copyWith(measurement: _publishPendingMeasurements());
+  }
 
-    final publishMeasurements = List<WeightMeasurement>.from(
-      _pendingMeasurements,
-    );
+  /// Moves the throttled samples into the measurement state. Min and max cover
+  /// every sample, and the chart plots their mean so it does not alias.
+  MeasurementState _publishPendingMeasurements() {
+    final measurement = state.measurement;
+    if (_pendingMeasurements.isEmpty) return measurement;
+
+    final samples = List<WeightMeasurement>.from(_pendingMeasurements);
     _pendingMeasurements.clear();
-    final lastMeasurement = publishMeasurements.last;
+    final weights = samples.map((sample) => sample.weight);
+    final batchMax = weights.reduce(max);
+    final batchMin = weights.reduce(min);
+    final meanWeight = weights.reduce((a, b) => a + b) / samples.length;
+    final meanTimestampSec =
+        samples.map((sample) => sample.timestampSec).reduce((a, b) => a + b) /
+        samples.length;
 
-    final newWeightHistory = List<FlSpot>.from(state.measurement.weightHistory)
-      ..add(FlSpot(lastMeasurement.timestampSec, lastMeasurement.weight));
-
+    final newWeightHistory = List<FlSpot>.from(measurement.weightHistory)
+      ..add(FlSpot(meanTimestampSec, meanWeight));
     if (newWeightHistory.length > AppConstants.maxHistorySize) {
       newWeightHistory.removeAt(0);
     }
 
-    final newReceivedData = List<WeightMeasurement>.from(
-      publishMeasurements.reversed,
-    )..addAll(state.measurement.receivedData);
-
+    final newReceivedData = List<WeightMeasurement>.from(samples.reversed)
+      ..addAll(measurement.receivedData);
     if (newReceivedData.length > AppConstants.maxReceivedDataSize) {
       newReceivedData.removeRange(
         AppConstants.maxReceivedDataSize,
@@ -1127,21 +1098,18 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       );
     }
 
-    state = state.copyWith(
-      measurement: state.measurement.copyWith(
-        currentWeight: lastMeasurement.weight,
-        maxWeight: lastMeasurement.weight > state.measurement.maxWeight
-            ? lastMeasurement.weight
-            : state.measurement.maxWeight,
-        minWeight:
-            state.measurement.minWeight == 0.0 ||
-                lastMeasurement.weight < state.measurement.minWeight
-            ? lastMeasurement.weight
-            : state.measurement.minWeight,
-        sampleCount: lastMeasurement.timestampUs,
-        weightHistory: newWeightHistory,
-        receivedData: newReceivedData,
-      ),
+    return measurement.copyWith(
+      currentWeight: samples.last.weight,
+      maxWeight: batchMax > measurement.maxWeight
+          ? batchMax
+          : measurement.maxWeight,
+      minWeight:
+          measurement.minWeight == 0.0 || batchMin < measurement.minWeight
+          ? batchMin
+          : measurement.minWeight,
+      sampleCount: samples.last.timestampUs,
+      weightHistory: newWeightHistory,
+      receivedData: newReceivedData,
     );
   }
 
