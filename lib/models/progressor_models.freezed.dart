@@ -278,7 +278,9 @@ as int,
 /// @nodoc
 mixin _$DeviceInfo {
 
- String get firmwareVersion; int? get batteryMillivolts;/// Null until the firmware reports it; firmware without SetSampleRate never does.
+ String get firmwareVersion; int? get batteryMillivolts;/// Fuel gauge state of charge. Null for devices that only report the
+/// voltage, whose charge is estimated from it.
+ int? get batteryPercent; bool get batteryCharging;/// Null until the firmware reports it; firmware without SetSampleRate never does.
  int? get sampleRate;/// The device warned that the battery is empty and is turning off.
  bool get lowBattery;
 /// Create a copy of DeviceInfo
@@ -292,20 +294,20 @@ $DeviceInfoCopyWith<DeviceInfo> get copyWith => _$DeviceInfoCopyWithImpl<DeviceI
 @override
 bool operator ==(Object other) {
   final _this = this as DeviceInfo;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceInfo&&(identical(other.firmwareVersion, _this.firmwareVersion) || other.firmwareVersion == _this.firmwareVersion)&&(identical(other.batteryMillivolts, _this.batteryMillivolts) || other.batteryMillivolts == _this.batteryMillivolts)&&(identical(other.sampleRate, _this.sampleRate) || other.sampleRate == _this.sampleRate)&&(identical(other.lowBattery, _this.lowBattery) || other.lowBattery == _this.lowBattery));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceInfo&&(identical(other.firmwareVersion, _this.firmwareVersion) || other.firmwareVersion == _this.firmwareVersion)&&(identical(other.batteryMillivolts, _this.batteryMillivolts) || other.batteryMillivolts == _this.batteryMillivolts)&&(identical(other.batteryPercent, _this.batteryPercent) || other.batteryPercent == _this.batteryPercent)&&(identical(other.batteryCharging, _this.batteryCharging) || other.batteryCharging == _this.batteryCharging)&&(identical(other.sampleRate, _this.sampleRate) || other.sampleRate == _this.sampleRate)&&(identical(other.lowBattery, _this.lowBattery) || other.lowBattery == _this.lowBattery));
 }
 
 
 @override
 int get hashCode {
   final _this = this as DeviceInfo;
-  return Object.hash(runtimeType,_this.firmwareVersion,_this.batteryMillivolts,_this.sampleRate,_this.lowBattery);
+  return Object.hash(runtimeType,_this.firmwareVersion,_this.batteryMillivolts,_this.batteryPercent,_this.batteryCharging,_this.sampleRate,_this.lowBattery);
 }
 
 @override
 String toString() {
   final _this = this as DeviceInfo;
-  return 'DeviceInfo(firmwareVersion: ${_this.firmwareVersion}, batteryMillivolts: ${_this.batteryMillivolts}, sampleRate: ${_this.sampleRate}, lowBattery: ${_this.lowBattery})';
+  return 'DeviceInfo(firmwareVersion: ${_this.firmwareVersion}, batteryMillivolts: ${_this.batteryMillivolts}, batteryPercent: ${_this.batteryPercent}, batteryCharging: ${_this.batteryCharging}, sampleRate: ${_this.sampleRate}, lowBattery: ${_this.lowBattery})';
 }
 
 
@@ -316,7 +318,7 @@ abstract mixin class $DeviceInfoCopyWith<$Res>  {
   factory $DeviceInfoCopyWith(DeviceInfo value, $Res Function(DeviceInfo) _then) = _$DeviceInfoCopyWithImpl;
 @useResult
 $Res call({
- String firmwareVersion, int? batteryMillivolts, int? sampleRate, bool lowBattery
+ String firmwareVersion, int? batteryMillivolts, int? batteryPercent, bool batteryCharging, int? sampleRate, bool lowBattery
 });
 
 
@@ -333,11 +335,13 @@ class _$DeviceInfoCopyWithImpl<$Res>
 
 /// Create a copy of DeviceInfo
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? firmwareVersion = null,Object? batteryMillivolts = freezed,Object? sampleRate = freezed,Object? lowBattery = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? firmwareVersion = null,Object? batteryMillivolts = freezed,Object? batteryPercent = freezed,Object? batteryCharging = null,Object? sampleRate = freezed,Object? lowBattery = null,}) {
   return _then(DeviceInfo(
 firmwareVersion: null == firmwareVersion ? _self.firmwareVersion : firmwareVersion // ignore: cast_nullable_to_non_nullable
 as String,batteryMillivolts: freezed == batteryMillivolts ? _self.batteryMillivolts : batteryMillivolts // ignore: cast_nullable_to_non_nullable
-as int?,sampleRate: freezed == sampleRate ? _self.sampleRate : sampleRate // ignore: cast_nullable_to_non_nullable
+as int?,batteryPercent: freezed == batteryPercent ? _self.batteryPercent : batteryPercent // ignore: cast_nullable_to_non_nullable
+as int?,batteryCharging: null == batteryCharging ? _self.batteryCharging : batteryCharging // ignore: cast_nullable_to_non_nullable
+as bool,sampleRate: freezed == sampleRate ? _self.sampleRate : sampleRate // ignore: cast_nullable_to_non_nullable
 as int?,lowBattery: null == lowBattery ? _self.lowBattery : lowBattery // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
@@ -421,10 +425,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String firmwareVersion,  int? batteryMillivolts,  int? sampleRate,  bool lowBattery)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String firmwareVersion,  int? batteryMillivolts,  int? batteryPercent,  bool batteryCharging,  int? sampleRate,  bool lowBattery)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _DeviceInfo() when $default != null:
-return $default(_that.firmwareVersion,_that.batteryMillivolts,_that.sampleRate,_that.lowBattery);case _:
+return $default(_that.firmwareVersion,_that.batteryMillivolts,_that.batteryPercent,_that.batteryCharging,_that.sampleRate,_that.lowBattery);case _:
   return orElse();
 
 }
@@ -442,10 +446,10 @@ return $default(_that.firmwareVersion,_that.batteryMillivolts,_that.sampleRate,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String firmwareVersion,  int? batteryMillivolts,  int? sampleRate,  bool lowBattery)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String firmwareVersion,  int? batteryMillivolts,  int? batteryPercent,  bool batteryCharging,  int? sampleRate,  bool lowBattery)  $default,) {final _that = this;
 switch (_that) {
 case _DeviceInfo():
-return $default(_that.firmwareVersion,_that.batteryMillivolts,_that.sampleRate,_that.lowBattery);}
+return $default(_that.firmwareVersion,_that.batteryMillivolts,_that.batteryPercent,_that.batteryCharging,_that.sampleRate,_that.lowBattery);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -459,10 +463,10 @@ return $default(_that.firmwareVersion,_that.batteryMillivolts,_that.sampleRate,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String firmwareVersion,  int? batteryMillivolts,  int? sampleRate,  bool lowBattery)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String firmwareVersion,  int? batteryMillivolts,  int? batteryPercent,  bool batteryCharging,  int? sampleRate,  bool lowBattery)?  $default,) {final _that = this;
 switch (_that) {
 case _DeviceInfo() when $default != null:
-return $default(_that.firmwareVersion,_that.batteryMillivolts,_that.sampleRate,_that.lowBattery);case _:
+return $default(_that.firmwareVersion,_that.batteryMillivolts,_that.batteryPercent,_that.batteryCharging,_that.sampleRate,_that.lowBattery);case _:
   return null;
 
 }
@@ -474,11 +478,15 @@ return $default(_that.firmwareVersion,_that.batteryMillivolts,_that.sampleRate,_
 
 
 class _DeviceInfo implements DeviceInfo {
-  const _DeviceInfo({this.firmwareVersion = '', this.batteryMillivolts, this.sampleRate, this.lowBattery = false});
+  const _DeviceInfo({this.firmwareVersion = '', this.batteryMillivolts, this.batteryPercent, this.batteryCharging = false, this.sampleRate, this.lowBattery = false});
   
 
 @override@JsonKey() final  String firmwareVersion;
 @override final  int? batteryMillivolts;
+/// Fuel gauge state of charge. Null for devices that only report the
+/// voltage, whose charge is estimated from it.
+@override final  int? batteryPercent;
+@override@JsonKey() final  bool batteryCharging;
 /// Null until the firmware reports it; firmware without SetSampleRate never does.
 @override final  int? sampleRate;
 /// The device warned that the battery is empty and is turning off.
@@ -494,18 +502,18 @@ _$DeviceInfoCopyWith<_DeviceInfo> get copyWith => __$DeviceInfoCopyWithImpl<_Dev
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceInfo&&(identical(other.firmwareVersion, firmwareVersion) || other.firmwareVersion == firmwareVersion)&&(identical(other.batteryMillivolts, batteryMillivolts) || other.batteryMillivolts == batteryMillivolts)&&(identical(other.sampleRate, sampleRate) || other.sampleRate == sampleRate)&&(identical(other.lowBattery, lowBattery) || other.lowBattery == lowBattery));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceInfo&&(identical(other.firmwareVersion, firmwareVersion) || other.firmwareVersion == firmwareVersion)&&(identical(other.batteryMillivolts, batteryMillivolts) || other.batteryMillivolts == batteryMillivolts)&&(identical(other.batteryPercent, batteryPercent) || other.batteryPercent == batteryPercent)&&(identical(other.batteryCharging, batteryCharging) || other.batteryCharging == batteryCharging)&&(identical(other.sampleRate, sampleRate) || other.sampleRate == sampleRate)&&(identical(other.lowBattery, lowBattery) || other.lowBattery == lowBattery));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,firmwareVersion,batteryMillivolts,sampleRate,lowBattery);
+    return Object.hash(runtimeType,firmwareVersion,batteryMillivolts,batteryPercent,batteryCharging,sampleRate,lowBattery);
 }
 
 @override
 String toString() {
-    return 'DeviceInfo(firmwareVersion: $firmwareVersion, batteryMillivolts: $batteryMillivolts, sampleRate: $sampleRate, lowBattery: $lowBattery)';
+    return 'DeviceInfo(firmwareVersion: $firmwareVersion, batteryMillivolts: $batteryMillivolts, batteryPercent: $batteryPercent, batteryCharging: $batteryCharging, sampleRate: $sampleRate, lowBattery: $lowBattery)';
 }
 
 
@@ -516,7 +524,7 @@ abstract mixin class _$DeviceInfoCopyWith<$Res> implements $DeviceInfoCopyWith<$
   factory _$DeviceInfoCopyWith(_DeviceInfo value, $Res Function(_DeviceInfo) _then) = __$DeviceInfoCopyWithImpl;
 @override @useResult
 $Res call({
- String firmwareVersion, int? batteryMillivolts, int? sampleRate, bool lowBattery
+ String firmwareVersion, int? batteryMillivolts, int? batteryPercent, bool batteryCharging, int? sampleRate, bool lowBattery
 });
 
 
@@ -533,11 +541,13 @@ class __$DeviceInfoCopyWithImpl<$Res>
 
 /// Create a copy of DeviceInfo
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? firmwareVersion = null,Object? batteryMillivolts = freezed,Object? sampleRate = freezed,Object? lowBattery = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? firmwareVersion = null,Object? batteryMillivolts = freezed,Object? batteryPercent = freezed,Object? batteryCharging = null,Object? sampleRate = freezed,Object? lowBattery = null,}) {
   return _then(_DeviceInfo(
 firmwareVersion: null == firmwareVersion ? _self.firmwareVersion : firmwareVersion // ignore: cast_nullable_to_non_nullable
 as String,batteryMillivolts: freezed == batteryMillivolts ? _self.batteryMillivolts : batteryMillivolts // ignore: cast_nullable_to_non_nullable
-as int?,sampleRate: freezed == sampleRate ? _self.sampleRate : sampleRate // ignore: cast_nullable_to_non_nullable
+as int?,batteryPercent: freezed == batteryPercent ? _self.batteryPercent : batteryPercent // ignore: cast_nullable_to_non_nullable
+as int?,batteryCharging: null == batteryCharging ? _self.batteryCharging : batteryCharging // ignore: cast_nullable_to_non_nullable
+as bool,sampleRate: freezed == sampleRate ? _self.sampleRate : sampleRate // ignore: cast_nullable_to_non_nullable
 as int?,lowBattery: null == lowBattery ? _self.lowBattery : lowBattery // ignore: cast_nullable_to_non_nullable
 as bool,
   ));

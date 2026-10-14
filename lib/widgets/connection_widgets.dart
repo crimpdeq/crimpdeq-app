@@ -36,6 +36,12 @@ class ConnectionHeader extends StatelessWidget {
         ? colorScheme.primary
         : Colors.orangeAccent.shade200;
     final batteryMillivolts = deviceInfo.batteryMillivolts;
+    final batteryPercent = deviceInfo.batteryPercent;
+    final charge = batteryPercent != null
+        ? '$batteryPercent%'
+        : batteryMillivolts != null
+        ? '~${batteryStateOfCharge(batteryMillivolts)}%'
+        : null;
     final lines = [
       connection.isConnected
           ? 'Connected'
@@ -51,10 +57,13 @@ class ConnectionHeader extends StatelessWidget {
       if (batteryMillivolts != null) ...[
         // A narrow status is too short for the charge and voltage on one line.
         if (compact) ...[
-          'Bat: ~${batteryStateOfCharge(batteryMillivolts)}%',
-          'Bat: ${_volts(batteryMillivolts)}',
+          'Bat: $charge',
+          deviceInfo.batteryCharging
+              ? 'Charging'
+              : 'Bat: ${_volts(batteryMillivolts)}',
         ] else
-          'Battery: ~${batteryStateOfCharge(batteryMillivolts)}% '
+          'Battery: $charge'
+              '${deviceInfo.batteryCharging ? ', charging' : ''} '
               '(${_volts(batteryMillivolts)})',
       ],
     ];

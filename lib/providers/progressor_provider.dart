@@ -363,6 +363,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         );
       case SampleRate(:final samplesPerSecond):
         state = state.copyWith.deviceInfo(sampleRate: samplesPerSecond);
+      case BatteryStatus(:final percent, :final charging):
+        state = state.copyWith.deviceInfo(
+          batteryPercent: percent,
+          batteryCharging: charging,
+        );
     }
   }
 
@@ -533,6 +538,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   Future<void> _readBattery() async {
     final payload = await _request(ControlOpCode.sampleBattery);
     if (payload == null) return;
+    await _send(ControlOpCode.getBatteryStatus);
 
     try {
       state = state.copyWith.deviceInfo(

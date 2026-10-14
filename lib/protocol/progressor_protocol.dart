@@ -19,7 +19,8 @@ enum ControlOpCode {
   getCalibration(0x72),
   defaultCalibration(0x74),
   setSampleRate(0x75),
-  getSampleRate(0x76);
+  getSampleRate(0x76),
+  getBatteryStatus(0x77);
 
   const ControlOpCode(this.value);
 
@@ -64,6 +65,13 @@ final class CalibrationPointMessage extends ProgressorMessage {
 final class SampleRate extends ProgressorMessage {
   SampleRate(this.samplesPerSecond);
   final int samplesPerSecond;
+}
+
+/// Fuel gauge reading; firmware without GetBatteryStatus never sends it.
+final class BatteryStatus extends ProgressorMessage {
+  BatteryStatus(this.percent, this.charging);
+  final int percent;
+  final bool charging;
 }
 
 const _weightSampleSize = 8;
@@ -128,6 +136,9 @@ ProgressorMessage decodeMessage(Frame frame) {
     case 7:
       _expectLength(code, payload, 2);
       return SampleRate(data.getUint16(0, Endian.little));
+    case 8:
+      _expectLength(code, payload, 2);
+      return BatteryStatus(payload[0], payload[1] != 0);
     default:
       throw FormatException('Unknown response code $code');
   }

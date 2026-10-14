@@ -86,6 +86,24 @@ void main() {
     expect(find.byType(TabBar), findsOneWidget);
   });
 
+  testWidgets('prefers the fuel gauge charge over the voltage estimate', (
+    tester,
+  ) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        deviceInfo: const DeviceInfo(
+          batteryMillivolts: 3840,
+          batteryPercent: 21,
+          batteryCharging: true,
+        ),
+      ),
+    );
+
+    expect(find.text('Battery: 21%, charging (3.84 V)'), findsOneWidget);
+  });
+
   for (final (name, physicalSize, pixelRatio, fitsWholeLines) in [
     ('394 dp phone', const Size(1280, 2772), 3.25, true),
     ('360 dp phone', const Size(1080, 2340), 3.0, false),

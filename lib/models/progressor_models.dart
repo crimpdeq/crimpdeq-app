@@ -27,6 +27,11 @@ sealed class DeviceInfo with _$DeviceInfo {
     @Default('') String firmwareVersion,
     int? batteryMillivolts,
 
+    /// Fuel gauge state of charge. Null for devices that only report the
+    /// voltage, whose charge is estimated from it.
+    int? batteryPercent,
+    @Default(false) bool batteryCharging,
+
     /// Null until the firmware reports it; firmware without SetSampleRate never does.
     int? sampleRate,
 

@@ -79,6 +79,17 @@ void main() {
       );
     });
 
+    test('decodes the battery status', () {
+      final status = decodeMessage((code: 8, payload: _bytes([21, 1])));
+
+      expect((status as BatteryStatus).percent, 21);
+      expect(status.charging, isTrue);
+      expect(
+        () => decodeMessage((code: 8, payload: _bytes([21]))),
+        throwsFormatException,
+      );
+    });
+
     test('keeps command responses raw', () {
       final message = decodeMessage((code: 0, payload: _bytes([0x48, 0x0D])));
 
