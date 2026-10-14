@@ -159,11 +159,14 @@ class CalibrationCard extends StatefulWidget {
     required this.onAddCalibrationPoint,
     required this.onGetCalibration,
     required this.onDefaultCalibration,
+    required this.waitingForSteadyLoad,
     this.calibrationInfo,
   });
 
   final progressor_models.ConnectionState connection;
-  final ValueChanged<double> onAddCalibrationPoint;
+  // Resolves to false when the load did not hold steady.
+  final Future<bool> Function(double weightKg) onAddCalibrationPoint;
+  final bool waitingForSteadyLoad;
   final VoidCallback onGetCalibration;
   final VoidCallback onDefaultCalibration;
   final String? calibrationInfo;
@@ -187,7 +190,7 @@ class _CalibrationCardState extends State<CalibrationCard> {
     super.dispose();
   }
 
-  void _submitCalibration() {
+  Future<void> _submitCalibration() async {
     final raw = _controller.text.trim().replaceAll(',', '.');
     final weight = double.tryParse(raw);
     if (weight == null || weight < 0) {
@@ -196,10 +199,18 @@ class _CalibrationCardState extends State<CalibrationCard> {
       );
       return;
     }
-    widget.onAddCalibrationPoint(weight);
-    _controller.clear();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Weight ${weight.toStringAsFixed(2)} kg sent.')),
+    final messenger = ScaffoldMessenger.of(context);
+    final added = await widget.onAddCalibrationPoint(weight);
+    if (!mounted) return;
+    if (added) _controller.clear();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          added
+              ? 'Weight ${weight.toStringAsFixed(2)} kg sent.'
+              : 'The load did not hold steady, so the point was not added.',
+        ),
+      ),
     );
   }
 
@@ -235,9 +246,20 @@ class _CalibrationCardState extends State<CalibrationCard> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: isConnected ? _submitCalibration : null,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Calibration Point'),
+                onPressed: isConnected && !widget.waitingForSteadyLoad
+                    ? _submitCalibration
+                    : null,
+                icon: widget.waitingForSteadyLoad
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.add),
+                label: Text(
+                  widget.waitingForSteadyLoad
+                      ? 'Hold the weight still...'
+                      : 'Add Calibration Point',
+                ),
               ),
             ),
             const SizedBox(height: 8),

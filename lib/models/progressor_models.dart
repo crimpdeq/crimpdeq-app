@@ -85,6 +85,7 @@ sealed class ProgressorState with _$ProgressorState {
     @Default(DeviceInfo()) DeviceInfo deviceInfo,
     @Default(MeasurementState()) MeasurementState measurement,
     @Default(PerformanceMetrics()) PerformanceMetrics performance,
+    @Default(false) bool waitingForSteadyLoad,
     String? errorMessage,
   }) = _ProgressorState;
 }

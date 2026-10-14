@@ -19,6 +19,13 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   static const Duration _uiUpdateInterval = Duration(milliseconds: 66);
   static const Duration _commandSettleDelay = Duration(milliseconds: 120);
   static const Duration _resumeCheckDelay = Duration(milliseconds: 300);
+  // A calibration point is only added once the load holds steady: the 100 ms
+  // averages of the last second stay within the tolerance. Averaging removes
+  // the ADC noise, so the check catches swinging and creep.
+  static const Duration _steadyWindow = Duration(seconds: 1);
+  static const Duration _steadyBucket = Duration(milliseconds: 100);
+  static const double _steadyToleranceKg = 0.02;
+  static const Duration _steadyTimeout = Duration(seconds: 15);
 
   StreamSubscription? _scanSubscription;
   StreamSubscription? _notifySubscription;
@@ -37,6 +44,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   int _dataPacketCount = 0;
   double? _calibrationFactor;
   final List<List<double>> _calibrationPoints = [];
+  Completer<bool>? _steadyLoad;
+  final List<WeightMeasurement> _steadyWindowSamples = [];
 
   @override
   ProgressorState build() {
@@ -682,6 +691,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
 
     _dataPacketCount++;
+    _checkSteadyLoad(newMeasurements);
 
     // Process every sample, but publish state on a throttled cadence for web/browser smoothness.
     if (newMeasurements.isNotEmpty) {
@@ -1111,12 +1121,65 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     );
   }
 
-  Future<void> addCalibrationPoint(double weightKg) async {
+  /// Streams until the load holds steady, then adds the calibration point.
+  /// Returns false when the load does not settle before the timeout.
+  Future<bool> addCalibrationPoint(double weightKg) async {
+    if (_steadyLoad != null) return false;
+
+    final wasMeasuring = state.measurement.isMeasuring;
+    if (!wasMeasuring) await startMeasurement();
+    final steady = await _waitForSteadyLoad();
+    if (state.connection.device == null) return false;
+    if (!wasMeasuring) await stopMeasurement();
+    if (!steady) return false;
+
     final payload = ByteData(4)..setFloat32(0, weightKg, Endian.little);
     await _sendControlOpCode(
       ControlOpCode.addCalibrationPoint.value,
       payload.buffer.asUint8List(),
     );
+    return true;
+  }
+
+  Future<bool> _waitForSteadyLoad() async {
+    final steadyLoad = _steadyLoad = Completer<bool>();
+    _steadyWindowSamples.clear();
+    state = state.copyWith(waitingForSteadyLoad: true);
+    final steady = await steadyLoad.future.timeout(
+      _steadyTimeout,
+      onTimeout: () => false,
+    );
+    _steadyLoad = null;
+    _steadyWindowSamples.clear();
+    state = state.copyWith(waitingForSteadyLoad: false);
+    return steady;
+  }
+
+  void _checkSteadyLoad(List<WeightMeasurement> measurements) {
+    final steadyLoad = _steadyLoad;
+    if (steadyLoad == null || steadyLoad.isCompleted) return;
+
+    _steadyWindowSamples.addAll(measurements);
+    final latestUs = _steadyWindowSamples.last.timestampUs;
+    final windowStartUs = latestUs - _steadyWindow.inMicroseconds;
+    // Wait until the samples span the whole window.
+    if (_steadyWindowSamples.first.timestampUs > windowStartUs) return;
+    _steadyWindowSamples.removeWhere(
+      (sample) => sample.timestampUs <= windowStartUs,
+    );
+
+    final buckets = <int, List<double>>{};
+    for (final sample in _steadyWindowSamples) {
+      final bucket =
+          (latestUs - sample.timestampUs) ~/ _steadyBucket.inMicroseconds;
+      buckets.putIfAbsent(bucket, () => []).add(sample.weight);
+    }
+    final means = buckets.values.map(
+      (weights) => weights.reduce((a, b) => a + b) / weights.length,
+    );
+    if (means.reduce(max) - means.reduce(min) <= _steadyToleranceKg) {
+      steadyLoad.complete(true);
+    }
   }
 
   Future<void> getCalibration() async {
@@ -1161,8 +1224,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       measurement: const MeasurementState(),
       performance: const PerformanceMetrics(),
       errorMessage: null,
+      waitingForSteadyLoad: false,
     );
 
+    if (_steadyLoad?.isCompleted == false) _steadyLoad!.complete(false);
     _calibrationFactor = null;
     _calibrationPoints.clear();
     _resetMeasurementRuntimeState(clearRxBuffer: true);

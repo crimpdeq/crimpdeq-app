@@ -1624,7 +1624,7 @@ as List<DiscoveredDevice>,
 /// @nodoc
 mixin _$ProgressorState {
 
- ConnectionState get connection; DeviceInfo get deviceInfo; MeasurementState get measurement; PerformanceMetrics get performance; String? get errorMessage;
+ ConnectionState get connection; DeviceInfo get deviceInfo; MeasurementState get measurement; PerformanceMetrics get performance; bool get waitingForSteadyLoad; String? get errorMessage;
 /// Create a copy of ProgressorState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1635,16 +1635,16 @@ $ProgressorStateCopyWith<ProgressorState> get copyWith => _$ProgressorStateCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ProgressorState&&(identical(other.connection, connection) || other.connection == connection)&&(identical(other.deviceInfo, deviceInfo) || other.deviceInfo == deviceInfo)&&(identical(other.measurement, measurement) || other.measurement == measurement)&&(identical(other.performance, performance) || other.performance == performance)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ProgressorState&&(identical(other.connection, connection) || other.connection == connection)&&(identical(other.deviceInfo, deviceInfo) || other.deviceInfo == deviceInfo)&&(identical(other.measurement, measurement) || other.measurement == measurement)&&(identical(other.performance, performance) || other.performance == performance)&&(identical(other.waitingForSteadyLoad, waitingForSteadyLoad) || other.waitingForSteadyLoad == waitingForSteadyLoad)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,connection,deviceInfo,measurement,performance,errorMessage);
+int get hashCode => Object.hash(runtimeType,connection,deviceInfo,measurement,performance,waitingForSteadyLoad,errorMessage);
 
 @override
 String toString() {
-  return 'ProgressorState(connection: $connection, deviceInfo: $deviceInfo, measurement: $measurement, performance: $performance, errorMessage: $errorMessage)';
+  return 'ProgressorState(connection: $connection, deviceInfo: $deviceInfo, measurement: $measurement, performance: $performance, waitingForSteadyLoad: $waitingForSteadyLoad, errorMessage: $errorMessage)';
 }
 
 
@@ -1655,7 +1655,7 @@ abstract mixin class $ProgressorStateCopyWith<$Res>  {
   factory $ProgressorStateCopyWith(ProgressorState value, $Res Function(ProgressorState) _then) = _$ProgressorStateCopyWithImpl;
 @useResult
 $Res call({
- ConnectionState connection, DeviceInfo deviceInfo, MeasurementState measurement, PerformanceMetrics performance, String? errorMessage
+ ConnectionState connection, DeviceInfo deviceInfo, MeasurementState measurement, PerformanceMetrics performance, bool waitingForSteadyLoad, String? errorMessage
 });
 
 
@@ -1672,13 +1672,14 @@ class _$ProgressorStateCopyWithImpl<$Res>
 
 /// Create a copy of ProgressorState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? connection = null,Object? deviceInfo = null,Object? measurement = null,Object? performance = null,Object? errorMessage = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? connection = null,Object? deviceInfo = null,Object? measurement = null,Object? performance = null,Object? waitingForSteadyLoad = null,Object? errorMessage = freezed,}) {
   return _then(_self.copyWith(
 connection: null == connection ? _self.connection : connection // ignore: cast_nullable_to_non_nullable
 as ConnectionState,deviceInfo: null == deviceInfo ? _self.deviceInfo : deviceInfo // ignore: cast_nullable_to_non_nullable
 as DeviceInfo,measurement: null == measurement ? _self.measurement : measurement // ignore: cast_nullable_to_non_nullable
 as MeasurementState,performance: null == performance ? _self.performance : performance // ignore: cast_nullable_to_non_nullable
-as PerformanceMetrics,errorMessage: freezed == errorMessage ? _self.errorMessage : errorMessage // ignore: cast_nullable_to_non_nullable
+as PerformanceMetrics,waitingForSteadyLoad: null == waitingForSteadyLoad ? _self.waitingForSteadyLoad : waitingForSteadyLoad // ignore: cast_nullable_to_non_nullable
+as bool,errorMessage: freezed == errorMessage ? _self.errorMessage : errorMessage // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -1797,10 +1798,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( ConnectionState connection,  DeviceInfo deviceInfo,  MeasurementState measurement,  PerformanceMetrics performance,  String? errorMessage)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( ConnectionState connection,  DeviceInfo deviceInfo,  MeasurementState measurement,  PerformanceMetrics performance,  bool waitingForSteadyLoad,  String? errorMessage)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ProgressorState() when $default != null:
-return $default(_that.connection,_that.deviceInfo,_that.measurement,_that.performance,_that.errorMessage);case _:
+return $default(_that.connection,_that.deviceInfo,_that.measurement,_that.performance,_that.waitingForSteadyLoad,_that.errorMessage);case _:
   return orElse();
 
 }
@@ -1818,10 +1819,10 @@ return $default(_that.connection,_that.deviceInfo,_that.measurement,_that.perfor
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( ConnectionState connection,  DeviceInfo deviceInfo,  MeasurementState measurement,  PerformanceMetrics performance,  String? errorMessage)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( ConnectionState connection,  DeviceInfo deviceInfo,  MeasurementState measurement,  PerformanceMetrics performance,  bool waitingForSteadyLoad,  String? errorMessage)  $default,) {final _that = this;
 switch (_that) {
 case _ProgressorState():
-return $default(_that.connection,_that.deviceInfo,_that.measurement,_that.performance,_that.errorMessage);}
+return $default(_that.connection,_that.deviceInfo,_that.measurement,_that.performance,_that.waitingForSteadyLoad,_that.errorMessage);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -1835,10 +1836,10 @@ return $default(_that.connection,_that.deviceInfo,_that.measurement,_that.perfor
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( ConnectionState connection,  DeviceInfo deviceInfo,  MeasurementState measurement,  PerformanceMetrics performance,  String? errorMessage)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( ConnectionState connection,  DeviceInfo deviceInfo,  MeasurementState measurement,  PerformanceMetrics performance,  bool waitingForSteadyLoad,  String? errorMessage)?  $default,) {final _that = this;
 switch (_that) {
 case _ProgressorState() when $default != null:
-return $default(_that.connection,_that.deviceInfo,_that.measurement,_that.performance,_that.errorMessage);case _:
+return $default(_that.connection,_that.deviceInfo,_that.measurement,_that.performance,_that.waitingForSteadyLoad,_that.errorMessage);case _:
   return null;
 
 }
@@ -1850,13 +1851,14 @@ return $default(_that.connection,_that.deviceInfo,_that.measurement,_that.perfor
 
 
 class _ProgressorState implements ProgressorState {
-  const _ProgressorState({this.connection = const ConnectionState(), this.deviceInfo = const DeviceInfo(), this.measurement = const MeasurementState(), this.performance = const PerformanceMetrics(), this.errorMessage});
+  const _ProgressorState({this.connection = const ConnectionState(), this.deviceInfo = const DeviceInfo(), this.measurement = const MeasurementState(), this.performance = const PerformanceMetrics(), this.waitingForSteadyLoad = false, this.errorMessage});
   
 
 @override@JsonKey() final  ConnectionState connection;
 @override@JsonKey() final  DeviceInfo deviceInfo;
 @override@JsonKey() final  MeasurementState measurement;
 @override@JsonKey() final  PerformanceMetrics performance;
+@override@JsonKey() final  bool waitingForSteadyLoad;
 @override final  String? errorMessage;
 
 /// Create a copy of ProgressorState
@@ -1869,16 +1871,16 @@ _$ProgressorStateCopyWith<_ProgressorState> get copyWith => __$ProgressorStateCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ProgressorState&&(identical(other.connection, connection) || other.connection == connection)&&(identical(other.deviceInfo, deviceInfo) || other.deviceInfo == deviceInfo)&&(identical(other.measurement, measurement) || other.measurement == measurement)&&(identical(other.performance, performance) || other.performance == performance)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ProgressorState&&(identical(other.connection, connection) || other.connection == connection)&&(identical(other.deviceInfo, deviceInfo) || other.deviceInfo == deviceInfo)&&(identical(other.measurement, measurement) || other.measurement == measurement)&&(identical(other.performance, performance) || other.performance == performance)&&(identical(other.waitingForSteadyLoad, waitingForSteadyLoad) || other.waitingForSteadyLoad == waitingForSteadyLoad)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,connection,deviceInfo,measurement,performance,errorMessage);
+int get hashCode => Object.hash(runtimeType,connection,deviceInfo,measurement,performance,waitingForSteadyLoad,errorMessage);
 
 @override
 String toString() {
-  return 'ProgressorState(connection: $connection, deviceInfo: $deviceInfo, measurement: $measurement, performance: $performance, errorMessage: $errorMessage)';
+  return 'ProgressorState(connection: $connection, deviceInfo: $deviceInfo, measurement: $measurement, performance: $performance, waitingForSteadyLoad: $waitingForSteadyLoad, errorMessage: $errorMessage)';
 }
 
 
@@ -1889,7 +1891,7 @@ abstract mixin class _$ProgressorStateCopyWith<$Res> implements $ProgressorState
   factory _$ProgressorStateCopyWith(_ProgressorState value, $Res Function(_ProgressorState) _then) = __$ProgressorStateCopyWithImpl;
 @override @useResult
 $Res call({
- ConnectionState connection, DeviceInfo deviceInfo, MeasurementState measurement, PerformanceMetrics performance, String? errorMessage
+ ConnectionState connection, DeviceInfo deviceInfo, MeasurementState measurement, PerformanceMetrics performance, bool waitingForSteadyLoad, String? errorMessage
 });
 
 
@@ -1906,13 +1908,14 @@ class __$ProgressorStateCopyWithImpl<$Res>
 
 /// Create a copy of ProgressorState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? connection = null,Object? deviceInfo = null,Object? measurement = null,Object? performance = null,Object? errorMessage = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? connection = null,Object? deviceInfo = null,Object? measurement = null,Object? performance = null,Object? waitingForSteadyLoad = null,Object? errorMessage = freezed,}) {
   return _then(_ProgressorState(
 connection: null == connection ? _self.connection : connection // ignore: cast_nullable_to_non_nullable
 as ConnectionState,deviceInfo: null == deviceInfo ? _self.deviceInfo : deviceInfo // ignore: cast_nullable_to_non_nullable
 as DeviceInfo,measurement: null == measurement ? _self.measurement : measurement // ignore: cast_nullable_to_non_nullable
 as MeasurementState,performance: null == performance ? _self.performance : performance // ignore: cast_nullable_to_non_nullable
-as PerformanceMetrics,errorMessage: freezed == errorMessage ? _self.errorMessage : errorMessage // ignore: cast_nullable_to_non_nullable
+as PerformanceMetrics,waitingForSteadyLoad: null == waitingForSteadyLoad ? _self.waitingForSteadyLoad : waitingForSteadyLoad // ignore: cast_nullable_to_non_nullable
+as bool,errorMessage: freezed == errorMessage ? _self.errorMessage : errorMessage // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }

@@ -772,6 +772,8 @@ class CrimpdeqScreen extends ConsumerWidget {
                                             notifier.getCalibration,
                                         onDefaultCalibration:
                                             notifier.defaultCalibration,
+                                        waitingForSteadyLoad:
+                                            state.waitingForSteadyLoad,
                                         calibrationInfo: state.errorMessage,
                                       ),
                                     ],
