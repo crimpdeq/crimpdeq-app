@@ -37,8 +37,6 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   int _dataPacketCount = 0;
   double? _calibrationFactor;
   final List<List<double>> _calibrationPoints = [];
-  // The firmware resets the rate on every connection, so it is sent again after connecting.
-  int _selectedSampleRate = AppConstants.defaultSampleRate;
 
   @override
   ProgressorState build() {
@@ -958,7 +956,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       await Future.delayed(_commandSettleDelay);
       await getCalibration();
       await Future.delayed(_commandSettleDelay);
-      await setSampleRate(_selectedSampleRate);
+      await _sendControlOpCode(ControlOpCode.getSampleRate.value);
 
       final hasFirmware = state.deviceInfo.firmwareVersion.isNotEmpty;
       final hasBattery = state.deviceInfo.batteryVoltage.isNotEmpty;
@@ -1135,7 +1133,6 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> setSampleRate(int sampleRate) async {
-    _selectedSampleRate = sampleRate;
     final payload = ByteData(2)..setUint16(0, sampleRate, Endian.little);
     await _sendControlOpCode(
       ControlOpCode.setSampleRate.value,

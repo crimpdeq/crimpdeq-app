@@ -45,14 +45,14 @@ class AppConstants {
     600: 'Balanced',
     1000: 'RFD',
   };
-  static const int defaultSampleRate = 600;
 }
 
 enum ControlOpCode {
   getCalibration(0x72),
   addCalibrationPoint(0x69),
   defaultCalibration(0x74),
-  setSampleRate(0x75);
+  setSampleRate(0x75),
+  getSampleRate(0x76);
 
   const ControlOpCode(this.value);
 
