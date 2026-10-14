@@ -38,14 +38,20 @@
 
     <title>Crimpdeq</title>
     <link rel="manifest" href="manifest.json" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
-      rel="stylesheet"
-    />
-
     <style>
+      /* Bundled with the app (pubspec.yaml fonts). */
+      @font-face {
+        font-family: "Inter";
+        font-weight: 500;
+        src: url("assets/assets/fonts/Inter-Medium.ttf") format("truetype");
+      }
+
+      @font-face {
+        font-family: "Inter";
+        font-weight: 700;
+        src: url("assets/assets/fonts/Inter-Bold.ttf") format("truetype");
+      }
+
       body {
         margin: 0;
       }

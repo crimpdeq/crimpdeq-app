@@ -1,15 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Bluetooth permissions -->
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    
-    <!-- Android 12+ (API level 31+) Bluetooth permissions -->
+    <!-- Bluetooth permissions, requested by flutter_blue_plus on scan and connect.
+         Android 12+ needs no location because scans are neverForLocation. -->
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
-    
+    <!-- Android 11 and older -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+
     <application
         android:label="Crimpdeq"
         android:name="${applicationName}"

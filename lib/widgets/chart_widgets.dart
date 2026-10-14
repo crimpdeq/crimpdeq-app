@@ -1,12 +1,12 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../models/progressor_models.dart' as progressor_models;
+import '../models/progressor_models.dart';
 
 class WeightHistoryCard extends StatelessWidget {
   const WeightHistoryCard({super.key, required this.measurement});
 
-  final progressor_models.MeasurementState measurement;
+  final MeasurementState measurement;
 
   @override
   Widget build(BuildContext context) {
@@ -35,8 +35,8 @@ class WeightHistoryCard extends StatelessWidget {
                 LineChartData(
                   minX: minX,
                   maxX: resolvedMaxX,
-                  minY: measurement.minWeight - 1,
-                  maxY: measurement.maxWeight + 1,
+                  minY: (measurement.minKg ?? 0) - 1,
+                  maxY: (measurement.peakKg ?? 0) + 1,
                   clipData: const FlClipData.all(),
                   lineTouchData: LineTouchData(
                     enabled: true,
@@ -129,7 +129,7 @@ class WeightHistoryCard extends StatelessWidget {
 class NotifyIntervalCard extends StatelessWidget {
   const NotifyIntervalCard({super.key, required this.performance});
 
-  final progressor_models.PerformanceMetrics performance;
+  final PerformanceMetrics performance;
 
   @override
   Widget build(BuildContext context) {

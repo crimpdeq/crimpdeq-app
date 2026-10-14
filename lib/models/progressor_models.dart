@@ -9,23 +9,29 @@ sealed class WeightMeasurement with _$WeightMeasurement {
   const WeightMeasurement._();
 
   const factory WeightMeasurement({
-    required double weight,
+    required double weightKg,
+
+    /// Microseconds since the measurement started on the device.
     required int timestampUs,
-    required DateTime receivedAt,
   }) = _WeightMeasurement;
 
-  double get timestampSec => timestampUs / 1000000.0;
+  double get timestampSec => timestampUs / Duration.microsecondsPerSecond;
 }
+
+/// Raw ADC count (untared) and the known weight that produced it.
+typedef CalibrationPoint = ({double raw, double weightKg});
 
 @freezed
 sealed class DeviceInfo with _$DeviceInfo {
   const factory DeviceInfo({
     @Default('') String firmwareVersion,
-    @Default('') String batteryVoltage,
-    @Default(0.0) double tareValue,
+    int? batteryMillivolts,
 
     /// Null until the firmware reports it; firmware without SetSampleRate never does.
     int? sampleRate,
+
+    /// The device warned that the battery is empty and is turning off.
+    @Default(false) bool lowBattery,
   }) = _DeviceInfo;
 }
 
@@ -35,23 +41,40 @@ sealed class PerformanceMetrics with _$PerformanceMetrics {
     @Default(0.0) double currentHz,
     @Default(0.0) double currentNotifyIntervalMs,
     @Default(0) int dataPacketCount,
-    @Default(0) int duplicatePacketCount,
-    @Default(1) int samplesPerPacket,
+    @Default(0) int samplesPerPacket,
     @Default([]) List<double> notifyIntervalHistory,
   }) = _PerformanceMetrics;
 }
 
+/// Measurement window since the last start, tare or reset.
 @freezed
 sealed class MeasurementState with _$MeasurementState {
   const factory MeasurementState({
-    @Default(0.0) double currentWeight,
-    @Default(0.0) double maxWeight,
-    @Default(0.0) double minWeight,
-    @Default(0) int sampleCount,
     @Default(false) bool isMeasuring,
+    double? currentKg,
+    double? minKg,
+    double? peakKg,
+    double? peakRfdKgPerS,
+
+    /// Device timestamp of the latest sample.
+    @Default(0) int elapsedUs,
+
+    /// Mean of each published batch, so the chart does not alias.
     @Default([]) List<FlSpot> weightHistory,
+
+    /// Latest samples, newest first.
     @Default([]) List<WeightMeasurement> receivedData,
   }) = _MeasurementState;
+}
+
+/// Mirror of the calibration stored on the device.
+@freezed
+sealed class CalibrationState with _$CalibrationState {
+  const factory CalibrationState({
+    double? factor,
+    @Default([]) List<CalibrationPoint> points,
+    @Default(false) bool waitingForSteadyLoad,
+  }) = _CalibrationState;
 }
 
 @freezed
@@ -65,27 +88,33 @@ sealed class DiscoveredDevice with _$DiscoveredDevice {
 }
 
 @freezed
-sealed class ConnectionState with _$ConnectionState {
-  const factory ConnectionState({
+sealed class DeviceConnection with _$DeviceConnection {
+  const DeviceConnection._();
+
+  const factory DeviceConnection({
     BluetoothDevice? device,
-    BluetoothCharacteristic? notifyCharacteristic,
     BluetoothCharacteristic? writeCharacteristic,
     @Default('Initializing Bluetooth...') String status,
     @Default(false) bool isScanning,
     @Default(false) bool isConnecting,
     @Default(false) bool bluetoothReady,
+
+    /// Scanning failed or Bluetooth is unauthorized; the fix is in the app
+    /// settings (permissions) or the system settings (location services).
+    @Default(false) bool needsSettings,
     @Default([]) List<DiscoveredDevice> discoveredDevices,
-  }) = _ConnectionState;
+  }) = _DeviceConnection;
+
+  bool get isConnected => device != null && writeCharacteristic != null;
 }
 
 @freezed
 sealed class ProgressorState with _$ProgressorState {
   const factory ProgressorState({
-    @Default(ConnectionState()) ConnectionState connection,
+    @Default(DeviceConnection()) DeviceConnection connection,
     @Default(DeviceInfo()) DeviceInfo deviceInfo,
     @Default(MeasurementState()) MeasurementState measurement,
     @Default(PerformanceMetrics()) PerformanceMetrics performance,
-    @Default(false) bool waitingForSteadyLoad,
-    String? errorMessage,
+    @Default(CalibrationState()) CalibrationState calibration,
   }) = _ProgressorState;
 }

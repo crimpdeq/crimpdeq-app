@@ -5,8 +5,10 @@ A Flutter development app for calibrating, testing and communicating with [Crimp
 ## Features
 
 - Bluetooth Low Energy (BLE) device scanning and connection
-- Calibration support
-- Real-time weight measurement display
+- Calibration support, with a check of each point's error against the device calibration
+- Real-time weight measurement with min, peak force and peak rate of force development (RFD)
+- Measurement reset, tare and selectable sample rate
+- Battery voltage and estimated state of charge, with a low battery warning
 - Data visualization with charts
 - Compatible with Tindeq Progressor API
 - Cross-platform support (Android, macOS, Windows, Linux, Web)
@@ -40,10 +42,10 @@ cd crimpdeq-app
 flutter pub get
 ```
 
-### #3. Generate Code (if needed)
+#### 3. Generate Code (after changing models or providers)
 
 ```bash
-flutter packages pub run build_runner build
+dart run build_runner build --delete-conflicting-outputs
 ```
 
 #### 4. Platform-specific Setup
@@ -88,27 +90,39 @@ flutter run -d chrome
 
 ```
 lib/
-├── main.dart                 # App entry point
-├── progressor_app.dart      # Main app widget
-├── constants/               # App constants
-├── models/                  # Data models
-├── providers/               # State management (Riverpod)
-└── widgets/                 # UI components
-    ├── chart_widgets.dart
-    ├── connection_widgets.dart
-    ├── data_widgets.dart
-    ├── device_widgets.dart
-    ├── measurement_widgets.dart
-    └── progressor_widgets.dart
+├── main.dart          # App entry point
+├── app.dart           # MaterialApp
+├── theme.dart         # Light and dark themes, bundled fonts
+├── protocol/          # Progressor BLE protocol: frames, messages, commands
+├── analysis/          # Force stats and RFD, steady load, calibration check, battery
+├── constants/         # App constants
+├── models/            # State models
+├── providers/         # State management (Riverpod)
+├── screens/           # Main screen and app bar
+└── widgets/           # Connection, measurement, calibration and chart widgets
+test/                  # Unit and widget tests
 ```
 
 #### Key Dependencies
 
-- `flutter_blue_plus`: BLE communication
-- `hooks_riverpod`: State management
+- `flutter_blue_plus`: BLE communication and permission requests
+- `flutter_riverpod`: State management
 - `fl_chart`: Data visualization
-- `permission_handler`: Runtime permissions
+- `permission_handler`: Opening the app settings
 - `freezed`: Code generation for immutable classes
+
+The Inter and Space Grotesk fonts are bundled in `assets/fonts/` (SIL Open Font License), so the
+app renders the same offline.
+
+#### Checks
+
+CI runs these on every pull request:
+
+```bash
+dart format --output=none --set-exit-if-changed lib test
+flutter analyze
+flutter test
+```
 
 #### Update App Icon
 
@@ -192,7 +206,8 @@ make deploy        # Build and deploy to GitHub Pages
 
 ### Permissions
 
-- **Android**: Location permission is required for BLE scanning
+- **Android 12+**: Nearby devices permission (Bluetooth scan and connect), requested on the first scan
+- **Android 11 and older**: Location permission is required for BLE scanning
 - **iOS**: Bluetooth permission is automatically requested
 - **Web**: Browser must support WebBluetooth API (requires HTTPS)
 

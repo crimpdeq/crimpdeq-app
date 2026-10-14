@@ -1,0 +1,45 @@
+import 'dart:math';
+
+import '../models/progressor_models.dart';
+
+/// Detects a load that holds steady: the means of the 100 ms slices of the last
+/// second stay within 20 g. Averaging removes the ADC noise, so the check
+/// catches swinging and creep.
+class SteadyLoadDetector {
+  static const _windowUs = 1000000;
+  static const _sliceUs = 100000;
+  static const _toleranceKg = 0.02;
+
+  final _samples = <WeightMeasurement>[];
+  bool receivedSamples = false;
+
+  /// Adds [samples] and returns whether the load is steady.
+  bool add(List<WeightMeasurement> samples) {
+    for (final sample in samples) {
+      // A restarted measurement moves the timeline back: start a new window.
+      if (_samples.isNotEmpty &&
+          sample.timestampUs < _samples.last.timestampUs) {
+        _samples.clear();
+      }
+      _samples.add(sample);
+      receivedSamples = true;
+    }
+    if (_samples.isEmpty) return false;
+
+    final latestUs = _samples.last.timestampUs;
+    final windowStartUs = latestUs - _windowUs;
+    // Wait until the samples span the whole window.
+    if (_samples.first.timestampUs > windowStartUs) return false;
+    _samples.removeWhere((sample) => sample.timestampUs <= windowStartUs);
+
+    final slices = <int, List<double>>{};
+    for (final sample in _samples) {
+      final slice = (latestUs - sample.timestampUs) ~/ _sliceUs;
+      slices.putIfAbsent(slice, () => []).add(sample.weightKg);
+    }
+    final means = slices.values.map(
+      (weights) => weights.reduce((a, b) => a + b) / weights.length,
+    );
+    return means.reduce(max) - means.reduce(min) <= _toleranceKg;
+  }
+}

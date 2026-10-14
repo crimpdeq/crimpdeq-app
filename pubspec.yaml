@@ -14,13 +14,10 @@ dependencies:
   permission_handler: ^12.0.1
   fl_chart: ^1.0.0
   # State management
-  hooks_riverpod: ^3.2.1
-  flutter_hooks: ^0.21.3+1
+  flutter_riverpod: ^3.2.1
   riverpod_annotation: ^4.0.2
   # Code generation
   freezed_annotation: ^3.1.0
-  json_annotation: ^4.10.0
-  google_fonts: ^8.0.1
 
 dev_dependencies:
   flutter_test:
@@ -29,7 +26,6 @@ dev_dependencies:
   # Code generation
   build_runner: ^2.4.13
   freezed: ^3.2.5
-  json_serializable: ^6.12.0
   riverpod_generator: ^4.0.3
   flutter_launcher_icons: ^0.14.4
 
@@ -42,6 +38,28 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+  # Bundled so the app renders the same offline. Licenses: assets/fonts/*-OFL.txt
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Inter-ExtraBold.ttf
+          weight: 800
+    - family: SpaceGrotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk-Regular.ttf
+        - asset: assets/fonts/SpaceGrotesk-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/SpaceGrotesk-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/SpaceGrotesk-Bold.ttf
+          weight: 700
 
 # App icon configuration for all platforms
 flutter_launcher_icons:
