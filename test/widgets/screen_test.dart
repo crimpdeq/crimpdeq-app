@@ -4,6 +4,8 @@ import 'package:crimpdeq/providers/progressor_provider.dart';
 import 'package:crimpdeq/screens/crimpdeq_screen.dart';
 import 'package:crimpdeq/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -53,6 +55,16 @@ Future<_FakeProgressor> _pumpScreen(
 }
 
 void main() {
+  // Measure the app bar with the bundled font instead of the test font.
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final inter = FontLoader(interFont);
+    for (final weight in ['Regular', 'SemiBold', 'Bold', 'ExtraBold']) {
+      inter.addFont(rootBundle.load('assets/fonts/Inter-$weight.ttf'));
+    }
+    await inter.load();
+  });
+
   testWidgets('shows the device status with the battery charge', (
     tester,
   ) async {
@@ -74,9 +86,9 @@ void main() {
     expect(find.byType(TabBar), findsOneWidget);
   });
 
-  for (final (name, physicalSize, pixelRatio) in [
-    ('394 dp phone', const Size(1280, 2772), 3.25),
-    ('360 dp phone', const Size(1080, 2340), 3.0),
+  for (final (name, physicalSize, pixelRatio, fitsWholeLines) in [
+    ('394 dp phone', const Size(1280, 2772), 3.25, true),
+    ('360 dp phone', const Size(1080, 2340), 3.0, false),
   ]) {
     testWidgets('keeps the status clear of the title on a $name', (
       tester,
@@ -96,12 +108,25 @@ void main() {
       );
 
       final titleLeft = tester.getRect(find.byType(Image)).left;
-      for (final line in ['Connected', 'FW: 2.0.4', 'Bat: ~25%']) {
+      for (final line in [
+        'Connected',
+        'FW: 2.0.4',
+        'Bat: ~25%',
+        'Bat: 3.75 V',
+      ]) {
+        final text = find.text(line);
         expect(
-          tester.getRect(find.textContaining(line)).right,
+          tester.getRect(text).right,
           lessThanOrEqualTo(titleLeft),
           reason: line,
         );
+        if (fitsWholeLines) {
+          expect(
+            tester.renderObject<RenderParagraph>(text).didExceedMaxLines,
+            isFalse,
+            reason: '$line is truncated',
+          );
+        }
       }
     });
   }
