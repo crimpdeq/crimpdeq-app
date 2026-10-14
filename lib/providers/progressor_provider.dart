@@ -33,6 +33,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   // The firmware sends the samples taken before a tare, then pauses 200 ms to
   // tare. Clearing after that keeps those samples out of the new window.
   static const _tareSettleDelay = Duration(milliseconds: 300);
+  // Firmware before 2.1 stops measuring after a tare and ignores a start that
+  // arrives while it still tares, up to 1.6 s. Restart until samples follow.
+  static const _tareResumeTimeout = Duration(milliseconds: 700);
+  static const _tareResumeAttempts = 3;
   static const _steadyLoadTimeout = Duration(seconds: 15);
 
   StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
@@ -572,6 +576,14 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     if (!await _send(ControlOpCode.tareScale)) return;
     await Future<void>.delayed(_tareSettleDelay);
     resetMeasurement();
+
+    for (var attempt = 0; attempt < _tareResumeAttempts; attempt++) {
+      final packets = _packetCount;
+      await Future<void>.delayed(_tareResumeTimeout);
+      if (!state.measurement.isMeasuring || _packetCount != packets) return;
+      _log('No samples after the tare, restarting the measurement');
+      await startMeasurement();
+    }
   }
 
   /// Starts a new measurement window without changing the device.
