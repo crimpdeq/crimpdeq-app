@@ -22,8 +22,8 @@ As a normal user, you wont need any of this section, this is just meant for the 
 
 ### Prerequisites
 
-- Flutter SDK (3.41.0 or higher)
-- Dart SDK (3.0.0 or higher)
+- Flutter SDK (3.47.0 or higher, CI uses 3.47.7)
+- Dart SDK (3.13.0 or higher, bundled with Flutter)
 - Android Studio or Xcode (for mobile development)
 - A physical device with Bluetooth capability
 
@@ -52,8 +52,9 @@ dart run build_runner build --delete-conflicting-outputs
 
 ##### Android
 
-- Minimum SDK version: 21
-- Target SDK version: 34
+- Minimum SDK version: 24
+- Target SDK version: 36
+- Compile SDK version: 37 (Android SDK Platform 37 must be installed)
 - Required permissions are automatically handled
 
 ##### Web

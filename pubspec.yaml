@@ -4,18 +4,20 @@ publish_to: "none"
 version: 0.4.2
 
 environment:
-  sdk: ">=3.10.3 <4.0.0"
-  flutter: ">=3.38.4"
+  sdk: ">=3.13.0 <4.0.0"
+  flutter: ">=3.47.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  flutter_blue_plus: ^2.1.1
-  permission_handler: ^12.0.1
-  fl_chart: ^1.0.0
+  # 2.3.5+ adds a build-time license ping that sends the app ID and name to a
+  # third party, with no opt-out. Stay below it until that is accepted.
+  flutter_blue_plus: 2.3.4
+  permission_handler: ^13.0.2
+  fl_chart: ^1.2.0
   # State management
-  flutter_riverpod: ^3.2.1
-  riverpod_annotation: ^4.0.2
+  flutter_riverpod: ^3.4.3
+  riverpod_annotation: ^4.0.7
   # Code generation
   freezed_annotation: ^3.1.0
 
@@ -24,15 +26,10 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   # Code generation
-  build_runner: ^2.4.13
-  freezed: ^3.2.5
-  riverpod_generator: ^4.0.3
+  build_runner: ^2.17.0
+  freezed: ^4.0.2
+  riverpod_generator: ^4.0.9
   flutter_launcher_icons: ^0.14.4
-
-# Workaround: riverpod_generator's dependency tree excludes test_api 0.7.7
-# (pinned by flutter_test). Override so version solving succeeds.
-dependency_overrides:
-  test_api: 0.7.8
 
 flutter:
   uses-material-design: true

@@ -208,7 +208,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     final device = discovered.device;
     try {
       await FlutterBluePlus.stopScan();
-      await device.connect(license: License.free);
+      await device.connect(license: License.nonprofit);
       state = state.copyWith.connection(
         device: device,
         status: 'Discovering services...',

@@ -1,6 +1,6 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // coverage:ignore-file
-// ignore_for_file: type=lint
+// ignore_for_file: type=lint, type=warning, deprecated_member_use, deprecated_member_use_from_same_package
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
 part of 'progressor_models.dart';
@@ -9,6 +9,7 @@ part of 'progressor_models.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// GENERATED CODE - DO NOT MODIFY BY HAND
 // dart format off
 T _$identity<T>(T value) => value;
 /// @nodoc
@@ -26,16 +27,21 @@ $WeightMeasurementCopyWith<WeightMeasurement> get copyWith => _$WeightMeasuremen
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is WeightMeasurement&&(identical(other.weightKg, weightKg) || other.weightKg == weightKg)&&(identical(other.timestampUs, timestampUs) || other.timestampUs == timestampUs));
+  final _this = this as WeightMeasurement;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WeightMeasurement&&(identical(other.weightKg, _this.weightKg) || other.weightKg == _this.weightKg)&&(identical(other.timestampUs, _this.timestampUs) || other.timestampUs == _this.timestampUs));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,weightKg,timestampUs);
+int get hashCode {
+  final _this = this as WeightMeasurement;
+  return Object.hash(runtimeType,_this.weightKg,_this.timestampUs);
+}
 
 @override
 String toString() {
-  return 'WeightMeasurement(weightKg: $weightKg, timestampUs: $timestampUs)';
+  final _this = this as WeightMeasurement;
+  return 'WeightMeasurement(weightKg: ${_this.weightKg}, timestampUs: ${_this.timestampUs})';
 }
 
 
@@ -64,7 +70,7 @@ class _$WeightMeasurementCopyWithImpl<$Res>
 /// Create a copy of WeightMeasurement
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? weightKg = null,Object? timestampUs = null,}) {
-  return _then(_self.copyWith(
+  return _then(WeightMeasurement(
 weightKg: null == weightKg ? _self.weightKg : weightKg // ignore: cast_nullable_to_non_nullable
 as double,timestampUs: null == timestampUs ? _self.timestampUs : timestampUs // ignore: cast_nullable_to_non_nullable
 as int,
@@ -219,16 +225,18 @@ _$WeightMeasurementCopyWith<_WeightMeasurement> get copyWith => __$WeightMeasure
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _WeightMeasurement&&(identical(other.weightKg, weightKg) || other.weightKg == weightKg)&&(identical(other.timestampUs, timestampUs) || other.timestampUs == timestampUs));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _WeightMeasurement&&(identical(other.weightKg, weightKg) || other.weightKg == weightKg)&&(identical(other.timestampUs, timestampUs) || other.timestampUs == timestampUs));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,weightKg,timestampUs);
+int get hashCode {
+    return Object.hash(runtimeType,weightKg,timestampUs);
+}
 
 @override
 String toString() {
-  return 'WeightMeasurement(weightKg: $weightKg, timestampUs: $timestampUs)';
+    return 'WeightMeasurement(weightKg: $weightKg, timestampUs: $timestampUs)';
 }
 
 
@@ -283,16 +291,21 @@ $DeviceInfoCopyWith<DeviceInfo> get copyWith => _$DeviceInfoCopyWithImpl<DeviceI
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceInfo&&(identical(other.firmwareVersion, firmwareVersion) || other.firmwareVersion == firmwareVersion)&&(identical(other.batteryMillivolts, batteryMillivolts) || other.batteryMillivolts == batteryMillivolts)&&(identical(other.sampleRate, sampleRate) || other.sampleRate == sampleRate)&&(identical(other.lowBattery, lowBattery) || other.lowBattery == lowBattery));
+  final _this = this as DeviceInfo;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceInfo&&(identical(other.firmwareVersion, _this.firmwareVersion) || other.firmwareVersion == _this.firmwareVersion)&&(identical(other.batteryMillivolts, _this.batteryMillivolts) || other.batteryMillivolts == _this.batteryMillivolts)&&(identical(other.sampleRate, _this.sampleRate) || other.sampleRate == _this.sampleRate)&&(identical(other.lowBattery, _this.lowBattery) || other.lowBattery == _this.lowBattery));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,firmwareVersion,batteryMillivolts,sampleRate,lowBattery);
+int get hashCode {
+  final _this = this as DeviceInfo;
+  return Object.hash(runtimeType,_this.firmwareVersion,_this.batteryMillivolts,_this.sampleRate,_this.lowBattery);
+}
 
 @override
 String toString() {
-  return 'DeviceInfo(firmwareVersion: $firmwareVersion, batteryMillivolts: $batteryMillivolts, sampleRate: $sampleRate, lowBattery: $lowBattery)';
+  final _this = this as DeviceInfo;
+  return 'DeviceInfo(firmwareVersion: ${_this.firmwareVersion}, batteryMillivolts: ${_this.batteryMillivolts}, sampleRate: ${_this.sampleRate}, lowBattery: ${_this.lowBattery})';
 }
 
 
@@ -321,7 +334,7 @@ class _$DeviceInfoCopyWithImpl<$Res>
 /// Create a copy of DeviceInfo
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? firmwareVersion = null,Object? batteryMillivolts = freezed,Object? sampleRate = freezed,Object? lowBattery = null,}) {
-  return _then(_self.copyWith(
+  return _then(DeviceInfo(
 firmwareVersion: null == firmwareVersion ? _self.firmwareVersion : firmwareVersion // ignore: cast_nullable_to_non_nullable
 as String,batteryMillivolts: freezed == batteryMillivolts ? _self.batteryMillivolts : batteryMillivolts // ignore: cast_nullable_to_non_nullable
 as int?,sampleRate: freezed == sampleRate ? _self.sampleRate : sampleRate // ignore: cast_nullable_to_non_nullable
@@ -481,16 +494,18 @@ _$DeviceInfoCopyWith<_DeviceInfo> get copyWith => __$DeviceInfoCopyWithImpl<_Dev
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceInfo&&(identical(other.firmwareVersion, firmwareVersion) || other.firmwareVersion == firmwareVersion)&&(identical(other.batteryMillivolts, batteryMillivolts) || other.batteryMillivolts == batteryMillivolts)&&(identical(other.sampleRate, sampleRate) || other.sampleRate == sampleRate)&&(identical(other.lowBattery, lowBattery) || other.lowBattery == lowBattery));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceInfo&&(identical(other.firmwareVersion, firmwareVersion) || other.firmwareVersion == firmwareVersion)&&(identical(other.batteryMillivolts, batteryMillivolts) || other.batteryMillivolts == batteryMillivolts)&&(identical(other.sampleRate, sampleRate) || other.sampleRate == sampleRate)&&(identical(other.lowBattery, lowBattery) || other.lowBattery == lowBattery));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,firmwareVersion,batteryMillivolts,sampleRate,lowBattery);
+int get hashCode {
+    return Object.hash(runtimeType,firmwareVersion,batteryMillivolts,sampleRate,lowBattery);
+}
 
 @override
 String toString() {
-  return 'DeviceInfo(firmwareVersion: $firmwareVersion, batteryMillivolts: $batteryMillivolts, sampleRate: $sampleRate, lowBattery: $lowBattery)';
+    return 'DeviceInfo(firmwareVersion: $firmwareVersion, batteryMillivolts: $batteryMillivolts, sampleRate: $sampleRate, lowBattery: $lowBattery)';
 }
 
 
@@ -545,16 +560,21 @@ $PerformanceMetricsCopyWith<PerformanceMetrics> get copyWith => _$PerformanceMet
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PerformanceMetrics&&(identical(other.currentHz, currentHz) || other.currentHz == currentHz)&&(identical(other.currentNotifyIntervalMs, currentNotifyIntervalMs) || other.currentNotifyIntervalMs == currentNotifyIntervalMs)&&(identical(other.dataPacketCount, dataPacketCount) || other.dataPacketCount == dataPacketCount)&&(identical(other.samplesPerPacket, samplesPerPacket) || other.samplesPerPacket == samplesPerPacket)&&const DeepCollectionEquality().equals(other.notifyIntervalHistory, notifyIntervalHistory));
+  final _this = this as PerformanceMetrics;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PerformanceMetrics&&(identical(other.currentHz, _this.currentHz) || other.currentHz == _this.currentHz)&&(identical(other.currentNotifyIntervalMs, _this.currentNotifyIntervalMs) || other.currentNotifyIntervalMs == _this.currentNotifyIntervalMs)&&(identical(other.dataPacketCount, _this.dataPacketCount) || other.dataPacketCount == _this.dataPacketCount)&&(identical(other.samplesPerPacket, _this.samplesPerPacket) || other.samplesPerPacket == _this.samplesPerPacket)&&const DeepCollectionEquality().equals(other.notifyIntervalHistory, _this.notifyIntervalHistory));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,currentHz,currentNotifyIntervalMs,dataPacketCount,samplesPerPacket,const DeepCollectionEquality().hash(notifyIntervalHistory));
+int get hashCode {
+  final _this = this as PerformanceMetrics;
+  return Object.hash(runtimeType,_this.currentHz,_this.currentNotifyIntervalMs,_this.dataPacketCount,_this.samplesPerPacket,const DeepCollectionEquality().hash(_this.notifyIntervalHistory));
+}
 
 @override
 String toString() {
-  return 'PerformanceMetrics(currentHz: $currentHz, currentNotifyIntervalMs: $currentNotifyIntervalMs, dataPacketCount: $dataPacketCount, samplesPerPacket: $samplesPerPacket, notifyIntervalHistory: $notifyIntervalHistory)';
+  final _this = this as PerformanceMetrics;
+  return 'PerformanceMetrics(currentHz: ${_this.currentHz}, currentNotifyIntervalMs: ${_this.currentNotifyIntervalMs}, dataPacketCount: ${_this.dataPacketCount}, samplesPerPacket: ${_this.samplesPerPacket}, notifyIntervalHistory: ${_this.notifyIntervalHistory})';
 }
 
 
@@ -583,7 +603,7 @@ class _$PerformanceMetricsCopyWithImpl<$Res>
 /// Create a copy of PerformanceMetrics
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? currentHz = null,Object? currentNotifyIntervalMs = null,Object? dataPacketCount = null,Object? samplesPerPacket = null,Object? notifyIntervalHistory = null,}) {
-  return _then(_self.copyWith(
+  return _then(PerformanceMetrics(
 currentHz: null == currentHz ? _self.currentHz : currentHz // ignore: cast_nullable_to_non_nullable
 as double,currentNotifyIntervalMs: null == currentNotifyIntervalMs ? _self.currentNotifyIntervalMs : currentNotifyIntervalMs // ignore: cast_nullable_to_non_nullable
 as double,dataPacketCount: null == dataPacketCount ? _self.dataPacketCount : dataPacketCount // ignore: cast_nullable_to_non_nullable
@@ -724,7 +744,7 @@ return $default(_that.currentHz,_that.currentNotifyIntervalMs,_that.dataPacketCo
 
 
 class _PerformanceMetrics implements PerformanceMetrics {
-  const _PerformanceMetrics({this.currentHz = 0.0, this.currentNotifyIntervalMs = 0.0, this.dataPacketCount = 0, this.samplesPerPacket = 0, final  List<double> notifyIntervalHistory = const []}): _notifyIntervalHistory = notifyIntervalHistory;
+  const _PerformanceMetrics({this.currentHz = 0.0, this.currentNotifyIntervalMs = 0.0, this.dataPacketCount = 0, this.samplesPerPacket = 0,  List<double> notifyIntervalHistory = const []}): _notifyIntervalHistory = notifyIntervalHistory;
   
 
 @override@JsonKey() final  double currentHz;
@@ -749,16 +769,18 @@ _$PerformanceMetricsCopyWith<_PerformanceMetrics> get copyWith => __$Performance
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PerformanceMetrics&&(identical(other.currentHz, currentHz) || other.currentHz == currentHz)&&(identical(other.currentNotifyIntervalMs, currentNotifyIntervalMs) || other.currentNotifyIntervalMs == currentNotifyIntervalMs)&&(identical(other.dataPacketCount, dataPacketCount) || other.dataPacketCount == dataPacketCount)&&(identical(other.samplesPerPacket, samplesPerPacket) || other.samplesPerPacket == samplesPerPacket)&&const DeepCollectionEquality().equals(other._notifyIntervalHistory, _notifyIntervalHistory));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PerformanceMetrics&&(identical(other.currentHz, currentHz) || other.currentHz == currentHz)&&(identical(other.currentNotifyIntervalMs, currentNotifyIntervalMs) || other.currentNotifyIntervalMs == currentNotifyIntervalMs)&&(identical(other.dataPacketCount, dataPacketCount) || other.dataPacketCount == dataPacketCount)&&(identical(other.samplesPerPacket, samplesPerPacket) || other.samplesPerPacket == samplesPerPacket)&&const DeepCollectionEquality().equals(other.notifyIntervalHistory, _notifyIntervalHistory));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,currentHz,currentNotifyIntervalMs,dataPacketCount,samplesPerPacket,const DeepCollectionEquality().hash(_notifyIntervalHistory));
+int get hashCode {
+    return Object.hash(runtimeType,currentHz,currentNotifyIntervalMs,dataPacketCount,samplesPerPacket,const DeepCollectionEquality().hash(_notifyIntervalHistory));
+}
 
 @override
 String toString() {
-  return 'PerformanceMetrics(currentHz: $currentHz, currentNotifyIntervalMs: $currentNotifyIntervalMs, dataPacketCount: $dataPacketCount, samplesPerPacket: $samplesPerPacket, notifyIntervalHistory: $notifyIntervalHistory)';
+    return 'PerformanceMetrics(currentHz: $currentHz, currentNotifyIntervalMs: $currentNotifyIntervalMs, dataPacketCount: $dataPacketCount, samplesPerPacket: $samplesPerPacket, notifyIntervalHistory: $notifyIntervalHistory)';
 }
 
 
@@ -817,16 +839,21 @@ $MeasurementStateCopyWith<MeasurementState> get copyWith => _$MeasurementStateCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MeasurementState&&(identical(other.isMeasuring, isMeasuring) || other.isMeasuring == isMeasuring)&&(identical(other.currentKg, currentKg) || other.currentKg == currentKg)&&(identical(other.minKg, minKg) || other.minKg == minKg)&&(identical(other.peakKg, peakKg) || other.peakKg == peakKg)&&(identical(other.peakRfdKgPerS, peakRfdKgPerS) || other.peakRfdKgPerS == peakRfdKgPerS)&&(identical(other.elapsedUs, elapsedUs) || other.elapsedUs == elapsedUs)&&const DeepCollectionEquality().equals(other.weightHistory, weightHistory)&&const DeepCollectionEquality().equals(other.receivedData, receivedData));
+  final _this = this as MeasurementState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MeasurementState&&(identical(other.isMeasuring, _this.isMeasuring) || other.isMeasuring == _this.isMeasuring)&&(identical(other.currentKg, _this.currentKg) || other.currentKg == _this.currentKg)&&(identical(other.minKg, _this.minKg) || other.minKg == _this.minKg)&&(identical(other.peakKg, _this.peakKg) || other.peakKg == _this.peakKg)&&(identical(other.peakRfdKgPerS, _this.peakRfdKgPerS) || other.peakRfdKgPerS == _this.peakRfdKgPerS)&&(identical(other.elapsedUs, _this.elapsedUs) || other.elapsedUs == _this.elapsedUs)&&const DeepCollectionEquality().equals(other.weightHistory, _this.weightHistory)&&const DeepCollectionEquality().equals(other.receivedData, _this.receivedData));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,isMeasuring,currentKg,minKg,peakKg,peakRfdKgPerS,elapsedUs,const DeepCollectionEquality().hash(weightHistory),const DeepCollectionEquality().hash(receivedData));
+int get hashCode {
+  final _this = this as MeasurementState;
+  return Object.hash(runtimeType,_this.isMeasuring,_this.currentKg,_this.minKg,_this.peakKg,_this.peakRfdKgPerS,_this.elapsedUs,const DeepCollectionEquality().hash(_this.weightHistory),const DeepCollectionEquality().hash(_this.receivedData));
+}
 
 @override
 String toString() {
-  return 'MeasurementState(isMeasuring: $isMeasuring, currentKg: $currentKg, minKg: $minKg, peakKg: $peakKg, peakRfdKgPerS: $peakRfdKgPerS, elapsedUs: $elapsedUs, weightHistory: $weightHistory, receivedData: $receivedData)';
+  final _this = this as MeasurementState;
+  return 'MeasurementState(isMeasuring: ${_this.isMeasuring}, currentKg: ${_this.currentKg}, minKg: ${_this.minKg}, peakKg: ${_this.peakKg}, peakRfdKgPerS: ${_this.peakRfdKgPerS}, elapsedUs: ${_this.elapsedUs}, weightHistory: ${_this.weightHistory}, receivedData: ${_this.receivedData})';
 }
 
 
@@ -855,7 +882,7 @@ class _$MeasurementStateCopyWithImpl<$Res>
 /// Create a copy of MeasurementState
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? isMeasuring = null,Object? currentKg = freezed,Object? minKg = freezed,Object? peakKg = freezed,Object? peakRfdKgPerS = freezed,Object? elapsedUs = null,Object? weightHistory = null,Object? receivedData = null,}) {
-  return _then(_self.copyWith(
+  return _then(MeasurementState(
 isMeasuring: null == isMeasuring ? _self.isMeasuring : isMeasuring // ignore: cast_nullable_to_non_nullable
 as bool,currentKg: freezed == currentKg ? _self.currentKg : currentKg // ignore: cast_nullable_to_non_nullable
 as double?,minKg: freezed == minKg ? _self.minKg : minKg // ignore: cast_nullable_to_non_nullable
@@ -999,7 +1026,7 @@ return $default(_that.isMeasuring,_that.currentKg,_that.minKg,_that.peakKg,_that
 
 
 class _MeasurementState implements MeasurementState {
-  const _MeasurementState({this.isMeasuring = false, this.currentKg, this.minKg, this.peakKg, this.peakRfdKgPerS, this.elapsedUs = 0, final  List<FlSpot> weightHistory = const [], final  List<WeightMeasurement> receivedData = const []}): _weightHistory = weightHistory,_receivedData = receivedData;
+  const _MeasurementState({this.isMeasuring = false, this.currentKg, this.minKg, this.peakKg, this.peakRfdKgPerS, this.elapsedUs = 0,  List<FlSpot> weightHistory = const [],  List<WeightMeasurement> receivedData = const []}): _weightHistory = weightHistory,_receivedData = receivedData;
   
 
 @override@JsonKey() final  bool isMeasuring;
@@ -1038,16 +1065,18 @@ _$MeasurementStateCopyWith<_MeasurementState> get copyWith => __$MeasurementStat
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _MeasurementState&&(identical(other.isMeasuring, isMeasuring) || other.isMeasuring == isMeasuring)&&(identical(other.currentKg, currentKg) || other.currentKg == currentKg)&&(identical(other.minKg, minKg) || other.minKg == minKg)&&(identical(other.peakKg, peakKg) || other.peakKg == peakKg)&&(identical(other.peakRfdKgPerS, peakRfdKgPerS) || other.peakRfdKgPerS == peakRfdKgPerS)&&(identical(other.elapsedUs, elapsedUs) || other.elapsedUs == elapsedUs)&&const DeepCollectionEquality().equals(other._weightHistory, _weightHistory)&&const DeepCollectionEquality().equals(other._receivedData, _receivedData));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _MeasurementState&&(identical(other.isMeasuring, isMeasuring) || other.isMeasuring == isMeasuring)&&(identical(other.currentKg, currentKg) || other.currentKg == currentKg)&&(identical(other.minKg, minKg) || other.minKg == minKg)&&(identical(other.peakKg, peakKg) || other.peakKg == peakKg)&&(identical(other.peakRfdKgPerS, peakRfdKgPerS) || other.peakRfdKgPerS == peakRfdKgPerS)&&(identical(other.elapsedUs, elapsedUs) || other.elapsedUs == elapsedUs)&&const DeepCollectionEquality().equals(other.weightHistory, _weightHistory)&&const DeepCollectionEquality().equals(other.receivedData, _receivedData));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,isMeasuring,currentKg,minKg,peakKg,peakRfdKgPerS,elapsedUs,const DeepCollectionEquality().hash(_weightHistory),const DeepCollectionEquality().hash(_receivedData));
+int get hashCode {
+    return Object.hash(runtimeType,isMeasuring,currentKg,minKg,peakKg,peakRfdKgPerS,elapsedUs,const DeepCollectionEquality().hash(_weightHistory),const DeepCollectionEquality().hash(_receivedData));
+}
 
 @override
 String toString() {
-  return 'MeasurementState(isMeasuring: $isMeasuring, currentKg: $currentKg, minKg: $minKg, peakKg: $peakKg, peakRfdKgPerS: $peakRfdKgPerS, elapsedUs: $elapsedUs, weightHistory: $weightHistory, receivedData: $receivedData)';
+    return 'MeasurementState(isMeasuring: $isMeasuring, currentKg: $currentKg, minKg: $minKg, peakKg: $peakKg, peakRfdKgPerS: $peakRfdKgPerS, elapsedUs: $elapsedUs, weightHistory: $weightHistory, receivedData: $receivedData)';
 }
 
 
@@ -1106,16 +1135,21 @@ $CalibrationStateCopyWith<CalibrationState> get copyWith => _$CalibrationStateCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is CalibrationState&&(identical(other.factor, factor) || other.factor == factor)&&const DeepCollectionEquality().equals(other.points, points)&&(identical(other.waitingForSteadyLoad, waitingForSteadyLoad) || other.waitingForSteadyLoad == waitingForSteadyLoad));
+  final _this = this as CalibrationState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CalibrationState&&(identical(other.factor, _this.factor) || other.factor == _this.factor)&&const DeepCollectionEquality().equals(other.points, _this.points)&&(identical(other.waitingForSteadyLoad, _this.waitingForSteadyLoad) || other.waitingForSteadyLoad == _this.waitingForSteadyLoad));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,factor,const DeepCollectionEquality().hash(points),waitingForSteadyLoad);
+int get hashCode {
+  final _this = this as CalibrationState;
+  return Object.hash(runtimeType,_this.factor,const DeepCollectionEquality().hash(_this.points),_this.waitingForSteadyLoad);
+}
 
 @override
 String toString() {
-  return 'CalibrationState(factor: $factor, points: $points, waitingForSteadyLoad: $waitingForSteadyLoad)';
+  final _this = this as CalibrationState;
+  return 'CalibrationState(factor: ${_this.factor}, points: ${_this.points}, waitingForSteadyLoad: ${_this.waitingForSteadyLoad})';
 }
 
 
@@ -1144,7 +1178,7 @@ class _$CalibrationStateCopyWithImpl<$Res>
 /// Create a copy of CalibrationState
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? factor = freezed,Object? points = null,Object? waitingForSteadyLoad = null,}) {
-  return _then(_self.copyWith(
+  return _then(CalibrationState(
 factor: freezed == factor ? _self.factor : factor // ignore: cast_nullable_to_non_nullable
 as double?,points: null == points ? _self.points : points // ignore: cast_nullable_to_non_nullable
 as List<CalibrationPoint>,waitingForSteadyLoad: null == waitingForSteadyLoad ? _self.waitingForSteadyLoad : waitingForSteadyLoad // ignore: cast_nullable_to_non_nullable
@@ -1283,7 +1317,7 @@ return $default(_that.factor,_that.points,_that.waitingForSteadyLoad);case _:
 
 
 class _CalibrationState implements CalibrationState {
-  const _CalibrationState({this.factor, final  List<CalibrationPoint> points = const [], this.waitingForSteadyLoad = false}): _points = points;
+  const _CalibrationState({this.factor,  List<CalibrationPoint> points = const [], this.waitingForSteadyLoad = false}): _points = points;
   
 
 @override final  double? factor;
@@ -1306,16 +1340,18 @@ _$CalibrationStateCopyWith<_CalibrationState> get copyWith => __$CalibrationStat
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CalibrationState&&(identical(other.factor, factor) || other.factor == factor)&&const DeepCollectionEquality().equals(other._points, _points)&&(identical(other.waitingForSteadyLoad, waitingForSteadyLoad) || other.waitingForSteadyLoad == waitingForSteadyLoad));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _CalibrationState&&(identical(other.factor, factor) || other.factor == factor)&&const DeepCollectionEquality().equals(other.points, _points)&&(identical(other.waitingForSteadyLoad, waitingForSteadyLoad) || other.waitingForSteadyLoad == waitingForSteadyLoad));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,factor,const DeepCollectionEquality().hash(_points),waitingForSteadyLoad);
+int get hashCode {
+    return Object.hash(runtimeType,factor,const DeepCollectionEquality().hash(_points),waitingForSteadyLoad);
+}
 
 @override
 String toString() {
-  return 'CalibrationState(factor: $factor, points: $points, waitingForSteadyLoad: $waitingForSteadyLoad)';
+    return 'CalibrationState(factor: $factor, points: $points, waitingForSteadyLoad: $waitingForSteadyLoad)';
 }
 
 
@@ -1369,16 +1405,21 @@ $DiscoveredDeviceCopyWith<DiscoveredDevice> get copyWith => _$DiscoveredDeviceCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DiscoveredDevice&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.rssi, rssi) || other.rssi == rssi)&&(identical(other.device, device) || other.device == device));
+  final _this = this as DiscoveredDevice;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DiscoveredDevice&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.rssi, _this.rssi) || other.rssi == _this.rssi)&&(identical(other.device, _this.device) || other.device == _this.device));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,id,name,rssi,device);
+int get hashCode {
+  final _this = this as DiscoveredDevice;
+  return Object.hash(runtimeType,_this.id,_this.name,_this.rssi,_this.device);
+}
 
 @override
 String toString() {
-  return 'DiscoveredDevice(id: $id, name: $name, rssi: $rssi, device: $device)';
+  final _this = this as DiscoveredDevice;
+  return 'DiscoveredDevice(id: ${_this.id}, name: ${_this.name}, rssi: ${_this.rssi}, device: ${_this.device})';
 }
 
 
@@ -1407,7 +1448,7 @@ class _$DiscoveredDeviceCopyWithImpl<$Res>
 /// Create a copy of DiscoveredDevice
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? rssi = null,Object? device = null,}) {
-  return _then(_self.copyWith(
+  return _then(DiscoveredDevice(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,rssi: null == rssi ? _self.rssi : rssi // ignore: cast_nullable_to_non_nullable
@@ -1565,16 +1606,18 @@ _$DiscoveredDeviceCopyWith<_DiscoveredDevice> get copyWith => __$DiscoveredDevic
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DiscoveredDevice&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.rssi, rssi) || other.rssi == rssi)&&(identical(other.device, device) || other.device == device));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DiscoveredDevice&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.rssi, rssi) || other.rssi == rssi)&&(identical(other.device, device) || other.device == device));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,id,name,rssi,device);
+int get hashCode {
+    return Object.hash(runtimeType,id,name,rssi,device);
+}
 
 @override
 String toString() {
-  return 'DiscoveredDevice(id: $id, name: $name, rssi: $rssi, device: $device)';
+    return 'DiscoveredDevice(id: $id, name: $name, rssi: $rssi, device: $device)';
 }
 
 
@@ -1631,16 +1674,21 @@ $DeviceConnectionCopyWith<DeviceConnection> get copyWith => _$DeviceConnectionCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceConnection&&(identical(other.device, device) || other.device == device)&&(identical(other.writeCharacteristic, writeCharacteristic) || other.writeCharacteristic == writeCharacteristic)&&(identical(other.status, status) || other.status == status)&&(identical(other.isScanning, isScanning) || other.isScanning == isScanning)&&(identical(other.isConnecting, isConnecting) || other.isConnecting == isConnecting)&&(identical(other.bluetoothReady, bluetoothReady) || other.bluetoothReady == bluetoothReady)&&(identical(other.needsSettings, needsSettings) || other.needsSettings == needsSettings)&&const DeepCollectionEquality().equals(other.discoveredDevices, discoveredDevices));
+  final _this = this as DeviceConnection;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceConnection&&(identical(other.device, _this.device) || other.device == _this.device)&&(identical(other.writeCharacteristic, _this.writeCharacteristic) || other.writeCharacteristic == _this.writeCharacteristic)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.isScanning, _this.isScanning) || other.isScanning == _this.isScanning)&&(identical(other.isConnecting, _this.isConnecting) || other.isConnecting == _this.isConnecting)&&(identical(other.bluetoothReady, _this.bluetoothReady) || other.bluetoothReady == _this.bluetoothReady)&&(identical(other.needsSettings, _this.needsSettings) || other.needsSettings == _this.needsSettings)&&const DeepCollectionEquality().equals(other.discoveredDevices, _this.discoveredDevices));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,device,writeCharacteristic,status,isScanning,isConnecting,bluetoothReady,needsSettings,const DeepCollectionEquality().hash(discoveredDevices));
+int get hashCode {
+  final _this = this as DeviceConnection;
+  return Object.hash(runtimeType,_this.device,_this.writeCharacteristic,_this.status,_this.isScanning,_this.isConnecting,_this.bluetoothReady,_this.needsSettings,const DeepCollectionEquality().hash(_this.discoveredDevices));
+}
 
 @override
 String toString() {
-  return 'DeviceConnection(device: $device, writeCharacteristic: $writeCharacteristic, status: $status, isScanning: $isScanning, isConnecting: $isConnecting, bluetoothReady: $bluetoothReady, needsSettings: $needsSettings, discoveredDevices: $discoveredDevices)';
+  final _this = this as DeviceConnection;
+  return 'DeviceConnection(device: ${_this.device}, writeCharacteristic: ${_this.writeCharacteristic}, status: ${_this.status}, isScanning: ${_this.isScanning}, isConnecting: ${_this.isConnecting}, bluetoothReady: ${_this.bluetoothReady}, needsSettings: ${_this.needsSettings}, discoveredDevices: ${_this.discoveredDevices})';
 }
 
 
@@ -1669,7 +1717,7 @@ class _$DeviceConnectionCopyWithImpl<$Res>
 /// Create a copy of DeviceConnection
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? device = freezed,Object? writeCharacteristic = freezed,Object? status = null,Object? isScanning = null,Object? isConnecting = null,Object? bluetoothReady = null,Object? needsSettings = null,Object? discoveredDevices = null,}) {
-  return _then(_self.copyWith(
+  return _then(DeviceConnection(
 device: freezed == device ? _self.device : device // ignore: cast_nullable_to_non_nullable
 as BluetoothDevice?,writeCharacteristic: freezed == writeCharacteristic ? _self.writeCharacteristic : writeCharacteristic // ignore: cast_nullable_to_non_nullable
 as BluetoothCharacteristic?,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
@@ -1813,7 +1861,7 @@ return $default(_that.device,_that.writeCharacteristic,_that.status,_that.isScan
 
 
 class _DeviceConnection extends DeviceConnection {
-  const _DeviceConnection({this.device, this.writeCharacteristic, this.status = 'Initializing Bluetooth...', this.isScanning = false, this.isConnecting = false, this.bluetoothReady = false, this.needsSettings = false, final  List<DiscoveredDevice> discoveredDevices = const []}): _discoveredDevices = discoveredDevices,super._();
+  const _DeviceConnection({this.device, this.writeCharacteristic, this.status = 'Initializing Bluetooth...', this.isScanning = false, this.isConnecting = false, this.bluetoothReady = false, this.needsSettings = false,  List<DiscoveredDevice> discoveredDevices = const []}): _discoveredDevices = discoveredDevices,super._();
   
 
 @override final  BluetoothDevice? device;
@@ -1843,16 +1891,18 @@ _$DeviceConnectionCopyWith<_DeviceConnection> get copyWith => __$DeviceConnectio
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceConnection&&(identical(other.device, device) || other.device == device)&&(identical(other.writeCharacteristic, writeCharacteristic) || other.writeCharacteristic == writeCharacteristic)&&(identical(other.status, status) || other.status == status)&&(identical(other.isScanning, isScanning) || other.isScanning == isScanning)&&(identical(other.isConnecting, isConnecting) || other.isConnecting == isConnecting)&&(identical(other.bluetoothReady, bluetoothReady) || other.bluetoothReady == bluetoothReady)&&(identical(other.needsSettings, needsSettings) || other.needsSettings == needsSettings)&&const DeepCollectionEquality().equals(other._discoveredDevices, _discoveredDevices));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceConnection&&(identical(other.device, device) || other.device == device)&&(identical(other.writeCharacteristic, writeCharacteristic) || other.writeCharacteristic == writeCharacteristic)&&(identical(other.status, status) || other.status == status)&&(identical(other.isScanning, isScanning) || other.isScanning == isScanning)&&(identical(other.isConnecting, isConnecting) || other.isConnecting == isConnecting)&&(identical(other.bluetoothReady, bluetoothReady) || other.bluetoothReady == bluetoothReady)&&(identical(other.needsSettings, needsSettings) || other.needsSettings == needsSettings)&&const DeepCollectionEquality().equals(other.discoveredDevices, _discoveredDevices));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,device,writeCharacteristic,status,isScanning,isConnecting,bluetoothReady,needsSettings,const DeepCollectionEquality().hash(_discoveredDevices));
+int get hashCode {
+    return Object.hash(runtimeType,device,writeCharacteristic,status,isScanning,isConnecting,bluetoothReady,needsSettings,const DeepCollectionEquality().hash(_discoveredDevices));
+}
 
 @override
 String toString() {
-  return 'DeviceConnection(device: $device, writeCharacteristic: $writeCharacteristic, status: $status, isScanning: $isScanning, isConnecting: $isConnecting, bluetoothReady: $bluetoothReady, needsSettings: $needsSettings, discoveredDevices: $discoveredDevices)';
+    return 'DeviceConnection(device: $device, writeCharacteristic: $writeCharacteristic, status: $status, isScanning: $isScanning, isConnecting: $isConnecting, bluetoothReady: $bluetoothReady, needsSettings: $needsSettings, discoveredDevices: $discoveredDevices)';
 }
 
 
@@ -1911,16 +1961,21 @@ $ProgressorStateCopyWith<ProgressorState> get copyWith => _$ProgressorStateCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ProgressorState&&(identical(other.connection, connection) || other.connection == connection)&&(identical(other.deviceInfo, deviceInfo) || other.deviceInfo == deviceInfo)&&(identical(other.measurement, measurement) || other.measurement == measurement)&&(identical(other.performance, performance) || other.performance == performance)&&(identical(other.calibration, calibration) || other.calibration == calibration));
+  final _this = this as ProgressorState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ProgressorState&&(identical(other.connection, _this.connection) || other.connection == _this.connection)&&(identical(other.deviceInfo, _this.deviceInfo) || other.deviceInfo == _this.deviceInfo)&&(identical(other.measurement, _this.measurement) || other.measurement == _this.measurement)&&(identical(other.performance, _this.performance) || other.performance == _this.performance)&&(identical(other.calibration, _this.calibration) || other.calibration == _this.calibration));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,connection,deviceInfo,measurement,performance,calibration);
+int get hashCode {
+  final _this = this as ProgressorState;
+  return Object.hash(runtimeType,_this.connection,_this.deviceInfo,_this.measurement,_this.performance,_this.calibration);
+}
 
 @override
 String toString() {
-  return 'ProgressorState(connection: $connection, deviceInfo: $deviceInfo, measurement: $measurement, performance: $performance, calibration: $calibration)';
+  final _this = this as ProgressorState;
+  return 'ProgressorState(connection: ${_this.connection}, deviceInfo: ${_this.deviceInfo}, measurement: ${_this.measurement}, performance: ${_this.performance}, calibration: ${_this.calibration})';
 }
 
 
@@ -1949,7 +2004,7 @@ class _$ProgressorStateCopyWithImpl<$Res>
 /// Create a copy of ProgressorState
 /// with the given fields replaced by the non-null parameter values.
 @pragma('vm:prefer-inline') @override $Res call({Object? connection = null,Object? deviceInfo = null,Object? measurement = null,Object? performance = null,Object? calibration = null,}) {
-  return _then(_self.copyWith(
+  return _then(ProgressorState(
 connection: null == connection ? _self.connection : connection // ignore: cast_nullable_to_non_nullable
 as DeviceConnection,deviceInfo: null == deviceInfo ? _self.deviceInfo : deviceInfo // ignore: cast_nullable_to_non_nullable
 as DeviceInfo,measurement: null == measurement ? _self.measurement : measurement // ignore: cast_nullable_to_non_nullable
@@ -2154,16 +2209,18 @@ _$ProgressorStateCopyWith<_ProgressorState> get copyWith => __$ProgressorStateCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ProgressorState&&(identical(other.connection, connection) || other.connection == connection)&&(identical(other.deviceInfo, deviceInfo) || other.deviceInfo == deviceInfo)&&(identical(other.measurement, measurement) || other.measurement == measurement)&&(identical(other.performance, performance) || other.performance == performance)&&(identical(other.calibration, calibration) || other.calibration == calibration));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _ProgressorState&&(identical(other.connection, connection) || other.connection == connection)&&(identical(other.deviceInfo, deviceInfo) || other.deviceInfo == deviceInfo)&&(identical(other.measurement, measurement) || other.measurement == measurement)&&(identical(other.performance, performance) || other.performance == performance)&&(identical(other.calibration, calibration) || other.calibration == calibration));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,connection,deviceInfo,measurement,performance,calibration);
+int get hashCode {
+    return Object.hash(runtimeType,connection,deviceInfo,measurement,performance,calibration);
+}
 
 @override
 String toString() {
-  return 'ProgressorState(connection: $connection, deviceInfo: $deviceInfo, measurement: $measurement, performance: $performance, calibration: $calibration)';
+    return 'ProgressorState(connection: $connection, deviceInfo: $deviceInfo, measurement: $measurement, performance: $performance, calibration: $calibration)';
 }
 
 

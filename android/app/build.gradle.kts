@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "com.example.crimpdeq"
-    compileSdk = flutter.compileSdkVersion
+    // permission_handler_android requires compiling against Android 17 (API 37).
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
