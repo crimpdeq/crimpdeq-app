@@ -74,6 +74,38 @@ void main() {
     expect(find.byType(TabBar), findsOneWidget);
   });
 
+  for (final (name, physicalSize, pixelRatio) in [
+    ('394 dp phone', const Size(1280, 2772), 3.25),
+    ('360 dp phone', const Size(1080, 2340), 3.0),
+  ]) {
+    testWidgets('keeps the status clear of the title on a $name', (
+      tester,
+    ) async {
+      tester.view.physicalSize = physicalSize;
+      tester.view.devicePixelRatio = pixelRatio;
+      addTearDown(tester.view.reset);
+      await _pumpScreen(
+        tester,
+        ProgressorState(
+          connection: _connected,
+          deviceInfo: const DeviceInfo(
+            firmwareVersion: '2.0.4',
+            batteryMillivolts: 3750,
+          ),
+        ),
+      );
+
+      final titleLeft = tester.getRect(find.byType(Image)).left;
+      for (final line in ['Connected', 'FW: 2.0.4', 'Bat: ~25%']) {
+        expect(
+          tester.getRect(find.textContaining(line)).right,
+          lessThanOrEqualTo(titleLeft),
+          reason: line,
+        );
+      }
+    });
+  }
+
   testWidgets('warns when the battery runs out', (tester) async {
     await _pumpScreen(
       tester,

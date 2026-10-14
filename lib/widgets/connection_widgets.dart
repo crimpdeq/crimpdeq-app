@@ -6,9 +6,12 @@ import '../analysis/battery.dart';
 import '../models/progressor_models.dart';
 import '../theme.dart';
 
-String batteryLabel(int millivolts) =>
-    '~${batteryStateOfCharge(millivolts)}% '
-    '(${(millivolts / 1000).toStringAsFixed(2)} V)';
+String _batteryLabel(int millivolts, {required bool compact}) {
+  final charge = '~${batteryStateOfCharge(millivolts)}%';
+  return compact
+      ? charge
+      : '$charge (${(millivolts / 1000).toStringAsFixed(2)} V)';
+}
 
 /// Connection status for the app bar: a status dot, the state, firmware and
 /// battery lines, and a disconnect button.
@@ -51,7 +54,8 @@ class ConnectionHeader extends StatelessWidget {
       if (deviceInfo.firmwareVersion.isNotEmpty)
         '${compact ? 'FW' : 'Firmware'}: ${deviceInfo.firmwareVersion}',
       if (batteryMillivolts != null)
-        '${compact ? 'Bat' : 'Battery'}: ${batteryLabel(batteryMillivolts)}',
+        '${compact ? 'Bat' : 'Battery'}: '
+            '${_batteryLabel(batteryMillivolts, compact: compact)}',
     ];
     final fontSize = compact ? 10.0 : 12.0;
 

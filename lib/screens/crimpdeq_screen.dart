@@ -89,42 +89,41 @@ class _CrimpdeqAppBar extends ConsumerWidget implements PreferredSizeWidget {
       progressorProvider.select((state) => state.deviceInfo),
     );
     final isDarkMode = ref.watch(themeModeProvider) == ThemeMode.dark;
-    // Below this width the status takes the leading slot and the title moves
-    // to the flexible space, so it stays centered.
     final compact = MediaQuery.sizeOf(context).width < 700;
-    final hasDevice = connection.device != null;
-    final title = _AppTitle(compact: compact);
 
+    // The status and the theme switch share the width beside the title
+    // equally, so the title stays centered and the status cannot reach it.
     return AppBar(
-      centerTitle: true,
+      automaticallyImplyLeading: false,
       toolbarHeight: preferredSize.height,
-      leadingWidth: switch ((compact, hasDevice)) {
-        (true, true) => 220,
-        (true, false) => 145,
-        (false, true) => 330,
-        (false, false) => 190,
-      },
-      leading: ConnectionHeader(
-        connection: connection,
-        deviceInfo: deviceInfo,
-        compact: compact,
-        onDisconnect: ref.read(progressorProvider.notifier).disconnect,
-      ),
-      title: compact ? null : title,
-      flexibleSpace: compact
-          ? SafeArea(
-              child: IgnorePointer(child: Center(child: title)),
-            )
-          : null,
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: _ThemeSlider(
-            isDarkMode: isDarkMode,
-            onChanged: ref.read(themeModeProvider.notifier).setDarkMode,
+      titleSpacing: 0,
+      title: Row(
+        children: [
+          Expanded(
+            child: ConnectionHeader(
+              connection: connection,
+              deviceInfo: deviceInfo,
+              compact: compact,
+              onDisconnect: ref.read(progressorProvider.notifier).disconnect,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          _AppTitle(compact: compact),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _ThemeSlider(
+                  isDarkMode: isDarkMode,
+                  onChanged: ref.read(themeModeProvider.notifier).setDarkMode,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
