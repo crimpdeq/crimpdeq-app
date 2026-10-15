@@ -616,16 +616,18 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       return CalibrationPointResult.limitReached;
     }
 
+    // Lock before the first await, so a second call cannot pass the check.
+    state = state.copyWith.calibration(waitingForSteadyLoad: true);
     final wasMeasuring = state.measurement.isMeasuring;
     if (!wasMeasuring) {
       await startMeasurement();
       if (!state.measurement.isMeasuring) {
+        state = state.copyWith.calibration(waitingForSteadyLoad: false);
         return CalibrationPointResult.sendFailed;
       }
     }
     final steadyLoad = _steadyLoad = SteadyLoadDetector();
     final steadyLoadReached = _steadyLoadReached = Completer<bool>();
-    state = state.copyWith.calibration(waitingForSteadyLoad: true);
     final steady = await steadyLoadReached.future.timeout(
       _steadyLoadTimeout,
       onTimeout: () => false,
