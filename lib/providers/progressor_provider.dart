@@ -562,15 +562,14 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> startMeasurement() async {
-    // The device restarts its clock, so start a new timeline.
+    if (!await _send(ControlOpCode.startMeasurement)) return;
+    // The device restarts its clock, so start a new timeline. Samples that
+    // arrive before the write completes belong to the previous measurement.
     _resetMeasurementRuntime();
     state = state.copyWith(
       measurement: const MeasurementState(isMeasuring: true),
       performance: const PerformanceMetrics(),
     );
-    if (!await _send(ControlOpCode.startMeasurement)) {
-      state = state.copyWith.measurement(isMeasuring: false);
-    }
   }
 
   Future<void> stopMeasurement() async {
