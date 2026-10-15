@@ -105,46 +105,55 @@ void main() {
     await dispose(tester, container);
   });
 
-  testWidgets('keeps the previous measurement out of a new one', (
-    tester,
-  ) async {
-    final container = await connect(tester);
-    final notifier = container.read(progressorProvider.notifier);
-    ProgressorState state() => container.read(progressorProvider);
+  // The second previous measurement passed half the u32 range, where the jump
+  // back after the start looks like a wrap.
+  for (final staleMs in [5000, 2400000]) {
+    testWidgets(
+      'keeps the previous measurement out of a new one ($staleMs ms)',
+      (tester) async {
+        final container = await connect(tester);
+        final notifier = container.read(progressorProvider.notifier);
+        ProgressorState state() => container.read(progressorProvider);
 
-    ble.notify(_weights([(150, 4990)]));
-    await tester.pump();
-    expect(state().measurement.receivedData, isEmpty);
+        ble.notify(_weights([(150, staleMs - 10)]));
+        await tester.pump();
+        expect(state().measurement.receivedData, isEmpty);
 
-    unawaited(notifier.startMeasurement());
-    await tester.pump();
-    // Sent before the device restarted its clock.
-    ble.notify(_weights([for (var ms = 5000; ms < 5100; ms += 10) (150, ms)]));
-    // 0 kg for a second, then a 100 kg/s ramp.
-    for (var ms = 0; ms <= 2000; ms += 100) {
-      ble.notify(
-        _weights([
-          for (var t = ms; t < ms + 100 && t <= 2000; t += 10)
-            (t < 1000 ? 0 : (t - 1000) / 10, t),
-        ]),
-      );
-    }
-    await tester.pump();
-    unawaited(notifier.stopMeasurement());
-    await tester.pump();
+        unawaited(notifier.startMeasurement());
+        await tester.pump();
+        // Sent before the device restarted its clock.
+        ble.notify(
+          _weights([
+            for (var ms = staleMs; ms < staleMs + 100; ms += 10) (150, ms),
+          ]),
+        );
+        // 0 kg for a second, then a 100 kg/s ramp.
+        for (var ms = 0; ms <= 2000; ms += 100) {
+          ble.notify(
+            _weights([
+              for (var t = ms; t < ms + 100 && t <= 2000; t += 10)
+                (t < 1000 ? 0 : (t - 1000) / 10, t),
+            ]),
+          );
+        }
+        await tester.pump();
+        unawaited(notifier.stopMeasurement());
+        await tester.pump();
 
-    final measurement = state().measurement;
-    expect(measurement.peakKg, 100);
-    expect(measurement.minKg, 0);
-    expect(measurement.peakRfdKgPerS, closeTo(100, 1e-3));
-    expect([
-      for (final spot in measurement.weightHistory) spot.x,
-    ], everyElement(lessThanOrEqualTo(2)));
-    expect([
-      for (final sample in measurement.receivedData) sample.timestampUs,
-    ], everyElement(lessThanOrEqualTo(2000000)));
-    await dispose(tester, container);
-  });
+        final measurement = state().measurement;
+        expect(measurement.peakKg, 100);
+        expect(measurement.minKg, 0);
+        expect(measurement.peakRfdKgPerS, closeTo(100, 1e-3));
+        expect([
+          for (final spot in measurement.weightHistory) spot.x,
+        ], everyElement(lessThanOrEqualTo(2)));
+        expect([
+          for (final sample in measurement.receivedData) sample.timestampUs,
+        ], everyElement(lessThanOrEqualTo(2000000)));
+        await dispose(tester, container);
+      },
+    );
+  }
 
   test('locks the calibration before awaiting the start', () async {
     final notifier = _SlowStartProgressor();

@@ -40,6 +40,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   static const _tareResumeTimeout = Duration(milliseconds: 700);
   static const _tareResumeAttempts = 3;
   static const _steadyLoadTimeout = Duration(seconds: 15);
+  // The device clock restarts at each start and passes half its u32 range,
+  // where a jump back starts to look like a wrap, only after this long.
+  static const _clockRestartWindow = Duration(microseconds: 0x80000000);
 
   StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
   StreamSubscription<bool>? _isScanningSubscription;
@@ -56,6 +59,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   final _commandResponses = Queue<Completer<Uint8List>>();
 
   var _timestamps = TimestampUnwrapper();
+  final _sinceStart = Stopwatch();
   // Device time of the latest sample, and of the start of the window, which a
   // tare or reset moves without restarting the device clock.
   int _lastDeviceUs = 0;
@@ -425,18 +429,20 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
     final samples = <WeightMeasurement>[];
     for (final rawSample in rawSamples) {
-      var deviceUs = _timestamps.unwrap(rawSample.timestampUs);
-      // The device restarted its clock: the samples so far were still in
-      // flight from the previous measurement.
-      if (deviceUs < _lastDeviceUs) {
+      // Soon after a start, a jump back is the device restarting its clock,
+      // not a wrap: the samples so far were still in flight from the previous
+      // measurement.
+      final lastRawUs = _timestamps.lastRawUs;
+      if (lastRawUs != null &&
+          rawSample.timestampUs < lastRawUs &&
+          _sinceStart.elapsed < _clockRestartWindow) {
         _resetTimeline();
         samples.clear();
         state = state.copyWith(
           measurement: const MeasurementState(isMeasuring: true),
         );
-        deviceUs = _timestamps.unwrap(rawSample.timestampUs);
       }
-      _lastDeviceUs = deviceUs;
+      _lastDeviceUs = _timestamps.unwrap(rawSample.timestampUs);
       _lastSecondTimestamps.addLast(_lastDeviceUs);
       final sample = WeightMeasurement(
         weightKg: rawSample.weightKg,
@@ -622,6 +628,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     // arrive before the write completes belong to the previous measurement,
     // and so do any that arrive after it until the clock moves back.
     _resetMeasurementRuntime();
+    _sinceStart
+      ..reset()
+      ..start();
     state = state.copyWith(
       measurement: const MeasurementState(isMeasuring: true),
       performance: const PerformanceMetrics(),
