@@ -247,25 +247,34 @@ void main() {
   });
 
   group('isReadingUnchanged', () {
-    bool unchanged(double weightKg, double readingKg) => isReadingUnchanged(
-      previousWeightKg: 0,
-      previousReadingKg: 0.01,
-      weightKg: weightKg,
-      readingKg: readingKg,
-    );
+    // 1 g per count unless stated otherwise.
+    bool unchanged(double weightKg, double counts, {double factor = 1}) =>
+        isReadingUnchanged(
+          previousWeightKg: 0,
+          previousCounts: 10,
+          weightKg: weightKg,
+          counts: counts,
+          factor: factor,
+        );
 
     test('flags a reading that did not follow the weight', () {
-      expect(unchanged(20, 0.02), isTrue);
-      expect(unchanged(20, 1.9), isTrue);
+      expect(unchanged(20, 20), isTrue);
+      expect(unchanged(20, 1900), isTrue);
     });
 
     test('accepts a reading that followed the weight', () {
-      expect(unchanged(20, 2.1), isFalse);
-      expect(unchanged(20, 18), isFalse);
+      expect(unchanged(20, 2100), isFalse);
+      expect(unchanged(20, 18000), isFalse);
+    });
+
+    test('compares the counts with the current factor', () {
+      // 10 g per count: 300 counts are 3 kg.
+      expect(unchanged(20, 310, factor: 10), isFalse);
+      expect(unchanged(20, 110, factor: 10), isTrue);
     });
 
     test('accepts the same weight again', () {
-      expect(unchanged(0, 0.01), isFalse);
+      expect(unchanged(0, 10), isFalse);
     });
   });
 }

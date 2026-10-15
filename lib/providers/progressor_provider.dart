@@ -67,8 +67,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   SteadyLoadDetector? _steadyLoad;
   Completer<bool>? _steadyLoadReached;
-  // Steady reading of the last point sent, to catch a weight that was not hung.
-  ({double weightKg, double readingKg})? _lastPointReading;
+  // Steady reading of the last point sent, in tared ADC counts, to catch a
+  // weight that was not hung.
+  ({double weightKg, double counts})? _lastPointReading;
 
   @override
   ProgressorState build() {
@@ -672,14 +673,22 @@ class ProgressorNotifier extends _$ProgressorNotifier {
           : CalibrationPointResult.noMeasurements;
     }
 
-    final readingKg = steadyLoad.steadyLoadKg!;
+    // The device reports kg = counts * factor / 1000. Without a factor yet,
+    // the readings cannot be compared.
+    final factor = state.calibration.factor;
+    final counts = factor == null
+        ? null
+        : steadyLoad.steadyLoadKg! * 1000 / factor;
     final previous = _lastPointReading;
     if (previous != null &&
+        factor != null &&
+        counts != null &&
         isReadingUnchanged(
           previousWeightKg: previous.weightKg,
-          previousReadingKg: previous.readingKg,
+          previousCounts: previous.counts,
           weightKg: weightKg,
-          readingKg: readingKg,
+          counts: counts,
+          factor: factor,
         )) {
       return CalibrationPointResult.readingUnchanged;
     }
@@ -690,7 +699,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     )) {
       return CalibrationPointResult.sendFailed;
     }
-    _lastPointReading = (weightKg: weightKg, readingKg: readingKg);
+    _lastPointReading = counts == null
+        ? null
+        : (weightKg: weightKg, counts: counts);
     // The firmware reports the points only once two of them define a
     // calibration, so read them back.
     await getCalibration();

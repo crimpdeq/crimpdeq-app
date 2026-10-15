@@ -61,16 +61,19 @@ class CalibrationCheck {
 }
 
 /// Whether the steady reading barely changed although the weight did, such as
-/// when the weight was not hung. A reading change below a tenth of the weight
-/// change implies a factor over 10 times the current one, which the device
-/// rejects when the current factor is near its default.
+/// when the weight was not hung. Readings are tared ADC counts, because the
+/// factor can change between points, and are compared in kg with the current
+/// [factor]. A change below a tenth of the weight change implies a factor over
+/// 10 times the current one, which the device rejects when the current factor
+/// is near its default.
 bool isReadingUnchanged({
   required double previousWeightKg,
-  required double previousReadingKg,
+  required double previousCounts,
   required double weightKg,
-  required double readingKg,
+  required double counts,
+  required double factor,
 }) {
   final weightChangeKg = (weightKg - previousWeightKg).abs();
-  return weightChangeKg > 0 &&
-      (readingKg - previousReadingKg).abs() < weightChangeKg / 10;
+  final readingChangeKg = (counts - previousCounts).abs() * factor.abs() / 1000;
+  return weightChangeKg > 0 && readingChangeKg < weightChangeKg / 10;
 }
