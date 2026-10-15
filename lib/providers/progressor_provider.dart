@@ -569,7 +569,12 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> startMeasurement() async {
-    if (!await _send(ControlOpCode.startMeasurement)) return;
+    // Mark it started before the write, so a second tap cannot start again.
+    state = state.copyWith.measurement(isMeasuring: true);
+    if (!await _send(ControlOpCode.startMeasurement)) {
+      state = state.copyWith.measurement(isMeasuring: false);
+      return;
+    }
     // The device restarts its clock, so start a new timeline. Samples that
     // arrive before the write completes belong to the previous measurement.
     _resetMeasurementRuntime();
