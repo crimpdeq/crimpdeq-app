@@ -222,9 +222,12 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     try {
       await FlutterBluePlus.stopScan();
       await device.connect(license: License.nonprofit);
-      state = state.copyWith.connection(
-        device: device,
-        status: 'Discovering services...',
+      state = state.copyWith(
+        connection: state.connection.copyWith(
+          device: device,
+          status: 'Discovering services...',
+        ),
+        deviceInfo: const DeviceInfo(),
       );
 
       final service = (await device.discoverServices())
@@ -282,7 +285,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _resetConnection('Disconnected');
   }
 
-  /// Drops the connection and every value read from the device.
+  /// Drops the connection and every value read from the device, except the
+  /// low battery warning: the device turns off after it, until it is charged.
   void _resetConnection(
     String status, {
     bool? bluetoothReady,
@@ -295,6 +299,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         needsSettings: needsSettings,
         status: status,
       ),
+      deviceInfo: DeviceInfo(lowBattery: state.deviceInfo.lowBattery),
     );
   }
 
