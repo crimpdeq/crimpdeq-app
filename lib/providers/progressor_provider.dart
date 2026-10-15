@@ -498,7 +498,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
 
     try {
-      await writeChar.write([opCode.value, ...payload]);
+      // Prefer acknowledged writes, which the Crimpdeq firmware supports.
+      await writeChar.write([
+        opCode.value,
+        ...payload,
+      ], withoutResponse: !writeChar.properties.write);
       return true;
     } catch (e) {
       _log('Failed to send ${opCode.name}: $e');
