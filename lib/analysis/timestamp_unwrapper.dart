@@ -4,13 +4,17 @@ class TimestampUnwrapper {
   static const _range = 0x100000000;
 
   int _offset = 0;
-  int? _lastRaw;
+  int? _lastRawUs;
+
+  int? get lastRawUs => _lastRawUs;
 
   int unwrap(int rawUs) {
-    final lastRaw = _lastRaw;
+    final lastRawUs = _lastRawUs;
     // Only a jump back of more than half the range is a wrap.
-    if (lastRaw != null && lastRaw - rawUs > _range ~/ 2) _offset += _range;
-    _lastRaw = rawUs;
+    if (lastRawUs != null && lastRawUs - rawUs > _range ~/ 2) {
+      _offset += _range;
+    }
+    _lastRawUs = rawUs;
     return rawUs + _offset;
   }
 }

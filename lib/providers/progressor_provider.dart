@@ -40,6 +40,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   static const _tareResumeTimeout = Duration(milliseconds: 700);
   static const _tareResumeAttempts = 3;
   static const _steadyLoadTimeout = Duration(seconds: 15);
+  // The device clock restarts at each start and passes half its u32 range,
+  // where a jump back starts to look like a wrap, only after this long.
+  static const _clockRestartWindow = Duration(microseconds: 0x80000000);
 
   StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
   StreamSubscription<bool>? _isScanningSubscription;
@@ -47,12 +50,16 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   StreamSubscription<List<int>>? _notifySubscription;
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
   Timer? _batteryTimer;
+  // Counts closed connections, so a read that outlives its connection stops
+  // instead of continuing on the next one.
+  int _connectionId = 0;
 
   var _frameReader = FrameReader();
   // Requests whose responses share one response code, answered in order.
   final _commandResponses = Queue<Completer<Uint8List>>();
 
   var _timestamps = TimestampUnwrapper();
+  final _sinceStart = Stopwatch();
   // Device time of the latest sample, and of the start of the window, which a
   // tare or reset moves without restarting the device clock.
   int _lastDeviceUs = 0;
@@ -222,9 +229,12 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     try {
       await FlutterBluePlus.stopScan();
       await device.connect(license: License.nonprofit);
-      state = state.copyWith.connection(
-        device: device,
-        status: 'Discovering services...',
+      state = state.copyWith(
+        connection: state.connection.copyWith(
+          device: device,
+          status: 'Discovering services...',
+        ),
+        deviceInfo: const DeviceInfo(),
       );
 
       final service = (await device.discoverServices())
@@ -282,7 +292,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _resetConnection('Disconnected');
   }
 
-  /// Drops the connection and every value read from the device.
+  /// Drops the connection and every value read from the device, except the
+  /// low battery warning: the device turns off after it, until it is charged.
   void _resetConnection(
     String status, {
     bool? bluetoothReady,
@@ -295,10 +306,12 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         needsSettings: needsSettings,
         status: status,
       ),
+      deviceInfo: DeviceInfo(lowBattery: state.deviceInfo.lowBattery),
     );
   }
 
   void _closeConnection() {
+    _connectionId++;
     _notifySubscription?.cancel();
     _notifySubscription = null;
     _connectionSubscription?.cancel();
@@ -343,8 +356,19 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       )
       .map((event) => event.value);
 
-  void _onNotification(List<int> chunk) {
-    for (final frame in _frameReader.add(chunk)) {
+  void _onNotification(List<int> notification) {
+    // Native platforms deliver one frame per notification, so a malformed one
+    // is dropped alone instead of swallowing the next ones.
+    final List<Frame> frames;
+    if (kIsWeb) {
+      frames = _frameReader.add(notification);
+    } else if (parseFrame(notification) case final frame?) {
+      frames = [frame];
+    } else {
+      _log('Ignoring malformed notification: $notification');
+      return;
+    }
+    for (final frame in frames) {
       final ProgressorMessage message;
       try {
         message = decodeMessage(frame);
@@ -386,7 +410,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   void _onWeightSamples(List<RawWeightSample> rawSamples) {
-    if (rawSamples.isEmpty) return;
+    // Drop the samples still in flight after a stop.
+    if (rawSamples.isEmpty || !state.measurement.isMeasuring) return;
 
     final now = DateTime.now();
     final lastNotifyTime = _lastNotifyTime;
@@ -404,6 +429,19 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
     final samples = <WeightMeasurement>[];
     for (final rawSample in rawSamples) {
+      // Soon after a start, a jump back is the device restarting its clock,
+      // not a wrap: the samples so far were still in flight from the previous
+      // measurement.
+      final lastRawUs = _timestamps.lastRawUs;
+      if (lastRawUs != null &&
+          rawSample.timestampUs < lastRawUs &&
+          _sinceStart.elapsed < _clockRestartWindow) {
+        _resetTimeline();
+        samples.clear();
+        state = state.copyWith(
+          measurement: const MeasurementState(isMeasuring: true),
+        );
+      }
       _lastDeviceUs = _timestamps.unwrap(rawSample.timestampUs);
       _lastSecondTimestamps.addLast(_lastDeviceUs);
       final sample = WeightMeasurement(
@@ -480,13 +518,17 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     );
   }
 
-  void _resetMeasurementRuntime() {
+  void _resetTimeline() {
     _timestamps = TimestampUnwrapper();
     _lastDeviceUs = 0;
     _windowStartUs = 0;
     _stats = ForceStats();
     _pendingSamples.clear();
     _lastSecondTimestamps.clear();
+  }
+
+  void _resetMeasurementRuntime() {
+    _resetTimeline();
     _notifyIntervalsMs.clear();
     _lastNotifyTime = null;
     _lastPublishTime = null;
@@ -541,30 +583,31 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> _readDeviceInfo() async {
+    final connectionId = _connectionId;
     final version = await _request(ControlOpCode.getAppVersion);
+    if (connectionId != _connectionId) return;
     if (version != null) {
       state = state.copyWith.deviceInfo(
         firmwareVersion: utf8.decode(version, allowMalformed: true).trim(),
       );
     }
     await _readBattery();
+    if (connectionId != _connectionId) return;
     await getCalibration();
+    if (connectionId != _connectionId) return;
     await _send(ControlOpCode.getSampleRate);
-
-    if (!state.connection.isConnected) return;
-    // A reconnect during the reads above runs another device info read, so
-    // replace its timer instead of leaking one.
-    _batteryTimer?.cancel();
+    if (connectionId != _connectionId) return;
     _batteryTimer = Timer.periodic(_batteryPollInterval, (_) => _readBattery());
   }
 
   Future<void> _readBattery() async {
     // A Tindeq Progressor must stop measuring before it samples the battery.
     if (state.measurement.isMeasuring) return;
+    final connectionId = _connectionId;
     final payload = await _request(ControlOpCode.sampleBattery);
-    if (payload == null) return;
-    await _send(ControlOpCode.getBatteryStatus);
+    if (payload == null || connectionId != _connectionId) return;
 
+    // Before the next await, so a reconnect cannot receive this reading.
     try {
       state = state.copyWith.deviceInfo(
         batteryMillivolts: decodeBatteryMillivolts(payload),
@@ -572,6 +615,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     } on FormatException catch (e) {
       _log('Invalid battery response: ${e.message}');
     }
+    await _send(ControlOpCode.getBatteryStatus);
   }
 
   Future<void> startMeasurement() async {
@@ -582,8 +626,12 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       return;
     }
     // The device restarts its clock, so start a new timeline. Samples that
-    // arrive before the write completes belong to the previous measurement.
+    // arrive before the write completes belong to the previous measurement,
+    // and so do any that arrive after it until the clock moves back.
     _resetMeasurementRuntime();
+    _sinceStart
+      ..reset()
+      ..start();
     state = state.copyWith(
       measurement: const MeasurementState(isMeasuring: true),
       performance: const PerformanceMetrics(),

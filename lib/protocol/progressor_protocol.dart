@@ -79,16 +79,34 @@ const _weightSampleSize = 8;
 /// `[responseCode, payloadLength, payload...]` notification frame.
 typedef Frame = ({int code, Uint8List payload});
 
-/// Reassembles frames from notification chunks. Native platforms deliver one
-/// frame per notification; Web Bluetooth may split or batch them.
+/// Parses a notification that carries one frame, as native platforms deliver
+/// them. Returns null when the length byte does not match the notification.
+Frame? parseFrame(List<int> notification) {
+  if (notification.length < 2 || notification.length != 2 + notification[1]) {
+    return null;
+  }
+  return (
+    code: notification[0],
+    payload: Uint8List.fromList(notification.sublist(2)),
+  );
+}
+
+/// Reassembles frames from notification chunks, as Web Bluetooth may split or
+/// batch them.
 class FrameReader {
   final _buffer = <int>[];
 
-  /// Returns the frames completed by [chunk].
+  /// Returns the frames completed by [chunk]. A known code with a length it
+  /// cannot have is a corrupted header, so it drops the buffer instead of
+  /// swallowing the next frames.
   List<Frame> add(List<int> chunk) {
     _buffer.addAll(chunk);
     final frames = <Frame>[];
     while (_buffer.length >= 2) {
+      if (!_isValidPayloadLength(_buffer[0], _buffer[1])) {
+        _buffer.clear();
+        break;
+      }
       final frameLength = 2 + _buffer[1];
       if (_buffer.length < frameLength) break;
       frames.add((
@@ -101,52 +119,57 @@ class FrameReader {
   }
 }
 
-/// Throws [FormatException] for unknown codes and malformed payloads.
+/// Whether a frame with response [code] can carry [length] payload bytes.
+/// Unknown codes can carry any, as newer firmware may add them.
+bool _isValidPayloadLength(int code, int length) => switch (code) {
+  1 => length % _weightSampleSize == 0,
+  4 => length == 0,
+  5 => length == 4,
+  6 => length == 8,
+  7 || 8 => length == 2,
+  _ => true,
+};
+
+/// Throws [FormatException] for unknown codes and malformed payloads. Drops
+/// non-finite weights, which are not readings and would poison the stats.
 ProgressorMessage decodeMessage(Frame frame) {
   final (:code, :payload) = frame;
+  if (!_isValidPayloadLength(code, payload.length)) {
+    throw FormatException(
+      'Response code $code cannot carry ${payload.length} payload bytes',
+    );
+  }
   final data = ByteData.sublistView(payload);
-  switch (code) {
-    case 0:
-      return CommandResponse(payload);
-    case 1:
-      if (payload.length % _weightSampleSize != 0) {
-        throw FormatException(
-          'Weight payload of ${payload.length} bytes is not a multiple of '
-          '$_weightSampleSize',
-        );
-      }
-      return WeightSamples([
-        for (var i = 0; i < payload.length; i += _weightSampleSize)
+  return switch (code) {
+    0 => CommandResponse(payload),
+    1 => WeightSamples([
+      for (var i = 0; i < payload.length; i += _weightSampleSize)
+        if (data.getFloat32(i, Endian.little) case final weightKg
+            when weightKg.isFinite)
           (
-            weightKg: data.getFloat32(i, Endian.little),
+            weightKg: weightKg,
             timestampUs: data.getUint32(i + 4, Endian.little),
           ),
-      ]);
-    case 4:
-      return LowPowerWarning();
-    case 5:
-      _expectLength(code, payload, 4);
-      return CalibrationFactor(data.getFloat32(0, Endian.little));
-    case 6:
-      _expectLength(code, payload, 8);
-      return CalibrationPointMessage(
-        data.getFloat32(0, Endian.little),
-        data.getFloat32(4, Endian.little),
-      );
-    case 7:
-      _expectLength(code, payload, 2);
-      return SampleRate(data.getUint16(0, Endian.little));
-    case 8:
-      _expectLength(code, payload, 2);
-      return BatteryStatus(payload[0], payload[1] != 0);
-    default:
-      throw FormatException('Unknown response code $code');
-  }
+    ]),
+    4 => LowPowerWarning(),
+    5 => CalibrationFactor(data.getFloat32(0, Endian.little)),
+    6 => CalibrationPointMessage(
+      data.getFloat32(0, Endian.little),
+      data.getFloat32(4, Endian.little),
+    ),
+    7 => SampleRate(data.getUint16(0, Endian.little)),
+    8 => BatteryStatus(payload[0], payload[1] != 0),
+    _ => throw FormatException('Unknown response code $code'),
+  };
 }
 
 /// Battery voltage in millivolts from a [ControlOpCode.sampleBattery] response.
 int decodeBatteryMillivolts(Uint8List payload) {
-  _expectLength(0, payload, 4);
+  if (payload.length != 4) {
+    throw FormatException(
+      'Battery response expects 4 payload bytes, got ${payload.length}',
+    );
+  }
   return ByteData.sublistView(payload).getUint32(0, Endian.little);
 }
 
@@ -155,11 +178,3 @@ List<int> encodeFloat32(double value) =>
 
 List<int> encodeUint16(int value) =>
     (ByteData(2)..setUint16(0, value, Endian.little)).buffer.asUint8List();
-
-void _expectLength(int code, Uint8List payload, int length) {
-  if (payload.length != length) {
-    throw FormatException(
-      'Response code $code expects $length payload bytes, got ${payload.length}',
-    );
-  }
-}
