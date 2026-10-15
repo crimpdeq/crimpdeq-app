@@ -210,6 +210,27 @@ void main() {
     expect(fake.calls, ['tare', 'reset']);
   });
 
+  for (final isMeasuring in [false, true]) {
+    testWidgets('${isMeasuring ? 'locks' : 'offers'} the sample rate '
+        '${isMeasuring ? 'while' : 'when not'} measuring', (tester) async {
+      await _pumpScreen(
+        tester,
+        ProgressorState(
+          connection: _connected,
+          deviceInfo: const DeviceInfo(sampleRate: 175),
+          measurement: MeasurementState(isMeasuring: isMeasuring),
+        ),
+      );
+      await tester.tap(find.text('Measurements'));
+      await tester.pumpAndSettle();
+
+      final selector = tester.widget<DropdownButton<int>>(
+        find.byType(DropdownButton<int>),
+      );
+      expect(selector.onChanged == null, isMeasuring);
+    });
+  }
+
   testWidgets('shows dashes before any sample arrives', (tester) async {
     await _pumpScreen(tester, ProgressorState(connection: _connected));
     await tester.tap(find.text('Measurements'));

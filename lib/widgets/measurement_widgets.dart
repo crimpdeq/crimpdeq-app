@@ -42,7 +42,11 @@ class MeasurementTab extends ConsumerWidget {
             second: PerformanceCard(
               performance: performance,
               sampleRate: sampleRate,
-              onSampleRateChanged: notifier.setSampleRate,
+              // A change mid-stream would mix rates within one measurement, and older firmware
+              // reboots on it (crimpdeq/crimpdeq-firmware#83).
+              onSampleRateChanged: measurement.isMeasuring
+                  ? null
+                  : notifier.setSampleRate,
             ),
           ),
           if (measurement.receivedData.isNotEmpty) ...[
@@ -285,13 +289,15 @@ class PerformanceCard extends StatelessWidget {
   final PerformanceMetrics performance;
   // Rate reported by the device; null hides the selector.
   final int? sampleRate;
-  final ValueChanged<int> onSampleRateChanged;
+  // Null disables the selector.
+  final ValueChanged<int>? onSampleRateChanged;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final sampleRate = this.sampleRate;
+    final onSampleRateChanged = this.onSampleRateChanged;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -346,9 +352,11 @@ class PerformanceCard extends StatelessWidget {
                   const Text('Sample rate'),
                   DropdownButton<int>(
                     value: sampleRate,
-                    onChanged: (value) {
-                      if (value != null) onSampleRateChanged(value);
-                    },
+                    onChanged: onSampleRateChanged == null
+                        ? null
+                        : (value) {
+                            if (value != null) onSampleRateChanged(value);
+                          },
                     items: [
                       for (final MapEntry(key: rate, value: useCase)
                           in AppConstants.sampleRateUseCases.entries)
