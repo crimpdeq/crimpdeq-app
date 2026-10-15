@@ -95,10 +95,10 @@ void main() {
     await tester.pump(const Duration(seconds: 59));
     expect(ble.writeCount(ControlOpCode.sampleBattery), 1);
     expect(ble.writeCount(ControlOpCode.getCalibration), 1);
-    expect(
-      container.read(progressorProvider).deviceInfo.firmwareVersion,
-      '2.1.0',
-    );
+    final deviceInfo = container.read(progressorProvider).deviceInfo;
+    expect(deviceInfo.firmwareVersion, '2.1.0');
+    expect(deviceInfo.batteryMillivolts, 3900);
+    expect(deviceInfo.batteryPercent, 80);
 
     await tester.pump(const Duration(minutes: 3));
     expect(ble.writeCount(ControlOpCode.sampleBattery), 4);

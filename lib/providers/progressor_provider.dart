@@ -606,8 +606,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     final connectionId = _connectionId;
     final payload = await _request(ControlOpCode.sampleBattery);
     if (payload == null || connectionId != _connectionId) return;
-    await _send(ControlOpCode.getBatteryStatus);
 
+    // Before the next await, so a reconnect cannot receive this reading.
     try {
       state = state.copyWith.deviceInfo(
         batteryMillivolts: decodeBatteryMillivolts(payload),
@@ -615,6 +615,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     } on FormatException catch (e) {
       _log('Invalid battery response: ${e.message}');
     }
+    await _send(ControlOpCode.getBatteryStatus);
   }
 
   Future<void> startMeasurement() async {
