@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../analysis/calibration_check.dart';
 import '../analysis/force_stats.dart';
 import '../analysis/steady_load.dart';
 import '../analysis/timestamp_unwrapper.dart';
@@ -19,6 +20,7 @@ part 'progressor_provider.g.dart';
 enum CalibrationPointResult {
   added,
   notSteady,
+  readingUnchanged,
   noMeasurements,
   limitReached,
   sendFailed,
@@ -65,6 +67,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   SteadyLoadDetector? _steadyLoad;
   Completer<bool>? _steadyLoadReached;
+  // Steady reading of the last point sent, in tared ADC counts, to catch a
+  // weight that was not hung.
+  ({double weightKg, double counts})? _lastPointReading;
 
   @override
   ProgressorState build() {
@@ -306,6 +311,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     if (steadyLoadReached != null && !steadyLoadReached.isCompleted) {
       steadyLoadReached.complete(false);
     }
+    _lastPointReading = null;
     _frameReader = FrameReader();
     _resetMeasurementRuntime();
   }
@@ -593,6 +599,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   /// Tares on the device, which keeps measuring, and starts a new window.
   Future<void> tareScale() async {
     if (!await _send(ControlOpCode.tareScale)) return;
+    // The tare moves the readings.
+    _lastPointReading = null;
     await Future<void>.delayed(_tareSettleDelay);
     resetMeasurement();
 
@@ -665,12 +673,35 @@ class ProgressorNotifier extends _$ProgressorNotifier {
           : CalibrationPointResult.noMeasurements;
     }
 
+    // The device reports kg = counts * factor / 1000. Without a factor yet,
+    // the readings cannot be compared.
+    final factor = state.calibration.factor;
+    final counts = factor == null
+        ? null
+        : steadyLoad.steadyLoadKg! * 1000 / factor;
+    final previous = _lastPointReading;
+    if (previous != null &&
+        factor != null &&
+        counts != null &&
+        isReadingUnchanged(
+          previousWeightKg: previous.weightKg,
+          previousCounts: previous.counts,
+          weightKg: weightKg,
+          counts: counts,
+          factor: factor,
+        )) {
+      return CalibrationPointResult.readingUnchanged;
+    }
+
     if (!await _send(
       ControlOpCode.addCalibrationPoint,
       encodeFloat32(weightKg),
     )) {
       return CalibrationPointResult.sendFailed;
     }
+    _lastPointReading = counts == null
+        ? null
+        : (weightKg: weightKg, counts: counts);
     // The firmware reports the points only once two of them define a
     // calibration, so read them back.
     await getCalibration();
@@ -682,7 +713,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   /// Reads the calibration back, because the firmware clears its points even
   /// when it fails to store the default factor and skips the notification.
   Future<void> defaultCalibration() async {
-    if (await _send(ControlOpCode.defaultCalibration)) await getCalibration();
+    if (!await _send(ControlOpCode.defaultCalibration)) return;
+    _lastPointReading = null;
+    await getCalibration();
   }
 
   Future<void> setSampleRate(int samplesPerSecond) =>

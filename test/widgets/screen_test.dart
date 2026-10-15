@@ -276,6 +276,26 @@ void main() {
     expect(find.text('Fitted (kg)'), findsNothing);
   });
 
+  testWidgets('does not report an error for two weights', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: const CalibrationState(
+          factor: 20000,
+          points: [(raw: 1000, weightKg: 0), (raw: 1001, weightKg: 20)],
+        ),
+      ),
+    );
+
+    expect(
+      find.textContaining('Add a point at a third weight'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Max error'), findsNothing);
+    expect(find.text('Error (kg)'), findsNothing);
+  });
+
   testWidgets('stops adding points at the device limit', (tester) async {
     await _pumpScreen(
       tester,

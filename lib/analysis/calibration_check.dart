@@ -42,6 +42,11 @@ class CalibrationCheck {
   final double maxErrorKg;
   final double rmsErrorKg;
 
+  /// Whether the errors measure the calibration quality. The line has a fitted
+  /// anchor and slope, so it matches two distinct weights by construction.
+  bool get verifiesFit =>
+      residuals.map((residual) => residual.point.weightKg).toSet().length >= 3;
+
   /// Largest error relative to the heaviest calibration weight.
   double get maxErrorPercentOfSpan {
     final spanKg = residuals.map((r) => r.point.weightKg).reduce(max);
@@ -53,4 +58,22 @@ class CalibrationCheck {
 
   static double _mean(Iterable<double> values) =>
       values.reduce((a, b) => a + b) / values.length;
+}
+
+/// Whether the steady reading barely changed although the weight did, such as
+/// when the weight was not hung. Readings are tared ADC counts, because the
+/// factor can change between points, and are compared in kg with the current
+/// [factor]. A change below a tenth of the weight change implies a factor over
+/// 10 times the current one, which the device rejects when the current factor
+/// is near its default.
+bool isReadingUnchanged({
+  required double previousWeightKg,
+  required double previousCounts,
+  required double weightKg,
+  required double counts,
+  required double factor,
+}) {
+  final weightChangeKg = (weightKg - previousWeightKg).abs();
+  final readingChangeKg = (counts - previousCounts).abs() * factor.abs() / 1000;
+  return weightChangeKg > 0 && readingChangeKg < weightChangeKg / 10;
 }
