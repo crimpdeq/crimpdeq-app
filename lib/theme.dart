@@ -18,6 +18,11 @@ const _webMuted = Color(0xFF9EB1C5);
 const _lightText = Color(0xFF0B1118);
 const _lightMuted = Color(0xFF607486);
 const _lightBorder = Color(0xFFD7E3EE);
+const _lightOutline = Color(0xFFC9D8E6);
+const _lightOutlineVariant = Color(0xFFE1EAF2);
+const _buttonShape = RoundedRectangleBorder(
+  borderRadius: BorderRadius.all(Radius.circular(12)),
+);
 
 TextStyle _inter(FontWeight weight, {double? fontSize, Color? color}) =>
     TextStyle(
@@ -68,10 +73,48 @@ TabBarThemeData _tabBarTheme({
   splashBorderRadius: BorderRadius.circular(12),
 );
 
+FilledButtonThemeData _filledButtonTheme({
+  required Color disabled,
+  required Color disabledText,
+}) => FilledButtonThemeData(
+  style: FilledButton.styleFrom(
+    backgroundColor: webAccent,
+    foregroundColor: const Color(0xFF00111C),
+    disabledBackgroundColor: disabled,
+    disabledForegroundColor: disabledText,
+    textStyle: _inter(FontWeight.w700),
+    shape: _buttonShape,
+  ),
+);
+
+ElevatedButtonThemeData _elevatedButtonTheme({
+  required Color disabled,
+  required Color disabledText,
+}) => ElevatedButtonThemeData(
+  style: ElevatedButton.styleFrom(
+    backgroundColor: webAccent,
+    foregroundColor: const Color(0xFF00111C),
+    disabledBackgroundColor: disabled,
+    disabledForegroundColor: disabledText,
+    elevation: 0,
+    textStyle: _inter(FontWeight.w700),
+    shape: _buttonShape,
+  ),
+);
+
+OutlinedButtonThemeData _outlinedButtonTheme({
+  required Color text,
+  required Color border,
+}) => OutlinedButtonThemeData(
+  style: OutlinedButton.styleFrom(
+    foregroundColor: text,
+    side: BorderSide(color: border),
+    textStyle: _inter(FontWeight.w700),
+    shape: _buttonShape,
+  ),
+);
+
 ThemeData buildDarkTheme() {
-  final buttonShape = RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(12),
-  );
   return ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
@@ -121,34 +164,17 @@ ThemeData buildDarkTheme() {
       label: const Color(0xFF00111C),
       unselectedLabel: _webMuted,
     ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        backgroundColor: webAccent,
-        foregroundColor: const Color(0xFF00111C),
-        disabledBackgroundColor: _webPanelDeep,
-        disabledForegroundColor: _webMuted,
-        textStyle: _inter(FontWeight.w700),
-        shape: buttonShape,
-      ),
+    filledButtonTheme: _filledButtonTheme(
+      disabled: _webPanelDeep,
+      disabledText: _webMuted,
     ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: webAccent,
-        foregroundColor: const Color(0xFF00111C),
-        disabledBackgroundColor: _webPanelDeep,
-        disabledForegroundColor: _webMuted,
-        elevation: 0,
-        textStyle: _inter(FontWeight.w700),
-        shape: buttonShape,
-      ),
+    elevatedButtonTheme: _elevatedButtonTheme(
+      disabled: _webPanelDeep,
+      disabledText: _webMuted,
     ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        foregroundColor: _webText,
-        side: const BorderSide(color: webBorder),
-        textStyle: _inter(FontWeight.w700),
-        shape: buttonShape,
-      ),
+    outlinedButtonTheme: _outlinedButtonTheme(
+      text: _webText,
+      border: webBorder,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -197,8 +223,8 @@ ThemeData buildLightTheme() {
       onSurface: _lightText,
       error: Color(0xFFD64F4F),
       onError: Colors.white,
-      outline: Color(0xFFC9D8E6),
-      outlineVariant: Color(0xFFE1EAF2),
+      outline: _lightOutline,
+      outlineVariant: _lightOutlineVariant,
     ),
     scaffoldBackgroundColor: const Color(0xFFEFF5FB),
     canvasColor: const Color(0xFFEFF5FB),
@@ -224,6 +250,18 @@ ThemeData buildLightTheme() {
       divider: _lightBorder,
       label: Colors.white,
       unselectedLabel: _lightMuted,
+    ),
+    filledButtonTheme: _filledButtonTheme(
+      disabled: _lightOutlineVariant,
+      disabledText: _lightMuted,
+    ),
+    elevatedButtonTheme: _elevatedButtonTheme(
+      disabled: _lightOutlineVariant,
+      disabledText: _lightMuted,
+    ),
+    outlinedButtonTheme: _outlinedButtonTheme(
+      text: _lightText,
+      border: _lightOutline,
     ),
     inputDecorationTheme: dark.inputDecorationTheme.copyWith(
       fillColor: Colors.white,
