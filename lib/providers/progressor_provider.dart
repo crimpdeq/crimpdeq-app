@@ -542,13 +542,12 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     await _send(ControlOpCode.getSampleRate);
 
     if (!state.connection.isConnected) return;
-    // A Tindeq Progressor must stop measuring before it samples the battery.
-    _batteryTimer = Timer.periodic(_batteryPollInterval, (_) {
-      if (!state.measurement.isMeasuring) _readBattery();
-    });
+    _batteryTimer = Timer.periodic(_batteryPollInterval, (_) => _readBattery());
   }
 
   Future<void> _readBattery() async {
+    // A Tindeq Progressor must stop measuring before it samples the battery.
+    if (state.measurement.isMeasuring) return;
     final payload = await _request(ControlOpCode.sampleBattery);
     if (payload == null) return;
     await _send(ControlOpCode.getBatteryStatus);
