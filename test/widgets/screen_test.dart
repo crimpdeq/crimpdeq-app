@@ -235,8 +235,8 @@ void main() {
     );
 
     expect(find.text('Current Calibration Factor: 1.000000'), findsOneWidget);
-    expect(find.textContaining('Max error 0.200 kg (1.00%'), findsOneWidget);
-    expect(find.text('-0.200'), findsOneWidget);
+    expect(find.textContaining('Max error 0.300 kg (1.50%'), findsOneWidget);
+    expect(find.text('-0.300'), findsOneWidget);
   });
 
   testWidgets('asks for a second calibration point', (tester) async {

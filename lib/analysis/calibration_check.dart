@@ -11,9 +11,10 @@ typedef CalibrationResidual = ({
 
 /// How well the device factor fits the calibration points.
 ///
-/// The firmware keeps only the least-squares slope (`factor` grams per raw
-/// count) and relies on tare for the offset, so the fitted line has the device
-/// slope and passes through the mean point. Points hold untared raw counts.
+/// The firmware keeps only the slope (`factor` grams per raw count) and relies
+/// on a no-load tare for the offset, so the line has the device slope and
+/// passes through the average zero-weight point, like the firmware fit. Without
+/// a zero-weight point, both use the mean point. Points hold untared raw counts.
 class CalibrationCheck {
   CalibrationCheck._(this.residuals, this.maxErrorKg, this.rmsErrorKg);
 
@@ -21,11 +22,13 @@ class CalibrationCheck {
   static CalibrationCheck? of(List<CalibrationPoint> points, double factor) {
     if (points.length < 2) return null;
     final slope = factor / 1000;
-    final meanRaw = _mean(points.map((point) => point.raw));
-    final meanKg = _mean(points.map((point) => point.weightKg));
+    final zeroPoints = points.where((point) => point.weightKg == 0).toList();
+    final anchor = zeroPoints.isEmpty ? points : zeroPoints;
+    final anchorRaw = _mean(anchor.map((point) => point.raw));
+    final anchorKg = _mean(anchor.map((point) => point.weightKg));
     final residuals = [
       for (final point in points)
-        _residual(point, meanKg + slope * (point.raw - meanRaw)),
+        _residual(point, anchorKg + slope * (point.raw - anchorRaw)),
     ];
     final errors = residuals.map((residual) => residual.errorKg);
     return CalibrationCheck._(

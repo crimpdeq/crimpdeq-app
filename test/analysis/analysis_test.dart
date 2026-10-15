@@ -195,13 +195,41 @@ void main() {
         (raw: 20000, weightKg: 20),
       ], 1)!;
 
-      // Line through the mean (10000, 10.1) with 1 g per count.
+      // Line through the zero-weight point with 1 g per count.
       expect(
         [for (final residual in check.residuals) residual.errorKg],
-        [closeTo(0.1, 1e-9), closeTo(-0.2, 1e-9), closeTo(0.1, 1e-9)],
+        [closeTo(0, 1e-9), closeTo(-0.3, 1e-9), closeTo(0, 1e-9)],
       );
-      expect(check.maxErrorKg, closeTo(0.2, 1e-9));
-      expect(check.maxErrorPercentOfSpan, closeTo(1, 1e-9));
+      expect(check.maxErrorKg, closeTo(0.3, 1e-9));
+      expect(check.maxErrorPercentOfSpan, closeTo(1.5, 1e-9));
+    });
+
+    test('anchors at the average zero-weight point', () {
+      final check = CalibrationCheck.of([
+        (raw: 0, weightKg: 0),
+        (raw: 200, weightKg: 0),
+        (raw: 10100, weightKg: 10),
+      ], 1)!;
+
+      // Line through (100, 0) with 1 g per count.
+      expect(
+        [for (final residual in check.residuals) residual.errorKg],
+        [closeTo(-0.1, 1e-9), closeTo(0.1, 1e-9), closeTo(0, 1e-9)],
+      );
+    });
+
+    test('uses the mean point without a zero-weight point', () {
+      final check = CalibrationCheck.of([
+        (raw: 10000, weightKg: 10.3),
+        (raw: 20000, weightKg: 20),
+        (raw: 30000, weightKg: 30.3),
+      ], 1)!;
+
+      // Line through the mean (20000, 20.2) with 1 g per count.
+      expect(
+        [for (final residual in check.residuals) residual.errorKg],
+        [closeTo(-0.1, 1e-9), closeTo(0.2, 1e-9), closeTo(-0.1, 1e-9)],
+      );
     });
   });
 }
