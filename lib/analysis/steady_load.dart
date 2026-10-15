@@ -3,9 +3,10 @@ import 'dart:math';
 import '../models/progressor_models.dart';
 
 /// Detects a load that holds steady: every 100 ms slice of the last second has
-/// samples and their means stay within 20 g or 0.2% of the load, whichever is
-/// larger. Averaging removes the ADC noise, so the check catches swinging and
-/// creep. A hung weight never stops swinging completely: its rope tension
+/// samples and their medians stay within 20 g or 0.2% of the load, whichever is
+/// larger. The median removes the ADC noise and ignores BLE transmissions, which
+/// offset the conversions they overlap, while they hit fewer than half of the
+/// slice, so the check catches swinging and creep. A hung weight never stops swinging completely: its rope tension
 /// varies by about 1.5·θ², so 0.2% allows a swing of about 3.7°.
 class SteadyLoadDetector {
   static const _windowUs = 1000000;
@@ -42,11 +43,17 @@ class SteadyLoadDetector {
     }
     // A gap in the samples hides the load during it.
     if (slices.length < _windowUs ~/ _sliceUs) return false;
-    final means = slices.values
-        .map((weights) => weights.reduce((a, b) => a + b) / weights.length)
-        .toList();
-    final loadKg = means.reduce((a, b) => a + b) / means.length;
+    final medians = slices.values.map(_median).toList();
+    final loadKg = medians.reduce((a, b) => a + b) / medians.length;
     final toleranceKg = max(_minToleranceKg, _relativeTolerance * loadKg.abs());
-    return means.reduce(max) - means.reduce(min) <= toleranceKg;
+    return medians.reduce(max) - medians.reduce(min) <= toleranceKg;
+  }
+
+  static double _median(List<double> weights) {
+    weights.sort();
+    final middle = weights.length ~/ 2;
+    return weights.length.isOdd
+        ? weights[middle]
+        : (weights[middle - 1] + weights[middle]) / 2;
   }
 }
