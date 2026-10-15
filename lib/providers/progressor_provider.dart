@@ -542,6 +542,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     await _send(ControlOpCode.getSampleRate);
 
     if (!state.connection.isConnected) return;
+    // A reconnect during the reads above runs another device info read, so
+    // replace its timer instead of leaking one.
+    _batteryTimer?.cancel();
     _batteryTimer = Timer.periodic(_batteryPollInterval, (_) => _readBattery());
   }
 
