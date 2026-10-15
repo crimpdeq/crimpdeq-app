@@ -48,13 +48,17 @@ void main() {
       expect(frames.last.payload, [65]);
     });
 
-    test('drops the buffer at a header no frame carries', () {
+    test('drops the buffer at a known code with an impossible length', () {
       final reader = FrameReader();
 
-      expect(reader.add([7, 2, 175, 0, 7, 3, 1, 2, 3]).single.code, 7);
+      expect(reader.add([7, 2, 175, 0, 7, 3, 1, 2, 3, 4, 0]).single.code, 7);
       expect(reader.add([7, 2, 175, 0]).single.payload, [175, 0]);
-      expect(reader.add([2, 0, 4, 0]), isEmpty);
-      expect(reader.add([4, 0]).single.code, 4);
+    });
+
+    test('keeps the frames after an unknown code', () {
+      final frames = FrameReader().add([2, 1, 9, 4, 0]);
+
+      expect([for (final frame in frames) frame.code], [2, 4]);
     });
   });
 

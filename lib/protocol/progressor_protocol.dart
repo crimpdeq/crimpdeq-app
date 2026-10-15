@@ -96,8 +96,9 @@ Frame? parseFrame(List<int> notification) {
 class FrameReader {
   final _buffer = <int>[];
 
-  /// Returns the frames completed by [chunk]. A header that no frame carries
-  /// drops the buffer, so a corrupted frame does not swallow the next ones.
+  /// Returns the frames completed by [chunk]. A known code with a length it
+  /// cannot have is a corrupted header, so it drops the buffer instead of
+  /// swallowing the next frames.
   List<Frame> add(List<int> chunk) {
     _buffer.addAll(chunk);
     final frames = <Frame>[];
@@ -119,14 +120,14 @@ class FrameReader {
 }
 
 /// Whether a frame with response [code] can carry [length] payload bytes.
+/// Unknown codes can carry any, as newer firmware may add them.
 bool _isValidPayloadLength(int code, int length) => switch (code) {
-  0 => true,
   1 => length % _weightSampleSize == 0,
   4 => length == 0,
   5 => length == 4,
   6 => length == 8,
   7 || 8 => length == 2,
-  _ => false,
+  _ => true,
 };
 
 /// Throws [FormatException] for unknown codes and malformed payloads. Drops
@@ -158,7 +159,7 @@ ProgressorMessage decodeMessage(Frame frame) {
     ),
     7 => SampleRate(data.getUint16(0, Endian.little)),
     8 => BatteryStatus(payload[0], payload[1] != 0),
-    _ => throw StateError('Unreachable response code $code'),
+    _ => throw FormatException('Unknown response code $code'),
   };
 }
 
