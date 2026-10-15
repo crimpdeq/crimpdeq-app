@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:crimpdeq/analysis/battery.dart';
 import 'package:crimpdeq/analysis/calibration_check.dart';
 import 'package:crimpdeq/analysis/force_stats.dart';
@@ -82,6 +84,19 @@ void main() {
         ),
         isTrue,
       );
+    });
+
+    test('scales the tolerance with the load', () {
+      List<WeightMeasurement> swinging(double loadKg, double peakToPeakKg) =>
+          _samples(
+            1000,
+            10,
+            (ms) => loadKg + peakToPeakKg / 2 * sin(2 * pi * ms / 500),
+          );
+
+      expect(SteadyLoadDetector().add(swinging(20, 0.03)), isTrue);
+      expect(SteadyLoadDetector().add(swinging(20, 0.06)), isFalse);
+      expect(SteadyLoadDetector().add(swinging(2, 0.03)), isFalse);
     });
 
     test('rejects a creeping load', () {
