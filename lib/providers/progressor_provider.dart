@@ -343,8 +343,19 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       )
       .map((event) => event.value);
 
-  void _onNotification(List<int> chunk) {
-    for (final frame in _frameReader.add(chunk)) {
+  void _onNotification(List<int> notification) {
+    // Native platforms deliver one frame per notification, so a malformed one
+    // is dropped alone instead of swallowing the next ones.
+    final List<Frame> frames;
+    if (kIsWeb) {
+      frames = _frameReader.add(notification);
+    } else if (parseFrame(notification) case final frame?) {
+      frames = [frame];
+    } else {
+      _log('Ignoring malformed notification: $notification');
+      return;
+    }
+    for (final frame in frames) {
       final ProgressorMessage message;
       try {
         message = decodeMessage(frame);

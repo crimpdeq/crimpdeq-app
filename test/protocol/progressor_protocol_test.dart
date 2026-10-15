@@ -11,6 +11,17 @@ List<int> _uint32(int value) =>
     (ByteData(4)..setUint32(0, value, Endian.little)).buffer.asUint8List();
 
 void main() {
+  test('parses one frame per notification and drops mismatched lengths', () {
+    final frame = parseFrame([7, 2, 175, 0])!;
+
+    expect(frame.code, 7);
+    expect(frame.payload, [175, 0]);
+    // Truncated, then followed by another frame.
+    expect(parseFrame([1, 16, ..._float32(1), ..._uint32(1000)]), isNull);
+    expect(parseFrame([7, 2, 175, 0, 7, 2, 175, 0]), isNull);
+    expect(parseFrame([4]), isNull);
+  });
+
   group('FrameReader', () {
     test('returns one frame per complete notification', () {
       final frames = FrameReader().add([7, 2, 175, 0]);
@@ -36,6 +47,15 @@ void main() {
       expect([for (final frame in frames) frame.code], [4, 7, 0]);
       expect(frames.last.payload, [65]);
     });
+
+    test('drops the buffer at a header no frame carries', () {
+      final reader = FrameReader();
+
+      expect(reader.add([7, 2, 175, 0, 7, 3, 1, 2, 3]).single.code, 7);
+      expect(reader.add([7, 2, 175, 0]).single.payload, [175, 0]);
+      expect(reader.add([2, 0, 4, 0]), isEmpty);
+      expect(reader.add([4, 0]).single.code, 4);
+    });
   });
 
   group('decodeMessage', () {
@@ -54,6 +74,24 @@ void main() {
       expect((message as WeightSamples).samples, [
         (weightKg: 1.5, timestampUs: 1000),
         (weightKg: -0.25, timestampUs: 0xFFFFFFFF),
+      ]);
+    });
+
+    test('drops non-finite weights', () {
+      final message = decodeMessage((
+        code: 1,
+        payload: _bytes([
+          ..._float32(double.nan),
+          ..._uint32(1000),
+          ..._float32(double.infinity),
+          ..._uint32(2000),
+          ..._float32(2),
+          ..._uint32(3000),
+        ]),
+      ));
+
+      expect((message as WeightSamples).samples, [
+        (weightKg: 2.0, timestampUs: 3000),
       ]);
     });
 
