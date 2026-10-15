@@ -72,7 +72,9 @@ void main() {
       final detector = SteadyLoadDetector();
 
       expect(detector.add(_samples(900, 10, (_) => 20)), isFalse);
+      expect(detector.steadyLoadKg, isNull);
       expect(detector.add([_sample(20, 1000)]), isTrue);
+      expect(detector.steadyLoadKg, closeTo(20, 1e-9));
     });
 
     test('averages out noise below the tolerance', () {
@@ -186,6 +188,17 @@ void main() {
 
       expect(check.maxErrorKg, closeTo(0, 1e-9));
       expect(check.rmsErrorKg, closeTo(0, 1e-9));
+      expect(check.verifiesFit, isTrue);
+    });
+
+    test('does not verify a fit of two distinct weights', () {
+      final check = CalibrationCheck.of([
+        (raw: 1000, weightKg: 0),
+        (raw: 1001, weightKg: 0),
+        (raw: 1002, weightKg: 20),
+      ], 1)!;
+
+      expect(check.verifiesFit, isFalse);
     });
 
     test('reports the error of each point against the device line', () {
@@ -230,6 +243,29 @@ void main() {
         [for (final residual in check.residuals) residual.errorKg],
         [closeTo(-0.1, 1e-9), closeTo(0.2, 1e-9), closeTo(-0.1, 1e-9)],
       );
+    });
+  });
+
+  group('isReadingUnchanged', () {
+    bool unchanged(double weightKg, double readingKg) => isReadingUnchanged(
+      previousWeightKg: 0,
+      previousReadingKg: 0.01,
+      weightKg: weightKg,
+      readingKg: readingKg,
+    );
+
+    test('flags a reading that did not follow the weight', () {
+      expect(unchanged(20, 0.02), isTrue);
+      expect(unchanged(20, 1.9), isTrue);
+    });
+
+    test('accepts a reading that followed the weight', () {
+      expect(unchanged(20, 2.1), isFalse);
+      expect(unchanged(20, 18), isFalse);
+    });
+
+    test('accepts the same weight again', () {
+      expect(unchanged(0, 0.01), isFalse);
     });
   });
 }

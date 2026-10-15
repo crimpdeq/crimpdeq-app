@@ -17,6 +17,9 @@ class SteadyLoadDetector {
   final _samples = <WeightMeasurement>[];
   bool receivedSamples = false;
 
+  /// Mean of the slice medians once the load is steady.
+  double? steadyLoadKg;
+
   /// Adds [samples] and returns whether the load is steady.
   bool add(List<WeightMeasurement> samples) {
     for (final sample in samples) {
@@ -46,7 +49,9 @@ class SteadyLoadDetector {
     final medians = slices.values.map(_median).toList();
     final loadKg = medians.reduce((a, b) => a + b) / medians.length;
     final toleranceKg = max(_minToleranceKg, _relativeTolerance * loadKg.abs());
-    return medians.reduce(max) - medians.reduce(min) <= toleranceKg;
+    if (medians.reduce(max) - medians.reduce(min) > toleranceKg) return false;
+    steadyLoadKg = loadKg;
+    return true;
   }
 
   static double _median(List<double> weights) {

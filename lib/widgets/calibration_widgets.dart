@@ -99,9 +99,13 @@ class _CalibrationCardState extends State<CalibrationCard> {
           CalibrationPointResult.added when firstPoint =>
             'First point ($kg) stored. Add another point to calibrate.',
           CalibrationPointResult.added =>
-            'Point ($kg) added. The device updates the calibration.',
+            'Point ($kg) sent. The device keeps it only if the calibration '
+                'is plausible.',
           CalibrationPointResult.notSteady =>
             'The load did not hold steady, so the point was not added.',
+          CalibrationPointResult.readingUnchanged =>
+            'The reading barely changed since the previous point, so the '
+                'point was not added. Hang the $kg weight and try again.',
           CalibrationPointResult.noMeasurements =>
             'No measurements arrived, so the point was not added.',
           CalibrationPointResult.limitReached =>
@@ -209,6 +213,7 @@ class CalibrationCheckCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final factor = this.factor;
     final check = factor == null ? null : CalibrationCheck.of(points, factor);
+    final verifiedCheck = check != null && check.verifiesFit ? check : null;
 
     return Card(
       child: Padding(
@@ -221,6 +226,9 @@ class CalibrationCheckCard extends StatelessWidget {
             Text(
               check == null
                   ? 'Add another point to calibrate.'
+                  : verifiedCheck == null
+                  ? 'Add a point at a third weight to check the calibration. '
+                        'The line fits two weights by construction.'
                   : 'Max error ${check.maxErrorKg.toStringAsFixed(3)} kg '
                         '(${check.maxErrorPercentOfSpan.toStringAsFixed(2)}% '
                         'of the heaviest weight) · RMS '
@@ -234,7 +242,10 @@ class CalibrationCheckCard extends StatelessWidget {
                   height: 240,
                   child: _CalibrationChart(points: points, check: check),
                 );
-                final table = _CalibrationTable(points: points, check: check);
+                final table = _CalibrationTable(
+                  points: points,
+                  check: verifiedCheck,
+                );
                 if (constraints.maxWidth < 900) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
