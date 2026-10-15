@@ -3,16 +3,16 @@ import 'dart:math';
 import '../models/progressor_models.dart';
 
 /// Detects a load that holds steady: every 100 ms slice of the last second has
-/// samples and their medians stay within 20 g or 0.2% of the load, whichever is
+/// samples and their medians stay within 20 g or 0.3% of the load, whichever is
 /// larger. The median removes the ADC noise and ignores BLE transmissions, which
 /// offset the conversions they overlap, while they hit fewer than half of the
 /// slice, so the check catches swinging and creep. A hung weight never stops swinging completely: its rope tension
-/// varies by about 1.5·θ², so 0.2% allows a swing of about 3.7°.
+/// varies by about 1.5·θ², so 0.3% allows a swing of about 2.6°.
 class SteadyLoadDetector {
   static const _windowUs = 1000000;
   static const _sliceUs = 100000;
   static const _minToleranceKg = 0.02;
-  static const _relativeTolerance = 0.002;
+  static const _relativeTolerance = 0.003;
 
   final _samples = <WeightMeasurement>[];
   bool receivedSamples = false;

@@ -94,18 +94,18 @@ void main() {
             (ms) => loadKg + peakToPeakKg / 2 * sin(2 * pi * ms / 500),
           );
 
-      expect(SteadyLoadDetector().add(swinging(20, 0.03)), isTrue);
-      expect(SteadyLoadDetector().add(swinging(20, 0.06)), isFalse);
+      expect(SteadyLoadDetector().add(swinging(20, 0.05)), isTrue);
+      expect(SteadyLoadDetector().add(swinging(20, 0.08)), isFalse);
       expect(SteadyLoadDetector().add(swinging(2, 0.03)), isFalse);
     });
 
     test('ignores BLE spikes in fewer than half of a slice', () {
       // Spikes every 30 ms in the first half of the window: their mean offset
-      // of up to 64 g in those slices would exceed the 40 g tolerance.
+      // of up to 64 g in those slices would exceed the 30 g tolerance.
       final samples = _samples(
         1000,
         10,
-        (ms) => ms < 500 && ms % 30 == 0 ? 20.16 : 20,
+        (ms) => ms < 500 && ms % 30 == 0 ? 10.16 : 10,
       );
 
       expect(SteadyLoadDetector().add(samples), isTrue);
