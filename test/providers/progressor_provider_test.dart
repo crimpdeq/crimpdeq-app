@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:crimpdeq/models/progressor_models.dart';
+import 'package:crimpdeq/protocol/progressor_protocol.dart';
 import 'package:crimpdeq/providers/progressor_provider.dart';
 import 'package:flutter_blue_plus_platform_interface/flutter_blue_plus_platform_interface.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,6 +64,32 @@ void main() {
 
     await connect(tester, container);
     expect(container.read(progressorProvider).deviceInfo.lowBattery, isFalse);
+    await dispose(tester, container);
+  });
+
+  testWidgets('ends the device info read when the connection drops', (
+    tester,
+  ) async {
+    ble.unanswered.add(ControlOpCode.getAppVersion);
+    final container = await connect(tester);
+    await tester.pump(const Duration(milliseconds: 500));
+    ble.setConnected(false);
+    await tester.pump();
+    ble.unanswered.clear();
+    ble.writes.clear();
+
+    await connect(tester, container);
+    // The first read timed out after 2 s.
+    await tester.pump(const Duration(seconds: 59));
+    expect(ble.writeCount(ControlOpCode.sampleBattery), 1);
+    expect(ble.writeCount(ControlOpCode.getCalibration), 1);
+    expect(
+      container.read(progressorProvider).deviceInfo.firmwareVersion,
+      '2.1.0',
+    );
+
+    await tester.pump(const Duration(minutes: 3));
+    expect(ble.writeCount(ControlOpCode.sampleBattery), 4);
     await dispose(tester, container);
   });
 

@@ -47,6 +47,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   StreamSubscription<List<int>>? _notifySubscription;
   StreamSubscription<BluetoothConnectionState>? _connectionSubscription;
   Timer? _batteryTimer;
+  // Counts closed connections, so a read that outlives its connection stops
+  // instead of continuing on the next one.
+  int _connectionId = 0;
 
   var _frameReader = FrameReader();
   // Requests whose responses share one response code, answered in order.
@@ -304,6 +307,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   void _closeConnection() {
+    _connectionId++;
     _notifySubscription?.cancel();
     _notifySubscription = null;
     _connectionSubscription?.cancel();
@@ -557,28 +561,29 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> _readDeviceInfo() async {
+    final connectionId = _connectionId;
     final version = await _request(ControlOpCode.getAppVersion);
+    if (connectionId != _connectionId) return;
     if (version != null) {
       state = state.copyWith.deviceInfo(
         firmwareVersion: utf8.decode(version, allowMalformed: true).trim(),
       );
     }
     await _readBattery();
+    if (connectionId != _connectionId) return;
     await getCalibration();
+    if (connectionId != _connectionId) return;
     await _send(ControlOpCode.getSampleRate);
-
-    if (!state.connection.isConnected) return;
-    // A reconnect during the reads above runs another device info read, so
-    // replace its timer instead of leaking one.
-    _batteryTimer?.cancel();
+    if (connectionId != _connectionId) return;
     _batteryTimer = Timer.periodic(_batteryPollInterval, (_) => _readBattery());
   }
 
   Future<void> _readBattery() async {
     // A Tindeq Progressor must stop measuring before it samples the battery.
     if (state.measurement.isMeasuring) return;
+    final connectionId = _connectionId;
     final payload = await _request(ControlOpCode.sampleBattery);
-    if (payload == null) return;
+    if (payload == null || connectionId != _connectionId) return;
     await _send(ControlOpCode.getBatteryStatus);
 
     try {
