@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:crimpdeq/models/progressor_models.dart';
 import 'package:crimpdeq/protocol/progressor_protocol.dart';
@@ -21,6 +22,17 @@ class _SlowStartProgressor extends ProgressorNotifier {
     if (!await startWrite.future) return;
     state = state.copyWith.measurement(isMeasuring: true);
   }
+}
+
+/// Weight samples frame, with timestamps in milliseconds.
+List<int> _weights(List<(double, int)> samples) {
+  final payload = ByteData(samples.length * 8);
+  for (final (i, (weightKg, timestampMs)) in samples.indexed) {
+    payload
+      ..setFloat32(i * 8, weightKg, Endian.little)
+      ..setUint32(i * 8 + 4, timestampMs * 1000, Endian.little);
+  }
+  return [1, payload.lengthInBytes, ...payload.buffer.asUint8List()];
 }
 
 void main() {
@@ -90,6 +102,47 @@ void main() {
 
     await tester.pump(const Duration(minutes: 3));
     expect(ble.writeCount(ControlOpCode.sampleBattery), 4);
+    await dispose(tester, container);
+  });
+
+  testWidgets('keeps the previous measurement out of a new one', (
+    tester,
+  ) async {
+    final container = await connect(tester);
+    final notifier = container.read(progressorProvider.notifier);
+    ProgressorState state() => container.read(progressorProvider);
+
+    ble.notify(_weights([(150, 4990)]));
+    await tester.pump();
+    expect(state().measurement.receivedData, isEmpty);
+
+    unawaited(notifier.startMeasurement());
+    await tester.pump();
+    // Sent before the device restarted its clock.
+    ble.notify(_weights([for (var ms = 5000; ms < 5100; ms += 10) (150, ms)]));
+    // 0 kg for a second, then a 100 kg/s ramp.
+    for (var ms = 0; ms <= 2000; ms += 100) {
+      ble.notify(
+        _weights([
+          for (var t = ms; t < ms + 100 && t <= 2000; t += 10)
+            (t < 1000 ? 0 : (t - 1000) / 10, t),
+        ]),
+      );
+    }
+    await tester.pump();
+    unawaited(notifier.stopMeasurement());
+    await tester.pump();
+
+    final measurement = state().measurement;
+    expect(measurement.peakKg, 100);
+    expect(measurement.minKg, 0);
+    expect(measurement.peakRfdKgPerS, closeTo(100, 1e-3));
+    expect([
+      for (final spot in measurement.weightHistory) spot.x,
+    ], everyElement(lessThanOrEqualTo(2)));
+    expect([
+      for (final sample in measurement.receivedData) sample.timestampUs,
+    ], everyElement(lessThanOrEqualTo(2000000)));
     await dispose(tester, container);
   });
 

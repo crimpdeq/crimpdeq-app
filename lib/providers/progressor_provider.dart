@@ -406,7 +406,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   void _onWeightSamples(List<RawWeightSample> rawSamples) {
-    if (rawSamples.isEmpty) return;
+    // Drop the samples still in flight after a stop.
+    if (rawSamples.isEmpty || !state.measurement.isMeasuring) return;
 
     final now = DateTime.now();
     final lastNotifyTime = _lastNotifyTime;
@@ -424,7 +425,18 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
     final samples = <WeightMeasurement>[];
     for (final rawSample in rawSamples) {
-      _lastDeviceUs = _timestamps.unwrap(rawSample.timestampUs);
+      var deviceUs = _timestamps.unwrap(rawSample.timestampUs);
+      // The device restarted its clock: the samples so far were still in
+      // flight from the previous measurement.
+      if (deviceUs < _lastDeviceUs) {
+        _resetTimeline();
+        samples.clear();
+        state = state.copyWith(
+          measurement: const MeasurementState(isMeasuring: true),
+        );
+        deviceUs = _timestamps.unwrap(rawSample.timestampUs);
+      }
+      _lastDeviceUs = deviceUs;
       _lastSecondTimestamps.addLast(_lastDeviceUs);
       final sample = WeightMeasurement(
         weightKg: rawSample.weightKg,
@@ -500,13 +512,17 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     );
   }
 
-  void _resetMeasurementRuntime() {
+  void _resetTimeline() {
     _timestamps = TimestampUnwrapper();
     _lastDeviceUs = 0;
     _windowStartUs = 0;
     _stats = ForceStats();
     _pendingSamples.clear();
     _lastSecondTimestamps.clear();
+  }
+
+  void _resetMeasurementRuntime() {
+    _resetTimeline();
     _notifyIntervalsMs.clear();
     _lastNotifyTime = null;
     _lastPublishTime = null;
@@ -603,7 +619,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       return;
     }
     // The device restarts its clock, so start a new timeline. Samples that
-    // arrive before the write completes belong to the previous measurement.
+    // arrive before the write completes belong to the previous measurement,
+    // and so do any that arrive after it until the clock moves back.
     _resetMeasurementRuntime();
     state = state.copyWith(
       measurement: const MeasurementState(isMeasuring: true),
