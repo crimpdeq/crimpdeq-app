@@ -616,13 +616,24 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       return CalibrationPointResult.limitReached;
     }
 
-    // Lock before the first await, so a second call cannot pass the check.
+    // Lock until the point is sent, so a second point or a reset cannot
+    // interleave with it.
     state = state.copyWith.calibration(waitingForSteadyLoad: true);
-    final wasMeasuring = state.measurement.isMeasuring;
-    if (!wasMeasuring) {
+    try {
+      return await _addSteadyCalibrationPoint(weightKg);
+    } finally {
+      state = state.copyWith.calibration(waitingForSteadyLoad: false);
+    }
+  }
+
+  /// Ends the measurement after the steady check, also one the user started:
+  /// firmware before 2.1 stops streaming to sample the point.
+  Future<CalibrationPointResult> _addSteadyCalibrationPoint(
+    double weightKg,
+  ) async {
+    if (!state.measurement.isMeasuring) {
       await startMeasurement();
       if (!state.measurement.isMeasuring) {
-        state = state.copyWith.calibration(waitingForSteadyLoad: false);
         return CalibrationPointResult.sendFailed;
       }
     }
@@ -638,8 +649,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     if (!state.connection.isConnected) {
       return CalibrationPointResult.disconnected;
     }
-    state = state.copyWith.calibration(waitingForSteadyLoad: false);
-    if (!wasMeasuring) await stopMeasurement();
+    await stopMeasurement();
     if (!steady) {
       return steadyLoad.receivedSamples
           ? CalibrationPointResult.notSteady
