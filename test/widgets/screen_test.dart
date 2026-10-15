@@ -278,4 +278,23 @@ void main() {
     expect(tester.widget<OutlinedButton>(addButton).onPressed, isNull);
     expect(find.textContaining('The device holds 20 points'), findsOneWidget);
   });
+
+  testWidgets('blocks the reset while a point waits for a steady load', (
+    tester,
+  ) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: const CalibrationState(waitingForSteadyLoad: true),
+      ),
+    );
+
+    final resetButton = find.widgetWithText(
+      OutlinedButton,
+      'Reset Calibration To Default',
+    );
+    await tester.ensureVisible(resetButton);
+    expect(tester.widget<OutlinedButton>(resetButton).onPressed, isNull);
+  });
 }

@@ -172,7 +172,10 @@ class _CalibrationCardState extends State<CalibrationCard> {
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed: widget.onDefaultCalibration,
+              // A pending point would land after the reset.
+              onPressed: widget.waitingForSteadyLoad
+                  ? null
+                  : widget.onDefaultCalibration,
               icon: const Icon(Icons.settings_backup_restore),
               label: const Text('Reset Calibration To Default'),
             ),
