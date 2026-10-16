@@ -25,6 +25,9 @@ class _FakeProgressor extends ProgressorNotifier {
 
   @override
   Future<void> tareScale() async => calls.add('tare');
+
+  @override
+  Future<void> defaultCalibration() async => calls.add('defaultCalibration');
 }
 
 const _deviceId = '00:11:22:33:44:55';
@@ -337,5 +340,32 @@ void main() {
     );
     await tester.ensureVisible(resetButton);
     expect(tester.widget<OutlinedButton>(resetButton).onPressed, isNull);
+  });
+
+  testWidgets('resets the calibration only after confirmation', (tester) async {
+    final fake = await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: const CalibrationState(factor: 1),
+      ),
+    );
+    final resetButton = find.widgetWithText(
+      OutlinedButton,
+      'Reset Calibration To Default',
+    );
+    await tester.ensureVisible(resetButton);
+
+    await tester.tap(resetButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+    expect(fake.calls, isEmpty);
+
+    await tester.tap(resetButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Reset'));
+    await tester.pumpAndSettle();
+    expect(fake.calls, ['defaultCalibration']);
   });
 }
