@@ -25,6 +25,12 @@ class _FakeProgressor extends ProgressorNotifier {
 
   @override
   Future<void> tareScale() async => calls.add('tare');
+
+  @override
+  Future<bool> deleteCalibrationPoint(CalibrationPoint point) async {
+    calls.add('delete ${point.raw} ${point.weightKg}');
+    return true;
+  }
 }
 
 const _deviceId = '00:11:22:33:44:55';
@@ -318,6 +324,46 @@ void main() {
     await tester.ensureVisible(addButton);
     expect(tester.widget<OutlinedButton>(addButton).onPressed, isNull);
     expect(find.textContaining('The device holds 20 points'), findsOneWidget);
+  });
+
+  testWidgets('deletes the calibration point of a row', (tester) async {
+    final fake = await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: const CalibrationState(
+          factor: 1,
+          points: [(raw: 0, weightKg: 0), (raw: 20000, weightKg: 20)],
+        ),
+      ),
+    );
+
+    final deleteButton = find.byTooltip('Delete point 2');
+    await tester.ensureVisible(deleteButton);
+    await tester.tap(deleteButton);
+    await tester.pump();
+    expect(fake.calls, ['delete 20000.0 20.0']);
+    expect(find.textContaining('sent for deletion'), findsOneWidget);
+  });
+
+  testWidgets('blocks deleting while a point waits for a steady load', (
+    tester,
+  ) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: const CalibrationState(
+          factor: 1,
+          points: [(raw: 0, weightKg: 0)],
+          waitingForSteadyLoad: true,
+        ),
+      ),
+    );
+
+    final deleteButton = find.widgetWithIcon(IconButton, Icons.delete_outline);
+    await tester.ensureVisible(deleteButton);
+    expect(tester.widget<IconButton>(deleteButton).onPressed, isNull);
   });
 
   testWidgets('blocks the reset while a point waits for a steady load', (
