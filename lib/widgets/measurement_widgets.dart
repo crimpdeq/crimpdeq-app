@@ -1,23 +1,140 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/progressor_models.dart' as progressor_models;
+import '../analysis/force_stats.dart';
+import '../constants/progressor_constants.dart';
+import '../models/progressor_models.dart';
+import '../providers/progressor_provider.dart';
+import '../theme.dart';
+import 'chart_widgets.dart';
+import 'data_widgets.dart';
 
-const _paleRed = Color(0xFFE57373);
+class MeasurementTab extends ConsumerWidget {
+  const MeasurementTab({super.key});
 
-class MeasurementControlCard extends StatelessWidget {
-  const MeasurementControlCard({
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final measurement = ref.watch(
+      progressorProvider.select((state) => state.measurement),
+    );
+    final performance = ref.watch(
+      progressorProvider.select((state) => state.performance),
+    );
+    final sampleRate = ref.watch(
+      progressorProvider.select((state) => state.deviceInfo.sampleRate),
+    );
+    final notifier = ref.read(progressorProvider.notifier);
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          MeasurementControls(
+            isMeasuring: measurement.isMeasuring,
+            onStartMeasurement: notifier.startMeasurement,
+            onStopMeasurement: notifier.stopMeasurement,
+            onTareScale: notifier.tareScale,
+            onResetMeasurement: notifier.resetMeasurement,
+          ),
+          const SizedBox(height: 16),
+          _ResponsivePair(
+            breakpoint: 900,
+            first: ForceSummaryCard(measurement: measurement),
+            second: PerformanceCard(
+              performance: performance,
+              sampleRate: sampleRate,
+              // A change mid-stream would mix rates within one measurement, and older firmware
+              // reboots on it (crimpdeq/crimpdeq-firmware#83).
+              onSampleRateChanged: measurement.isMeasuring
+                  ? null
+                  : notifier.setSampleRate,
+            ),
+          ),
+          if (measurement.receivedData.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final charts = [
+                  WeightHistoryCard(measurement: measurement),
+                  const SizedBox(height: 16),
+                  NotifyIntervalCard(performance: performance),
+                ];
+                final samples = ReceivedDataCard(
+                  measurements: measurement.receivedData,
+                );
+                if (constraints.maxWidth < 1200) {
+                  return Column(
+                    children: [...charts, const SizedBox(height: 16), samples],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: Column(children: charts)),
+                    const SizedBox(width: 16),
+                    samples,
+                  ],
+                );
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Side by side from [breakpoint] wide, stacked below it.
+class _ResponsivePair extends StatelessWidget {
+  const _ResponsivePair({
+    required this.breakpoint,
+    required this.first,
+    required this.second,
+  });
+
+  final double breakpoint;
+  final Widget first;
+  final Widget second;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < breakpoint) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [first, const SizedBox(height: 16), second],
+          );
+        }
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: first),
+              const SizedBox(width: 16),
+              Expanded(child: second),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class MeasurementControls extends StatelessWidget {
+  const MeasurementControls({
     super.key,
-    required this.measurement,
+    required this.isMeasuring,
     required this.onStartMeasurement,
     required this.onStopMeasurement,
     required this.onTareScale,
+    required this.onResetMeasurement,
   });
 
-  final progressor_models.MeasurementState measurement;
+  final bool isMeasuring;
   final VoidCallback onStartMeasurement;
   final VoidCallback onStopMeasurement;
   final VoidCallback onTareScale;
+  final VoidCallback onResetMeasurement;
 
   @override
   Widget build(BuildContext context) {
@@ -28,18 +145,12 @@ class MeasurementControlCard extends StatelessWidget {
         children: [
           Expanded(
             child: ElevatedButton.icon(
-              onPressed: measurement.isMeasuring
-                  ? onStopMeasurement
-                  : onStartMeasurement,
-              icon: Icon(
-                measurement.isMeasuring ? Icons.stop : Icons.play_arrow,
-              ),
-              label: Text(measurement.isMeasuring ? 'Stop' : 'Start'),
+              onPressed: isMeasuring ? onStopMeasurement : onStartMeasurement,
+              icon: Icon(isMeasuring ? Icons.stop : Icons.play_arrow),
+              label: Text(isMeasuring ? 'Stop' : 'Start'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: measurement.isMeasuring
-                    ? _paleRed
-                    : colorScheme.primary,
-                foregroundColor: measurement.isMeasuring
+                backgroundColor: isMeasuring ? paleRed : colorScheme.primary,
+                foregroundColor: isMeasuring
                     ? colorScheme.onError
                     : colorScheme.onPrimary,
               ),
@@ -50,11 +161,15 @@ class MeasurementControlCard extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: onTareScale,
               icon: const Icon(Icons.adjust),
-              label: const Text('Tare Scale'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                foregroundColor: colorScheme.onPrimary,
-              ),
+              label: const Text('Tare'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: onResetMeasurement,
+              icon: const Icon(Icons.restart_alt),
+              label: const Text('Reset'),
             ),
           ),
         ],
@@ -63,88 +178,75 @@ class MeasurementControlCard extends StatelessWidget {
   }
 }
 
-class CurrentWeightCard extends StatelessWidget {
-  const CurrentWeightCard({super.key, required this.measurement});
+/// Current force and the summary of the window since start, tare or reset.
+class ForceSummaryCard extends StatelessWidget {
+  const ForceSummaryCard({super.key, required this.measurement});
 
-  final progressor_models.MeasurementState measurement;
+  final MeasurementState measurement;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    String kg(double? value) =>
+        value == null ? '—' : '${value.toStringAsFixed(2)} kg';
+    final peakRfd = measurement.peakRfdKgPerS;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Current Weight',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Current', style: textTheme.bodySmall),
-                      Text(
-                        '${measurement.currentWeight.toStringAsFixed(2)} kg',
-                        style: textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (measurement.maxWeight > 0) ...[
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Min', style: textTheme.bodySmall),
-                        Text(
-                          '${measurement.minWeight.toStringAsFixed(2)} kg',
-                          style: textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Max', style: textTheme.bodySmall),
-                        Text(
-                          '${measurement.maxWeight.toStringAsFixed(2)} kg',
-                          style: textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                Expanded(child: Text('Force', style: textTheme.titleMedium)),
                 if (measurement.isMeasuring)
                   Icon(
                     Icons.radio_button_checked,
                     color: colorScheme.error,
-                    size: 24,
+                    size: 20,
                   ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text('Timestamp (ms): ${measurement.sampleCount ~/ 1000}'),
+            const SizedBox(height: 8),
+            // A fixed grid, so the card does not reflow as the values change
+            // width while measuring.
+            Row(
+              children: [
+                Expanded(
+                  child: _Metric(
+                    label: 'Current',
+                    value: kg(measurement.currentKg),
+                  ),
+                ),
+                Expanded(
+                  child: _Metric(label: 'Min', value: kg(measurement.minKg)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _Metric(label: 'Peak', value: kg(measurement.peakKg)),
+                ),
+                Expanded(
+                  child: _Metric(
+                    label: 'Peak RFD',
+                    value: peakRfd == null
+                        ? '—'
+                        : '${peakRfd.toStringAsFixed(1)} kg/s',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Elapsed: ${(measurement.elapsedUs / Duration.microsecondsPerSecond).toStringAsFixed(1)} s · '
+              'RFD over ${ForceStats.rfdSpanUs ~/ Duration.microsecondsPerMillisecond} ms',
+              style: textTheme.bodySmall,
+            ),
           ],
         ),
       ),
@@ -152,116 +254,120 @@ class CurrentWeightCard extends StatelessWidget {
   }
 }
 
-class CalibrationCard extends StatefulWidget {
-  const CalibrationCard({
-    super.key,
-    required this.connection,
-    required this.onAddCalibrationPoint,
-    required this.onGetCalibration,
-    required this.onDefaultCalibration,
-    this.calibrationInfo,
-  });
+class _Metric extends StatelessWidget {
+  const _Metric({required this.label, required this.value});
 
-  final progressor_models.ConnectionState connection;
-  final ValueChanged<double> onAddCalibrationPoint;
-  final VoidCallback onGetCalibration;
-  final VoidCallback onDefaultCalibration;
-  final String? calibrationInfo;
-
-  @override
-  State<CalibrationCard> createState() => _CalibrationCardState();
-}
-
-class _CalibrationCardState extends State<CalibrationCard> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _submitCalibration() {
-    final raw = _controller.text.trim().replaceAll(',', '.');
-    final weight = double.tryParse(raw);
-    if (weight == null || weight < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid weight in kg.')),
-      );
-      return;
-    }
-    widget.onAddCalibrationPoint(weight);
-    _controller.clear();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Weight ${weight.toStringAsFixed(2)} kg sent.')),
-    );
-  }
+  final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
-    final isConnected = widget.connection.device != null;
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: textTheme.bodySmall),
+        Text(
+          value,
+          style: textTheme.headlineSmall?.copyWith(
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class PerformanceCard extends StatelessWidget {
+  const PerformanceCard({
+    super.key,
+    required this.performance,
+    required this.sampleRate,
+    required this.onSampleRateChanged,
+  });
+
+  final PerformanceMetrics performance;
+  // Rate reported by the device; null hides the selector.
+  final int? sampleRate;
+  // Null disables the selector.
+  final ValueChanged<int>? onSampleRateChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final sampleRate = this.sampleRate;
+    final onSampleRateChanged = this.onSampleRateChanged;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Add Calibration Point',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _controller,
-              enabled: isConnected,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+            Text('Performance', style: textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Data sample', style: textTheme.bodySmall),
+                    Text(
+                      '${performance.currentHz.toStringAsFixed(1)} Hz',
+                      style: textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('Notify interval', style: textTheme.bodySmall),
+                    Text(
+                      '${performance.currentNotifyIntervalMs.toStringAsFixed(2)} ms',
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
               ],
-              decoration: const InputDecoration(
-                labelText: 'Attached weight (kg)',
-                hintText: 'e.g. 20.0',
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: isConnected ? _submitCalibration : null,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Calibration Point'),
-              ),
             ),
             const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: isConnected ? widget.onGetCalibration : null,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Get Calibration'),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Packets: ${performance.dataPacketCount}'),
+                Text('Samples/packet: ${performance.samplesPerPacket}'),
+              ],
             ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: isConnected ? widget.onDefaultCalibration : null,
-                icon: const Icon(Icons.settings_backup_restore),
-                label: const Text('Reset Calibration To Default'),
+            if (sampleRate != null)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Sample rate'),
+                  DropdownButton<int>(
+                    value: sampleRate,
+                    onChanged: onSampleRateChanged == null
+                        ? null
+                        : (value) {
+                            if (value != null) onSampleRateChanged(value);
+                          },
+                    items: [
+                      for (final MapEntry(key: rate, value: useCase)
+                          in AppConstants.sampleRateUseCases.entries)
+                        DropdownMenuItem(
+                          value: rate,
+                          child: Text('$useCase · $rate SPS'),
+                        ),
+                    ],
+                  ),
+                ],
               ),
-            ),
-            if ((widget.calibrationInfo ?? '').trim().isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(widget.calibrationInfo!),
-            ],
           ],
         ),
       ),

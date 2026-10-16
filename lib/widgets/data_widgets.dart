@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../models/progressor_models.dart' as progressor_models;
+import '../models/progressor_models.dart';
 
 class ReceivedDataCard extends StatelessWidget {
   const ReceivedDataCard({super.key, required this.measurements});
 
-  final List<progressor_models.WeightMeasurement> measurements;
+  final List<WeightMeasurement> measurements;
 
   @override
   Widget build(BuildContext context) {
@@ -39,12 +39,11 @@ class ReceivedDataCard extends StatelessWidget {
                         DataColumn(label: Text('Weight (kg)')),
                         DataColumn(label: Text('Timestamp (s)')),
                       ],
-                      rows: measurements.asMap().entries.map((entry) {
-                        final measurement = entry.value;
+                      rows: measurements.map((measurement) {
                         return DataRow(
                           cells: [
                             DataCell(
-                              Text(measurement.weight.toStringAsFixed(2)),
+                              Text(measurement.weightKg.toStringAsFixed(2)),
                             ),
                             DataCell(
                               Text(measurement.timestampSec.toStringAsFixed(6)),

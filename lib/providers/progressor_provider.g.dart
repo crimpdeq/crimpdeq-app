@@ -42,13 +42,13 @@ final class ProgressorNotifierProvider
 }
 
 String _$progressorNotifierHash() =>
-    r'42eb1a61292a8409533a24c0bce16c24104ecf45';
+    r'21345faa775c129328961a53b6e437f62b7857c5';
 
 abstract class _$ProgressorNotifier extends $Notifier<ProgressorState> {
   ProgressorState build();
   @$mustCallSuper
   @override
-  void runBuild() {
+  WhenComplete runBuild() {
     final ref = this.ref as $Ref<ProgressorState, ProgressorState>;
     final element =
         ref.element
@@ -58,6 +58,6 @@ abstract class _$ProgressorNotifier extends $Notifier<ProgressorState> {
               Object?,
               Object?
             >;
-    element.handleCreate(ref, build);
+    return element.handleCreate(ref, build);
   }
 }
