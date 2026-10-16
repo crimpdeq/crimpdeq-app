@@ -155,6 +155,24 @@ void main() {
     );
   }
 
+  testWidgets('deletes a calibration point by its reported values', (
+    tester,
+  ) async {
+    final container = await connect(tester);
+    final notifier = container.read(progressorProvider.notifier);
+
+    expect(
+      await notifier.deleteCalibrationPoint((raw: 12000.5, weightKg: 20)),
+      isTrue,
+    );
+    expect(ble.writes.last, [
+      ControlOpCode.deleteCalibrationPoint.value,
+      ...encodeFloat32(12000.5),
+      ...encodeFloat32(20),
+    ]);
+    await dispose(tester, container);
+  });
+
   test('locks the calibration before awaiting the start', () async {
     final notifier = _SlowStartProgressor();
     final container = ProviderContainer(

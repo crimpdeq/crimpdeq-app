@@ -30,7 +30,14 @@ class CalibrationTab extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           if (calibration.points.isNotEmpty) ...[
-            CalibrationCheckCard(points: calibration.points, factor: factor),
+            CalibrationCheckCard(
+              points: calibration.points,
+              factor: factor,
+              // A pending point would land among the remaining ones.
+              onDeletePoint: calibration.waitingForSteadyLoad
+                  ? null
+                  : (point) => _deletePoint(context, notifier, point),
+            ),
             const SizedBox(height: 16),
           ],
           CalibrationCard(
@@ -41,6 +48,26 @@ class CalibrationTab extends ConsumerWidget {
             onDefaultCalibration: notifier.defaultCalibration,
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _deletePoint(
+    BuildContext context,
+    ProgressorNotifier notifier,
+    CalibrationPoint point,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final sent = await notifier.deleteCalibrationPoint(point);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          sent
+              ? 'Point (${point.weightKg.toStringAsFixed(2)} kg) sent for '
+                    'deletion. The device keeps it if the remaining points '
+                    'do not define a plausible calibration.'
+              : 'Sending the deletion to the device failed.',
+        ),
       ),
     );
   }
@@ -203,10 +230,14 @@ class CalibrationCheckCard extends StatelessWidget {
     super.key,
     required this.points,
     required this.factor,
+    required this.onDeletePoint,
   });
 
   final List<CalibrationPoint> points;
   final double? factor;
+
+  /// Null while points cannot be deleted.
+  final ValueChanged<CalibrationPoint>? onDeletePoint;
 
   @override
   Widget build(BuildContext context) {
@@ -245,6 +276,7 @@ class CalibrationCheckCard extends StatelessWidget {
                 final table = _CalibrationTable(
                   points: points,
                   check: verifiedCheck,
+                  onDeletePoint: onDeletePoint,
                 );
                 if (constraints.maxWidth < 900) {
                   return Column(
@@ -399,10 +431,15 @@ class _CalibrationChart extends StatelessWidget {
 }
 
 class _CalibrationTable extends StatelessWidget {
-  const _CalibrationTable({required this.points, required this.check});
+  const _CalibrationTable({
+    required this.points,
+    required this.check,
+    required this.onDeletePoint,
+  });
 
   final List<CalibrationPoint> points;
   final CalibrationCheck? check;
+  final ValueChanged<CalibrationPoint>? onDeletePoint;
 
   @override
   Widget build(BuildContext context) {
@@ -424,6 +461,7 @@ class _CalibrationTable extends StatelessWidget {
             DataColumn(label: Text('Fitted (kg)'), numeric: true),
             DataColumn(label: Text('Error (kg)'), numeric: true),
           ],
+          const DataColumn(label: Text('')),
         ],
         rows: [
           for (final (index, point) in points.indexed)
@@ -449,6 +487,16 @@ class _CalibrationTable extends StatelessWidget {
                     ),
                   ),
                 ],
+                DataCell(
+                  IconButton(
+                    onPressed: onDeletePoint == null
+                        ? null
+                        : () => onDeletePoint!(point),
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Delete point ${index + 1}',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
               ],
             ),
         ],

@@ -758,6 +758,22 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   Future<void> getCalibration() => _send(ControlOpCode.getCalibration);
 
+  /// Sends the point as the device reported it, so a repeated delete matches
+  /// no stored point instead of deleting another one. The device reports the
+  /// refitted calibration, or nothing when it keeps the point because the
+  /// remaining ones do not define a plausible calibration.
+  Future<bool> deleteCalibrationPoint(CalibrationPoint point) async {
+    if (!await _send(ControlOpCode.deleteCalibrationPoint, [
+      ...encodeFloat32(point.raw),
+      ...encodeFloat32(point.weightKg),
+    ])) {
+      return false;
+    }
+    // The next point would be compared against a deleted reading.
+    _lastPointReading = null;
+    return true;
+  }
+
   /// Reads the calibration back, because the firmware clears its points even
   /// when it fails to store the default factor and skips the notification.
   Future<void> defaultCalibration() async {
