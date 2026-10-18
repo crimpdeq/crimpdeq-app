@@ -794,6 +794,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
     if (_removalUnanswered) return CalibrationPointRemoval.unsupported;
 
+    final connectionId = _connectionId;
     state = state.copyWith.calibration(removingPoint: true);
     final pointRemoved = _pointRemoved = Completer<bool>();
     try {
@@ -804,7 +805,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         _removalResponseTimeout,
       );
       // Disposing the notifier also closes the connection.
-      if (!ref.mounted || !state.connection.isConnected) {
+      if (connectionId != _connectionId) {
         return CalibrationPointRemoval.disconnected;
       }
       if (!removed) return CalibrationPointRemoval.rejected;
@@ -813,7 +814,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       return CalibrationPointRemoval.unsupported;
     } finally {
       if (_pointRemoved == pointRemoved) _pointRemoved = null;
-      if (ref.mounted) {
+      // Closing the connection cleared the lock, which a removal on the next
+      // connection may hold by now.
+      if (connectionId == _connectionId) {
         state = state.copyWith.calibration(removingPoint: false);
       }
     }
