@@ -120,6 +120,30 @@ class _CalibrationCardState extends State<CalibrationCard> {
     );
   }
 
+  Future<void> _confirmDefaultCalibration() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset calibration?'),
+        content: const Text(
+          'This restores the default calibration factor and deletes every '
+          'calibration point stored on the device.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed ?? false) widget.onDefaultCalibration();
+  }
+
   @override
   Widget build(BuildContext context) {
     final limitReached = widget.pointCount >= maxCalibrationPoints;
@@ -179,7 +203,7 @@ class _CalibrationCardState extends State<CalibrationCard> {
               // A pending point would land after the reset.
               onPressed: widget.waitingForSteadyLoad
                   ? null
-                  : widget.onDefaultCalibration,
+                  : _confirmDefaultCalibration,
               icon: const Icon(Icons.settings_backup_restore),
               label: const Text('Reset Calibration To Default'),
             ),
