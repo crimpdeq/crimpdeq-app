@@ -177,4 +177,31 @@ void main() {
       isFalse,
     );
   });
+
+  testWidgets('confirms a point removal only when the device answers', (
+    tester,
+  ) async {
+    final container = await connect(tester);
+    final notifier = container.read(progressorProvider.notifier);
+    CalibrationState calibration() =>
+        container.read(progressorProvider).calibration;
+    // Let the device info read, which reads the calibration, finish.
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final removed = notifier.removeCalibrationPoint(1);
+    expect(calibration().removingPoint, isTrue);
+    await expectLater(notifier.removeCalibrationPoint(0), throwsStateError);
+    await tester.pump();
+    expect(await removed, CalibrationPointRemoval.removed);
+    expect(ble.writes.last, [ControlOpCode.removeCalibrationPoint.value, 1]);
+    expect(calibration().removingPoint, isFalse);
+
+    // The firmware keeps the point without answering.
+    ble.unanswered.add(ControlOpCode.removeCalibrationPoint);
+    final kept = notifier.removeCalibrationPoint(0);
+    await tester.pump(const Duration(seconds: 3));
+    expect(await kept, CalibrationPointRemoval.kept);
+    expect(calibration().removingPoint, isFalse);
+    await dispose(tester, container);
+  });
 }

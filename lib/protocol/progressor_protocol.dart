@@ -20,7 +20,8 @@ enum ControlOpCode {
   defaultCalibration(0x74),
   setSampleRate(0x75),
   getSampleRate(0x76),
-  getBatteryStatus(0x77);
+  getBatteryStatus(0x77),
+  removeCalibrationPoint(0x78);
 
   const ControlOpCode(this.value);
 

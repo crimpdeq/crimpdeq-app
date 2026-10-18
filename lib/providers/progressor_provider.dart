@@ -27,6 +27,8 @@ enum CalibrationPointResult {
   disconnected,
 }
 
+enum CalibrationPointRemoval { removed, kept, sendFailed, disconnected }
+
 @riverpod
 class ProgressorNotifier extends _$ProgressorNotifier {
   static const _uiUpdateInterval = Duration(milliseconds: 66);
@@ -77,6 +79,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   // Steady reading of the last point sent, in tared ADC counts, to catch a
   // weight that was not hung.
   ({double weightKg, double counts})? _lastPointReading;
+  // Completed by the next calibration factor, which the device sends only once
+  // it removed a point.
+  Completer<void>? _calibrationFactorReceived;
 
   @override
   ProgressorState build() {
@@ -395,6 +400,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       case CalibrationFactor(:final factor):
         // The stored points follow the factor.
         state = state.copyWith.calibration(factor: factor, points: const []);
+        _calibrationFactorReceived?.complete();
+        _calibrationFactorReceived = null;
       case CalibrationPointMessage(:final raw, :final weightKg):
         state = state.copyWith.calibration(
           points: [...state.calibration.points, (raw: raw, weightKg: weightKg)],
@@ -674,8 +681,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   /// Waits for the load to hold steady, then adds the calibration point. The
   /// firmware samples the point itself, after the steady check.
   Future<CalibrationPointResult> addCalibrationPoint(double weightKg) async {
-    if (state.calibration.waitingForSteadyLoad) {
-      throw StateError('Already waiting for a steady load');
+    if (state.calibration.waitingForSteadyLoad ||
+        state.calibration.removingPoint) {
+      throw StateError('A calibration point is being added or removed');
     }
     if (state.calibration.points.length >= maxCalibrationPoints) {
       return CalibrationPointResult.limitReached;
@@ -754,6 +762,38 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     // calibration, so read them back.
     await getCalibration();
     return CalibrationPointResult.added;
+  }
+
+  /// Removes the point at [index] from the device, which refits the factor to
+  /// the remaining points. The device answers with the new calibration, and
+  /// stays silent when it keeps the point: firmware without the command, or
+  /// remaining points that give an implausible factor.
+  Future<CalibrationPointRemoval> removeCalibrationPoint(int index) async {
+    if (state.calibration.waitingForSteadyLoad ||
+        state.calibration.removingPoint) {
+      throw StateError('A calibration point is being added or removed');
+    }
+
+    state = state.copyWith.calibration(removingPoint: true);
+    final factorReceived = _calibrationFactorReceived = Completer<void>();
+    try {
+      if (!await _send(ControlOpCode.removeCalibrationPoint, [index])) {
+        return CalibrationPointRemoval.sendFailed;
+      }
+      await factorReceived.future.timeout(_commandResponseTimeout);
+    } on TimeoutException {
+      return state.connection.isConnected
+          ? CalibrationPointRemoval.kept
+          : CalibrationPointRemoval.disconnected;
+    } finally {
+      if (_calibrationFactorReceived == factorReceived) {
+        _calibrationFactorReceived = null;
+      }
+      state = state.copyWith.calibration(removingPoint: false);
+    }
+    // The previous reading may belong to the removed point.
+    _lastPointReading = null;
+    return CalibrationPointRemoval.removed;
   }
 
   Future<void> getCalibration() => _send(ControlOpCode.getCalibration);
