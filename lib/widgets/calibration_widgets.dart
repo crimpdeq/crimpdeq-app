@@ -95,8 +95,8 @@ Future<void> _removeCalibrationPoint(
       content: Text(switch (result) {
         CalibrationPointRemoval.removed => 'Removed $label.',
         CalibrationPointRemoval.rejected =>
-          'The device kept $label: the remaining points do not give a '
-              'plausible calibration.',
+          'The device kept $label. The remaining points may not give a '
+              'plausible calibration, or the device was busy.',
         CalibrationPointRemoval.unsupported =>
           'The device did not answer. Update its firmware to remove points.',
         CalibrationPointRemoval.sendFailed =>

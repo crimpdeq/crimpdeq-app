@@ -69,7 +69,8 @@ final class SampleRate extends ProgressorMessage {
 }
 
 /// Answer to [ControlOpCode.removeCalibrationPoint], sent after the new
-/// calibration. Firmware without the command never sends it.
+/// calibration when the device removed the point. Firmware without the
+/// command never sends it.
 final class CalibrationPointRemoved extends ProgressorMessage {
   CalibrationPointRemoved(this.removed);
   final bool removed;
