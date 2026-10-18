@@ -34,12 +34,16 @@ class _FakeProgressor extends ProgressorNotifier {
 
   @override
   Future<void> defaultCalibration() async => calls.add('defaultCalibration');
+
+  @override
+  Future<void> disconnect() async => calls.add('disconnect');
 }
 
 const _deviceId = '00:11:22:33:44:55';
 
 final _connected = DeviceConnection(
   device: BluetoothDevice.fromId(_deviceId),
+  deviceName: 'Progressor_1A2B',
   writeCharacteristic: BluetoothCharacteristic(
     remoteId: const DeviceIdentifier(_deviceId),
     serviceUuid: Guid(progressorServiceUuid),
@@ -74,25 +78,37 @@ void main() {
     await inter.load();
   });
 
-  testWidgets('shows the device status with the battery charge', (
-    tester,
-  ) async {
-    await _pumpScreen(
+  testWidgets('shows the device and opens its details', (tester) async {
+    final fake = await _pumpScreen(
       tester,
       ProgressorState(
         connection: _connected,
         deviceInfo: const DeviceInfo(
           firmwareVersion: '1.2.3',
           batteryMillivolts: 3840,
+          sampleRate: 80,
         ),
       ),
     );
 
-    expect(find.text('Connected'), findsOneWidget);
-    expect(find.text('Firmware: 1.2.3'), findsOneWidget);
-    expect(find.text('Battery: ~50% (3.84 V)'), findsOneWidget);
-    expect(find.text('Disconnect'), findsOneWidget);
+    expect(find.text('Progressor_1A2B'), findsOneWidget);
+    expect(find.text('~50% · 3.84 V'), findsOneWidget);
+    expect(find.byIcon(Icons.battery_3_bar), findsOneWidget);
+    expect(find.text('1.2.3'), findsNothing);
     expect(find.byType(TabBar), findsOneWidget);
+
+    await tester.tap(find.text('Progressor_1A2B'));
+    await tester.pumpAndSettle();
+    expect(find.text(_deviceId), findsOneWidget);
+    expect(find.text('1.2.3'), findsOneWidget);
+    expect(find.text('~50%'), findsOneWidget);
+    expect(find.text('3.84 V'), findsOneWidget);
+    expect(find.text('80 Hz'), findsOneWidget);
+    await tester.tapAt(Offset.zero);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Disconnect'));
+    expect(fake.calls, ['disconnect']);
   });
 
   testWidgets('prefers the fuel gauge charge over the voltage estimate', (
@@ -110,52 +126,88 @@ void main() {
       ),
     );
 
-    expect(find.text('Battery: 21%, charging (3.84 V)'), findsOneWidget);
+    expect(find.text('21% · 3.84 V'), findsOneWidget);
+    expect(find.byIcon(Icons.battery_charging_full), findsOneWidget);
+    await tester.tap(find.text('Progressor_1A2B'));
+    await tester.pumpAndSettle();
+    expect(find.text('21%, charging'), findsOneWidget);
   });
 
-  for (final (name, physicalSize, pixelRatio, fitsWholeLines) in [
-    ('394 dp phone', const Size(1280, 2772), 3.25, true),
-    ('360 dp phone', const Size(1080, 2340), 3.0, false),
-  ]) {
-    testWidgets('keeps the status clear of the title on a $name', (
+  testWidgets('wraps a UUID device ID in the details on a phone', (
+    tester,
+  ) async {
+    // iOS, macOS and Web identify devices by UUID instead of MAC address.
+    const uuid = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E';
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    await _pumpScreen(
       tester,
-    ) async {
-      tester.view.physicalSize = physicalSize;
-      tester.view.devicePixelRatio = pixelRatio;
-      addTearDown(tester.view.reset);
-      await _pumpScreen(
-        tester,
-        ProgressorState(
-          connection: _connected,
-          deviceInfo: const DeviceInfo(
-            firmwareVersion: '2.0.4',
-            batteryMillivolts: 3750,
-          ),
-        ),
-      );
+      ProgressorState(
+        connection: _connected.copyWith(device: BluetoothDevice.fromId(uuid)),
+      ),
+    );
 
-      final titleLeft = tester.getRect(find.byType(Image)).left;
-      for (final line in [
-        'Connected',
-        'FW: 2.0.4',
-        'Bat: ~25%',
-        'Bat: 3.75 V',
-      ]) {
-        final text = find.text(line);
-        expect(
-          tester.getRect(text).right,
-          lessThanOrEqualTo(titleLeft),
-          reason: line,
+    await tester.tap(find.text('Progressor_1A2B'));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(find.text(uuid)).right, lessThanOrEqualTo(360));
+  });
+
+  testWidgets('shows the connection state without a device', (tester) async {
+    await _pumpScreen(
+      tester,
+      const ProgressorState(
+        connection: DeviceConnection(bluetoothReady: true, isScanning: true),
+      ),
+    );
+
+    expect(find.text('Scanning…'), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_drop_down), findsNothing);
+    expect(find.byTooltip('Disconnect'), findsNothing);
+  });
+
+  for (final (name, physicalSize, pixelRatio) in [
+    ('394 dp phone', const Size(1280, 2772), 3.25),
+    ('360 dp phone', const Size(1080, 2340), 3.0),
+  ]) {
+    testWidgets(
+      'fits the status between the logo and the disconnect button on a '
+      '$name',
+      (tester) async {
+        tester.view.physicalSize = physicalSize;
+        tester.view.devicePixelRatio = pixelRatio;
+        addTearDown(tester.view.reset);
+        await _pumpScreen(
+          tester,
+          ProgressorState(
+            connection: _connected,
+            deviceInfo: const DeviceInfo(
+              firmwareVersion: '2.0.4',
+              batteryMillivolts: 3750,
+            ),
+          ),
         );
-        if (fitsWholeLines) {
+
+        final logo = tester.getRect(find.byType(Image));
+        final disconnectButton = tester.getRect(find.byTooltip('Disconnect'));
+        for (final text in ['Progressor_1A2B', '~25%']) {
+          final rect = tester.getRect(find.text(text));
+          expect(rect.left, greaterThanOrEqualTo(logo.right), reason: text);
           expect(
-            tester.renderObject<RenderParagraph>(text).didExceedMaxLines,
+            rect.right,
+            lessThanOrEqualTo(disconnectButton.left),
+            reason: text,
+          );
+          expect(
+            tester
+                .renderObject<RenderParagraph>(find.text(text))
+                .didExceedMaxLines,
             isFalse,
-            reason: '$line is truncated',
+            reason: '$text is truncated',
           );
         }
-      }
-    });
+      },
+    );
   }
 
   testWidgets('warns when the battery runs out', (tester) async {

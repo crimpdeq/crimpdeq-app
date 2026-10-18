@@ -142,7 +142,7 @@ ThemeData buildDarkTheme() {
     appBarTheme: AppBarTheme(
       backgroundColor: _webPanel.withValues(alpha: 0.95),
       foregroundColor: _webText,
-      centerTitle: true,
+      centerTitle: false,
       elevation: 0,
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,

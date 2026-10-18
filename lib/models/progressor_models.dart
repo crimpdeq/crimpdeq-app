@@ -102,6 +102,9 @@ sealed class DeviceConnection with _$DeviceConnection {
 
   const factory DeviceConnection({
     BluetoothDevice? device,
+
+    /// Name the device was discovered with, set together with [device].
+    @Default('') String deviceName,
     BluetoothCharacteristic? writeCharacteristic,
     @Default('Initializing Bluetooth...') String status,
     @Default(false) bool isScanning,

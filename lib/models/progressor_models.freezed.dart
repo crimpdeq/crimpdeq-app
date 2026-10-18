@@ -1678,7 +1678,8 @@ as BluetoothDevice,
 /// @nodoc
 mixin _$DeviceConnection {
 
- BluetoothDevice? get device; BluetoothCharacteristic? get writeCharacteristic; String get status; bool get isScanning; bool get isConnecting; bool get bluetoothReady;/// Scanning failed or Bluetooth is unauthorized; the fix is in the app
+ BluetoothDevice? get device;/// Name the device was discovered with, set together with [device].
+ String get deviceName; BluetoothCharacteristic? get writeCharacteristic; String get status; bool get isScanning; bool get isConnecting; bool get bluetoothReady;/// Scanning failed or Bluetooth is unauthorized; the fix is in the app
 /// settings (permissions) or the system settings (location services).
  bool get needsSettings; List<DiscoveredDevice> get discoveredDevices;
 /// Create a copy of DeviceConnection
@@ -1692,20 +1693,20 @@ $DeviceConnectionCopyWith<DeviceConnection> get copyWith => _$DeviceConnectionCo
 @override
 bool operator ==(Object other) {
   final _this = this as DeviceConnection;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceConnection&&(identical(other.device, _this.device) || other.device == _this.device)&&(identical(other.writeCharacteristic, _this.writeCharacteristic) || other.writeCharacteristic == _this.writeCharacteristic)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.isScanning, _this.isScanning) || other.isScanning == _this.isScanning)&&(identical(other.isConnecting, _this.isConnecting) || other.isConnecting == _this.isConnecting)&&(identical(other.bluetoothReady, _this.bluetoothReady) || other.bluetoothReady == _this.bluetoothReady)&&(identical(other.needsSettings, _this.needsSettings) || other.needsSettings == _this.needsSettings)&&const DeepCollectionEquality().equals(other.discoveredDevices, _this.discoveredDevices));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceConnection&&(identical(other.device, _this.device) || other.device == _this.device)&&(identical(other.deviceName, _this.deviceName) || other.deviceName == _this.deviceName)&&(identical(other.writeCharacteristic, _this.writeCharacteristic) || other.writeCharacteristic == _this.writeCharacteristic)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.isScanning, _this.isScanning) || other.isScanning == _this.isScanning)&&(identical(other.isConnecting, _this.isConnecting) || other.isConnecting == _this.isConnecting)&&(identical(other.bluetoothReady, _this.bluetoothReady) || other.bluetoothReady == _this.bluetoothReady)&&(identical(other.needsSettings, _this.needsSettings) || other.needsSettings == _this.needsSettings)&&const DeepCollectionEquality().equals(other.discoveredDevices, _this.discoveredDevices));
 }
 
 
 @override
 int get hashCode {
   final _this = this as DeviceConnection;
-  return Object.hash(runtimeType,_this.device,_this.writeCharacteristic,_this.status,_this.isScanning,_this.isConnecting,_this.bluetoothReady,_this.needsSettings,const DeepCollectionEquality().hash(_this.discoveredDevices));
+  return Object.hash(runtimeType,_this.device,_this.deviceName,_this.writeCharacteristic,_this.status,_this.isScanning,_this.isConnecting,_this.bluetoothReady,_this.needsSettings,const DeepCollectionEquality().hash(_this.discoveredDevices));
 }
 
 @override
 String toString() {
   final _this = this as DeviceConnection;
-  return 'DeviceConnection(device: ${_this.device}, writeCharacteristic: ${_this.writeCharacteristic}, status: ${_this.status}, isScanning: ${_this.isScanning}, isConnecting: ${_this.isConnecting}, bluetoothReady: ${_this.bluetoothReady}, needsSettings: ${_this.needsSettings}, discoveredDevices: ${_this.discoveredDevices})';
+  return 'DeviceConnection(device: ${_this.device}, deviceName: ${_this.deviceName}, writeCharacteristic: ${_this.writeCharacteristic}, status: ${_this.status}, isScanning: ${_this.isScanning}, isConnecting: ${_this.isConnecting}, bluetoothReady: ${_this.bluetoothReady}, needsSettings: ${_this.needsSettings}, discoveredDevices: ${_this.discoveredDevices})';
 }
 
 
@@ -1716,7 +1717,7 @@ abstract mixin class $DeviceConnectionCopyWith<$Res>  {
   factory $DeviceConnectionCopyWith(DeviceConnection value, $Res Function(DeviceConnection) _then) = _$DeviceConnectionCopyWithImpl;
 @useResult
 $Res call({
- BluetoothDevice? device, BluetoothCharacteristic? writeCharacteristic, String status, bool isScanning, bool isConnecting, bool bluetoothReady, bool needsSettings, List<DiscoveredDevice> discoveredDevices
+ BluetoothDevice? device, String deviceName, BluetoothCharacteristic? writeCharacteristic, String status, bool isScanning, bool isConnecting, bool bluetoothReady, bool needsSettings, List<DiscoveredDevice> discoveredDevices
 });
 
 
@@ -1733,10 +1734,11 @@ class _$DeviceConnectionCopyWithImpl<$Res>
 
 /// Create a copy of DeviceConnection
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? device = freezed,Object? writeCharacteristic = freezed,Object? status = null,Object? isScanning = null,Object? isConnecting = null,Object? bluetoothReady = null,Object? needsSettings = null,Object? discoveredDevices = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? device = freezed,Object? deviceName = null,Object? writeCharacteristic = freezed,Object? status = null,Object? isScanning = null,Object? isConnecting = null,Object? bluetoothReady = null,Object? needsSettings = null,Object? discoveredDevices = null,}) {
   return _then(DeviceConnection(
 device: freezed == device ? _self.device : device // ignore: cast_nullable_to_non_nullable
-as BluetoothDevice?,writeCharacteristic: freezed == writeCharacteristic ? _self.writeCharacteristic : writeCharacteristic // ignore: cast_nullable_to_non_nullable
+as BluetoothDevice?,deviceName: null == deviceName ? _self.deviceName : deviceName // ignore: cast_nullable_to_non_nullable
+as String,writeCharacteristic: freezed == writeCharacteristic ? _self.writeCharacteristic : writeCharacteristic // ignore: cast_nullable_to_non_nullable
 as BluetoothCharacteristic?,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,isScanning: null == isScanning ? _self.isScanning : isScanning // ignore: cast_nullable_to_non_nullable
 as bool,isConnecting: null == isConnecting ? _self.isConnecting : isConnecting // ignore: cast_nullable_to_non_nullable
@@ -1825,10 +1827,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( BluetoothDevice? device,  BluetoothCharacteristic? writeCharacteristic,  String status,  bool isScanning,  bool isConnecting,  bool bluetoothReady,  bool needsSettings,  List<DiscoveredDevice> discoveredDevices)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( BluetoothDevice? device,  String deviceName,  BluetoothCharacteristic? writeCharacteristic,  String status,  bool isScanning,  bool isConnecting,  bool bluetoothReady,  bool needsSettings,  List<DiscoveredDevice> discoveredDevices)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _DeviceConnection() when $default != null:
-return $default(_that.device,_that.writeCharacteristic,_that.status,_that.isScanning,_that.isConnecting,_that.bluetoothReady,_that.needsSettings,_that.discoveredDevices);case _:
+return $default(_that.device,_that.deviceName,_that.writeCharacteristic,_that.status,_that.isScanning,_that.isConnecting,_that.bluetoothReady,_that.needsSettings,_that.discoveredDevices);case _:
   return orElse();
 
 }
@@ -1846,10 +1848,10 @@ return $default(_that.device,_that.writeCharacteristic,_that.status,_that.isScan
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( BluetoothDevice? device,  BluetoothCharacteristic? writeCharacteristic,  String status,  bool isScanning,  bool isConnecting,  bool bluetoothReady,  bool needsSettings,  List<DiscoveredDevice> discoveredDevices)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( BluetoothDevice? device,  String deviceName,  BluetoothCharacteristic? writeCharacteristic,  String status,  bool isScanning,  bool isConnecting,  bool bluetoothReady,  bool needsSettings,  List<DiscoveredDevice> discoveredDevices)  $default,) {final _that = this;
 switch (_that) {
 case _DeviceConnection():
-return $default(_that.device,_that.writeCharacteristic,_that.status,_that.isScanning,_that.isConnecting,_that.bluetoothReady,_that.needsSettings,_that.discoveredDevices);}
+return $default(_that.device,_that.deviceName,_that.writeCharacteristic,_that.status,_that.isScanning,_that.isConnecting,_that.bluetoothReady,_that.needsSettings,_that.discoveredDevices);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -1863,10 +1865,10 @@ return $default(_that.device,_that.writeCharacteristic,_that.status,_that.isScan
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( BluetoothDevice? device,  BluetoothCharacteristic? writeCharacteristic,  String status,  bool isScanning,  bool isConnecting,  bool bluetoothReady,  bool needsSettings,  List<DiscoveredDevice> discoveredDevices)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( BluetoothDevice? device,  String deviceName,  BluetoothCharacteristic? writeCharacteristic,  String status,  bool isScanning,  bool isConnecting,  bool bluetoothReady,  bool needsSettings,  List<DiscoveredDevice> discoveredDevices)?  $default,) {final _that = this;
 switch (_that) {
 case _DeviceConnection() when $default != null:
-return $default(_that.device,_that.writeCharacteristic,_that.status,_that.isScanning,_that.isConnecting,_that.bluetoothReady,_that.needsSettings,_that.discoveredDevices);case _:
+return $default(_that.device,_that.deviceName,_that.writeCharacteristic,_that.status,_that.isScanning,_that.isConnecting,_that.bluetoothReady,_that.needsSettings,_that.discoveredDevices);case _:
   return null;
 
 }
@@ -1878,10 +1880,12 @@ return $default(_that.device,_that.writeCharacteristic,_that.status,_that.isScan
 
 
 class _DeviceConnection extends DeviceConnection {
-  const _DeviceConnection({this.device, this.writeCharacteristic, this.status = 'Initializing Bluetooth...', this.isScanning = false, this.isConnecting = false, this.bluetoothReady = false, this.needsSettings = false,  List<DiscoveredDevice> discoveredDevices = const []}): _discoveredDevices = discoveredDevices,super._();
+  const _DeviceConnection({this.device, this.deviceName = '', this.writeCharacteristic, this.status = 'Initializing Bluetooth...', this.isScanning = false, this.isConnecting = false, this.bluetoothReady = false, this.needsSettings = false,  List<DiscoveredDevice> discoveredDevices = const []}): _discoveredDevices = discoveredDevices,super._();
   
 
 @override final  BluetoothDevice? device;
+/// Name the device was discovered with, set together with [device].
+@override@JsonKey() final  String deviceName;
 @override final  BluetoothCharacteristic? writeCharacteristic;
 @override@JsonKey() final  String status;
 @override@JsonKey() final  bool isScanning;
@@ -1908,18 +1912,18 @@ _$DeviceConnectionCopyWith<_DeviceConnection> get copyWith => __$DeviceConnectio
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceConnection&&(identical(other.device, device) || other.device == device)&&(identical(other.writeCharacteristic, writeCharacteristic) || other.writeCharacteristic == writeCharacteristic)&&(identical(other.status, status) || other.status == status)&&(identical(other.isScanning, isScanning) || other.isScanning == isScanning)&&(identical(other.isConnecting, isConnecting) || other.isConnecting == isConnecting)&&(identical(other.bluetoothReady, bluetoothReady) || other.bluetoothReady == bluetoothReady)&&(identical(other.needsSettings, needsSettings) || other.needsSettings == needsSettings)&&const DeepCollectionEquality().equals(other.discoveredDevices, _discoveredDevices));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceConnection&&(identical(other.device, device) || other.device == device)&&(identical(other.deviceName, deviceName) || other.deviceName == deviceName)&&(identical(other.writeCharacteristic, writeCharacteristic) || other.writeCharacteristic == writeCharacteristic)&&(identical(other.status, status) || other.status == status)&&(identical(other.isScanning, isScanning) || other.isScanning == isScanning)&&(identical(other.isConnecting, isConnecting) || other.isConnecting == isConnecting)&&(identical(other.bluetoothReady, bluetoothReady) || other.bluetoothReady == bluetoothReady)&&(identical(other.needsSettings, needsSettings) || other.needsSettings == needsSettings)&&const DeepCollectionEquality().equals(other.discoveredDevices, _discoveredDevices));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,device,writeCharacteristic,status,isScanning,isConnecting,bluetoothReady,needsSettings,const DeepCollectionEquality().hash(_discoveredDevices));
+    return Object.hash(runtimeType,device,deviceName,writeCharacteristic,status,isScanning,isConnecting,bluetoothReady,needsSettings,const DeepCollectionEquality().hash(_discoveredDevices));
 }
 
 @override
 String toString() {
-    return 'DeviceConnection(device: $device, writeCharacteristic: $writeCharacteristic, status: $status, isScanning: $isScanning, isConnecting: $isConnecting, bluetoothReady: $bluetoothReady, needsSettings: $needsSettings, discoveredDevices: $discoveredDevices)';
+    return 'DeviceConnection(device: $device, deviceName: $deviceName, writeCharacteristic: $writeCharacteristic, status: $status, isScanning: $isScanning, isConnecting: $isConnecting, bluetoothReady: $bluetoothReady, needsSettings: $needsSettings, discoveredDevices: $discoveredDevices)';
 }
 
 
@@ -1930,7 +1934,7 @@ abstract mixin class _$DeviceConnectionCopyWith<$Res> implements $DeviceConnecti
   factory _$DeviceConnectionCopyWith(_DeviceConnection value, $Res Function(_DeviceConnection) _then) = __$DeviceConnectionCopyWithImpl;
 @override @useResult
 $Res call({
- BluetoothDevice? device, BluetoothCharacteristic? writeCharacteristic, String status, bool isScanning, bool isConnecting, bool bluetoothReady, bool needsSettings, List<DiscoveredDevice> discoveredDevices
+ BluetoothDevice? device, String deviceName, BluetoothCharacteristic? writeCharacteristic, String status, bool isScanning, bool isConnecting, bool bluetoothReady, bool needsSettings, List<DiscoveredDevice> discoveredDevices
 });
 
 
@@ -1947,10 +1951,11 @@ class __$DeviceConnectionCopyWithImpl<$Res>
 
 /// Create a copy of DeviceConnection
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? device = freezed,Object? writeCharacteristic = freezed,Object? status = null,Object? isScanning = null,Object? isConnecting = null,Object? bluetoothReady = null,Object? needsSettings = null,Object? discoveredDevices = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? device = freezed,Object? deviceName = null,Object? writeCharacteristic = freezed,Object? status = null,Object? isScanning = null,Object? isConnecting = null,Object? bluetoothReady = null,Object? needsSettings = null,Object? discoveredDevices = null,}) {
   return _then(_DeviceConnection(
 device: freezed == device ? _self.device : device // ignore: cast_nullable_to_non_nullable
-as BluetoothDevice?,writeCharacteristic: freezed == writeCharacteristic ? _self.writeCharacteristic : writeCharacteristic // ignore: cast_nullable_to_non_nullable
+as BluetoothDevice?,deviceName: null == deviceName ? _self.deviceName : deviceName // ignore: cast_nullable_to_non_nullable
+as String,writeCharacteristic: freezed == writeCharacteristic ? _self.writeCharacteristic : writeCharacteristic // ignore: cast_nullable_to_non_nullable
 as BluetoothCharacteristic?,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,isScanning: null == isScanning ? _self.isScanning : isScanning // ignore: cast_nullable_to_non_nullable
 as bool,isConnecting: null == isConnecting ? _self.isConnecting : isConnecting // ignore: cast_nullable_to_non_nullable
