@@ -8,150 +8,185 @@ import '../theme.dart';
 
 String _volts(int millivolts) => '${(millivolts / 1000).toStringAsFixed(2)} V';
 
-/// Connection status for the app bar: a status dot, the state, firmware and
-/// battery lines, and a disconnect button.
-class ConnectionHeader extends StatelessWidget {
-  const ConnectionHeader({
+/// Status chip for the app bar: the connection state, or the device name and
+/// battery once connected. Tapping it opens the device details.
+class DeviceStatusChip extends StatelessWidget {
+  const DeviceStatusChip({
     super.key,
     required this.connection,
     required this.deviceInfo,
     required this.compact,
-    required this.onDisconnect,
   });
 
   final DeviceConnection connection;
   final DeviceInfo deviceInfo;
   final bool compact;
-  final VoidCallback onDisconnect;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final foreground =
-        Theme.of(context).appBarTheme.foregroundColor ?? colorScheme.onSurface;
+        theme.appBarTheme.foregroundColor ?? colorScheme.onSurface;
     final busy = connection.isScanning || connection.isConnecting;
-    final statusColor = connection.isConnected
-        ? Colors.greenAccent.shade400
-        : busy
-        ? colorScheme.primary
-        : Colors.orangeAccent.shade200;
-    final batteryMillivolts = deviceInfo.batteryMillivolts;
-    final batteryPercent = deviceInfo.batteryPercent;
-    final charge = batteryPercent != null
-        ? '$batteryPercent%'
-        : batteryMillivolts != null
-        ? '~${batteryStateOfCharge(batteryMillivolts)}%'
-        : null;
-    final lines = [
-      connection.isConnected
-          ? 'Connected'
-          : connection.isScanning
-          ? 'Scanning'
-          : connection.isConnecting
-          ? 'Connecting'
-          : connection.bluetoothReady
-          ? 'Not connected'
-          : 'Bluetooth unavailable',
-      if (deviceInfo.firmwareVersion.isNotEmpty)
-        '${compact ? 'FW' : 'Firmware'}: ${deviceInfo.firmwareVersion}',
-      if (batteryMillivolts != null) ...[
-        // A narrow status is too short for the charge and voltage on one line.
-        if (compact) ...[
-          'Bat: $charge',
-          deviceInfo.batteryCharging
-              ? 'Charging'
-              : 'Bat: ${_volts(batteryMillivolts)}',
-        ] else
-          'Battery: $charge'
-              '${deviceInfo.batteryCharging ? ', charging' : ''} '
-              '(${_volts(batteryMillivolts)})',
-      ],
-    ];
-    final fontSize = compact ? 10.0 : 12.0;
+    final millivolts = deviceInfo.batteryMillivolts;
+    final charge =
+        deviceInfo.batteryPercent ??
+        (millivolts != null ? batteryStateOfCharge(millivolts) : null);
+    // Without a fuel gauge the charge is estimated from the voltage.
+    final chargeText = charge == null
+        ? null
+        : '${deviceInfo.batteryPercent == null ? '~' : ''}$charge%';
+    final textStyle = TextStyle(
+      fontFamily: interFont,
+      color: foreground,
+      fontWeight: FontWeight.w600,
+      fontSize: compact ? 12 : 13,
+    );
+    final hasDetails = connection.device != null;
 
-    return Padding(
-      padding: const EdgeInsets.only(left: 10),
-      child: Row(
-        children: [
-          if (connection.device != null && compact) ...[
-            IconButton.outlined(
-              tooltip: 'Disconnect',
-              onPressed: onDisconnect,
-              icon: const Icon(Icons.bluetooth_disabled, color: paleRed),
-              iconSize: 18,
-              visualDensity: VisualDensity.compact,
-              style: IconButton.styleFrom(
-                backgroundColor: paleRed.withValues(alpha: 0.18),
-                side: const BorderSide(color: paleRed),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Container(
-            width: 8,
-            height: 8,
-            margin: const EdgeInsets.only(right: 6),
-            decoration: BoxDecoration(
-              color: statusColor,
-              shape: BoxShape.circle,
-            ),
-          ),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final (index, line) in lines.indexed)
-                  Text(
-                    line,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: interFont,
-                      color: foreground,
-                      fontWeight: index == 0
-                          ? FontWeight.w700
-                          : FontWeight.w600,
-                      fontSize: index == 0 ? fontSize + 1 : fontSize,
-                      height: 1.15,
-                    ),
+    Widget chip(VoidCallback? onTap) => Material(
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+      shape: StadiumBorder(side: BorderSide(color: colorScheme.outlineVariant)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(10, 6, hasDetails ? 4 : 12, 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (busy)
+                SizedBox.square(
+                  dimension: 10,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    color: colorScheme.primary,
                   ),
+                )
+              else
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: connection.isConnected
+                        ? Colors.greenAccent.shade400
+                        : Colors.orangeAccent.shade200,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  connection.isConnected
+                      ? connection.deviceName
+                      : connection.isScanning
+                      ? 'Scanning…'
+                      : connection.isConnecting
+                      ? 'Connecting…'
+                      : connection.bluetoothReady
+                      ? 'Not connected'
+                      : 'Bluetooth unavailable',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textStyle.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (charge != null) ...[
+                const SizedBox(width: 10),
+                Icon(
+                  _batteryIcon(charge, deviceInfo.batteryCharging),
+                  size: 16,
+                  color: _batteryColor(charge) ?? foreground,
+                ),
+                const SizedBox(width: 2),
+                Text(
+                  [
+                    chargeText!,
+                    if (!compact && millivolts != null) _volts(millivolts),
+                  ].join(' · '),
+                  style: textStyle.copyWith(color: _batteryColor(charge)),
+                ),
               ],
-            ),
+              if (hasDetails)
+                Icon(Icons.arrow_drop_down, size: 20, color: foreground),
+            ],
           ),
-          if (busy)
-            Padding(
-              padding: const EdgeInsets.only(left: 6),
-              child: SizedBox.square(
-                dimension: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: foreground,
+        ),
+      ),
+    );
+
+    if (!hasDetails) return chip(null);
+
+    final sampleRate = deviceInfo.sampleRate;
+    return MenuAnchor(
+      alignmentOffset: const Offset(0, 6),
+      menuChildren: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(connection.deviceName, style: theme.textTheme.titleSmall),
+              const SizedBox(height: 8),
+              for (final (label, value) in [
+                ('ID', connection.device!.remoteId.str),
+                if (deviceInfo.firmwareVersion.isNotEmpty)
+                  ('Firmware', deviceInfo.firmwareVersion),
+                if (chargeText != null)
+                  (
+                    'Battery',
+                    '$chargeText'
+                        '${deviceInfo.batteryCharging ? ', charging' : ''}',
+                  ),
+                if (millivolts != null) ('Voltage', _volts(millivolts)),
+                if (sampleRate != null) ('Sample rate', '$sampleRate Hz'),
+              ])
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 96,
+                        child: Text(label, style: theme.textTheme.bodySmall),
+                      ),
+                      Text(value, style: theme.textTheme.bodyMedium),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-          if (connection.device != null && !compact) ...[
-            const SizedBox(width: 8),
-            FilledButton.icon(
-              onPressed: onDisconnect,
-              icon: const Icon(Icons.bluetooth_disabled, size: 16),
-              label: const Text('Disconnect'),
-              style: FilledButton.styleFrom(
-                backgroundColor: paleRed,
-                foregroundColor: colorScheme.onError,
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-              ),
-            ),
-          ],
-        ],
+            ],
+          ),
+        ),
+      ],
+      builder: (context, controller, _) => chip(
+        () => controller.isOpen ? controller.close() : controller.open(),
       ),
     );
   }
 }
+
+IconData _batteryIcon(int percent, bool charging) {
+  if (charging) return Icons.battery_charging_full;
+  if (percent >= 95) return Icons.battery_full;
+  const bars = [
+    Icons.battery_0_bar,
+    Icons.battery_1_bar,
+    Icons.battery_2_bar,
+    Icons.battery_3_bar,
+    Icons.battery_4_bar,
+    Icons.battery_5_bar,
+    Icons.battery_6_bar,
+  ];
+  return bars[(percent * bars.length ~/ 100).clamp(0, bars.length - 1)];
+}
+
+/// Warning color for a low charge, null otherwise.
+Color? _batteryColor(int percent) => percent <= 15
+    ? paleRed
+    : percent <= 30
+    ? Colors.orangeAccent.shade200
+    : null;
 
 /// Scan button, settings shortcut and the devices found.
 class ConnectPanel extends StatelessWidget {

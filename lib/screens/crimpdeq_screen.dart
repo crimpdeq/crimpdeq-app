@@ -91,39 +91,50 @@ class _CrimpdeqAppBar extends ConsumerWidget implements PreferredSizeWidget {
     final isDarkMode = ref.watch(themeModeProvider) == ThemeMode.dark;
     final compact = MediaQuery.sizeOf(context).width < 700;
 
-    // The status and the theme switch share the width beside the title
-    // equally, so the title stays centered and the status cannot reach it.
     return AppBar(
       automaticallyImplyLeading: false,
       toolbarHeight: preferredSize.height,
-      titleSpacing: 0,
+      titleSpacing: 12,
       title: Row(
         children: [
-          Expanded(
-            child: ConnectionHeader(
-              connection: connection,
-              deviceInfo: deviceInfo,
-              compact: compact,
-              onDisconnect: ref.read(progressorProvider.notifier).disconnect,
-            ),
-          ),
-          const SizedBox(width: 8),
           _AppTitle(compact: compact),
           const SizedBox(width: 8),
           Expanded(
             child: Align(
               alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _ThemeSlider(
-                  isDarkMode: isDarkMode,
-                  onChanged: ref.read(themeModeProvider.notifier).setDarkMode,
-                ),
+              child: DeviceStatusChip(
+                connection: connection,
+                deviceInfo: deviceInfo,
+                compact: compact,
               ),
             ),
           ),
+          if (connection.device != null) ...[
+            const SizedBox(width: 4),
+            IconButton.outlined(
+              tooltip: 'Disconnect',
+              onPressed: ref.read(progressorProvider.notifier).disconnect,
+              icon: const Icon(Icons.bluetooth_disabled, color: paleRed),
+              visualDensity: VisualDensity.compact,
+              style: IconButton.styleFrom(
+                backgroundColor: paleRed.withValues(alpha: 0.18),
+                side: const BorderSide(color: paleRed),
+              ),
+            ),
+          ],
         ],
       ),
+      actions: [
+        IconButton(
+          tooltip: isDarkMode ? 'Light mode' : 'Dark mode',
+          visualDensity: VisualDensity.compact,
+          onPressed: () =>
+              ref.read(themeModeProvider.notifier).setDarkMode(!isDarkMode),
+          icon: Icon(
+            isDarkMode ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -137,36 +148,31 @@ class _AppTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final logoSize = compact ? 26.0 : 30.0;
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: logoSize,
-            height: logoSize,
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              // Light background so the logo stands out from the app bar.
-              color: theme.brightness == Brightness.dark
-                  ? Colors.white
-                  : const Color(0xFFE8EEF4),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Image.asset(
-              'assets/Logo_app_512x512.png',
-              fit: BoxFit.contain,
-            ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: logoSize,
+          height: logoSize,
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            // Light background so the logo stands out from the app bar.
+            color: theme.brightness == Brightness.dark
+                ? Colors.white
+                : const Color(0xFFE8EEF4),
+            borderRadius: BorderRadius.circular(6),
           ),
+          child: Image.asset(
+            'assets/Logo_app_512x512.png',
+            fit: BoxFit.contain,
+          ),
+        ),
+        // Narrow screens keep the width for the device status.
+        if (!compact) ...[
           const SizedBox(width: 10),
-          Text(
-            'Crimpdeq',
-            style: theme.appBarTheme.titleTextStyle?.copyWith(
-              fontSize: compact ? 14 : null,
-            ),
-          ),
+          Text('Crimpdeq', style: theme.appBarTheme.titleTextStyle),
         ],
-      ),
+      ],
     );
   }
 }
@@ -207,76 +213,6 @@ class _DeviceTabs extends StatelessWidget {
             child: TabBarView(children: [CalibrationTab(), MeasurementTab()]),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ThemeSlider extends StatelessWidget {
-  const _ThemeSlider({required this.isDarkMode, required this.onChanged});
-
-  final bool isDarkMode;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: () => onChanged(!isDarkMode),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        width: 58,
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          color: isDarkMode
-              ? webBgSoft.withValues(alpha: 0.92)
-              : Colors.white.withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: isDark
-                ? webBorder.withValues(alpha: 0.95)
-                : const Color(0xFFD7E3EE),
-          ),
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('🌞', style: TextStyle(fontSize: 10)),
-                Text('🌙', style: TextStyle(fontSize: 10)),
-              ],
-            ),
-            AnimatedAlign(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-              alignment: isDarkMode
-                  ? Alignment.centerRight
-                  : Alignment.centerLeft,
-              child: Container(
-                width: 22,
-                height: 22,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: isDarkMode
-                      ? webAccent.withValues(alpha: 0.95)
-                      : const Color(0xFFE5E7EB),
-                  shape: BoxShape.circle,
-                ),
-                child: Text(
-                  isDarkMode ? '🌙' : '🌞',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isDarkMode ? const Color(0xFF00111C) : null,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

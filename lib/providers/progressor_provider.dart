@@ -247,6 +247,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       state = state.copyWith(
         connection: state.connection.copyWith(
           device: device,
+          deviceName: discovered.name,
           status: 'Discovering services...',
         ),
         deviceInfo: const DeviceInfo(),
