@@ -225,6 +225,27 @@ void main() {
     await dispose(tester, container);
   });
 
+  testWidgets('reports a removal whose write outlives the connection', (
+    tester,
+  ) async {
+    final container = await connect(tester);
+    final notifier = container.read(progressorProvider.notifier);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final write = Completer<void>();
+    ble.writeDelay = write.future;
+    CalibrationPointRemoval? result;
+    unawaited(notifier.removeCalibrationPoint(0).then((r) => result = r));
+    await tester.pump();
+    ble.setConnected(false);
+    await tester.pump();
+    ble.writeDelay = null;
+    write.complete();
+    await tester.pump();
+    expect(result, CalibrationPointRemoval.disconnected);
+    await dispose(tester, container);
+  });
+
   testWidgets('ends a pending removal when the connection drops', (
     tester,
   ) async {

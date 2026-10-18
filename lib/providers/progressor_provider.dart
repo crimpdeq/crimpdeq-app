@@ -799,7 +799,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     final pointRemoved = _pointRemoved = Completer<bool>();
     try {
       if (!await _send(ControlOpCode.removeCalibrationPoint, [index])) {
-        return CalibrationPointRemoval.sendFailed;
+        return connectionId == _connectionId
+            ? CalibrationPointRemoval.sendFailed
+            : CalibrationPointRemoval.disconnected;
       }
       final removed = await pointRemoved.future.timeout(
         _removalResponseTimeout,
