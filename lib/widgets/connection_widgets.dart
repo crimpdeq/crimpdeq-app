@@ -124,38 +124,45 @@ class DeviceStatusChip extends StatelessWidget {
       menuChildren: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(connection.deviceName, style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
-              for (final (label, value) in [
-                ('ID', connection.device!.remoteId.str),
-                if (deviceInfo.firmwareVersion.isNotEmpty)
-                  ('Firmware', deviceInfo.firmwareVersion),
-                if (chargeText != null)
-                  (
-                    'Battery',
-                    '$chargeText'
-                        '${deviceInfo.batteryCharging ? ', charging' : ''}',
+          // Fits a phone; long values, such as the UUID that identifies the
+          // device on iOS, macOS and Web, wrap.
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 280),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(connection.deviceName, style: theme.textTheme.titleSmall),
+                const SizedBox(height: 8),
+                for (final (label, value) in [
+                  ('ID', connection.device!.remoteId.str),
+                  if (deviceInfo.firmwareVersion.isNotEmpty)
+                    ('Firmware', deviceInfo.firmwareVersion),
+                  if (chargeText != null)
+                    (
+                      'Battery',
+                      '$chargeText'
+                          '${deviceInfo.batteryCharging ? ', charging' : ''}',
+                    ),
+                  if (millivolts != null) ('Voltage', _volts(millivolts)),
+                  if (sampleRate != null) ('Sample rate', '$sampleRate Hz'),
+                ])
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 96,
+                          child: Text(label, style: theme.textTheme.bodySmall),
+                        ),
+                        Flexible(
+                          child: Text(value, style: theme.textTheme.bodyMedium),
+                        ),
+                      ],
+                    ),
                   ),
-                if (millivolts != null) ('Voltage', _volts(millivolts)),
-                if (sampleRate != null) ('Sample rate', '$sampleRate Hz'),
-              ])
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 96,
-                        child: Text(label, style: theme.textTheme.bodySmall),
-                      ),
-                      Text(value, style: theme.textTheme.bodyMedium),
-                    ],
-                  ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ],

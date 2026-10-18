@@ -133,6 +133,26 @@ void main() {
     expect(find.text('21%, charging'), findsOneWidget);
   });
 
+  testWidgets('wraps a UUID device ID in the details on a phone', (
+    tester,
+  ) async {
+    // iOS, macOS and Web identify devices by UUID instead of MAC address.
+    const uuid = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E';
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected.copyWith(device: BluetoothDevice.fromId(uuid)),
+      ),
+    );
+
+    await tester.tap(find.text('Progressor_1A2B'));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(find.text(uuid)).right, lessThanOrEqualTo(360));
+  });
+
   testWidgets('shows the connection state without a device', (tester) async {
     await _pumpScreen(
       tester,
