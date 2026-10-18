@@ -31,6 +31,9 @@ final class FakeBle extends FlutterBluePlusPlatform {
   /// Opcodes the device leaves unanswered.
   final unanswered = <ControlOpCode>{};
 
+  /// Holds the writes in flight until it completes.
+  Future<void>? writeDelay;
+
   DiscoveredDevice get device => DiscoveredDevice(
     id: _remoteId.str,
     name: 'Progressor',
@@ -176,6 +179,7 @@ final class FakeBle extends FlutterBluePlusPlatform {
 
   @override
   Future<bool> writeCharacteristic(BmWriteCharacteristicRequest request) async {
+    if (writeDelay case final delay?) await delay;
     writes.add(request.value);
     _written.add(_data(_writeChar, request.value));
     final opCode = ControlOpCode.values

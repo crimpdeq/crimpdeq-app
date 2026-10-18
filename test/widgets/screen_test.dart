@@ -21,6 +21,12 @@ class _FakeProgressor extends ProgressorNotifier {
   ProgressorState build() => initialState;
 
   @override
+  Future<CalibrationPointRemoval> removeCalibrationPoint(int index) async {
+    calls.add('remove $index');
+    return CalibrationPointRemoval.removed;
+  }
+
+  @override
   void resetMeasurement() => calls.add('reset');
 
   @override
@@ -321,6 +327,57 @@ void main() {
     await tester.ensureVisible(addButton);
     expect(tester.widget<OutlinedButton>(addButton).onPressed, isNull);
     expect(find.textContaining('The device holds 20 points'), findsOneWidget);
+  });
+
+  testWidgets('removes a calibration point only after confirmation', (
+    tester,
+  ) async {
+    final fake = await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: const CalibrationState(
+          factor: 20,
+          points: [(raw: 0, weightKg: 0), (raw: 500, weightKg: 10)],
+        ),
+      ),
+    );
+    final removeButton = find.byTooltip('Remove point 2');
+    await tester.ensureVisible(removeButton);
+
+    await tester.tap(removeButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Remove point 2 (10.000 kg)?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+    expect(fake.calls, isEmpty);
+
+    await tester.tap(removeButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Remove'));
+    await tester.pumpAndSettle();
+    expect(fake.calls, ['remove 1']);
+    expect(find.text('Removed point 2 (10.000 kg).'), findsOneWidget);
+  });
+
+  testWidgets('blocks removing points while a point waits for a steady load', (
+    tester,
+  ) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: const CalibrationState(
+          factor: 20,
+          points: [(raw: 0, weightKg: 0)],
+          waitingForSteadyLoad: true,
+        ),
+      ),
+    );
+
+    final removeButton = find.widgetWithIcon(IconButton, Icons.delete_outline);
+    await tester.ensureVisible(removeButton);
+    expect(tester.widget<IconButton>(removeButton).onPressed, isNull);
   });
 
   testWidgets('blocks the reset while a point waits for a steady load', (

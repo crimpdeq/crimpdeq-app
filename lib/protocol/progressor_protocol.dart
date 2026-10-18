@@ -20,7 +20,8 @@ enum ControlOpCode {
   defaultCalibration(0x74),
   setSampleRate(0x75),
   getSampleRate(0x76),
-  getBatteryStatus(0x77);
+  getBatteryStatus(0x77),
+  removeCalibrationPoint(0x78);
 
   const ControlOpCode(this.value);
 
@@ -65,6 +66,14 @@ final class CalibrationPointMessage extends ProgressorMessage {
 final class SampleRate extends ProgressorMessage {
   SampleRate(this.samplesPerSecond);
   final int samplesPerSecond;
+}
+
+/// Answer to [ControlOpCode.removeCalibrationPoint], sent after the new
+/// calibration when the device removed the point. Firmware without the
+/// command never sends it.
+final class CalibrationPointRemoved extends ProgressorMessage {
+  CalibrationPointRemoved(this.removed);
+  final bool removed;
 }
 
 /// Fuel gauge reading; firmware without GetBatteryStatus never sends it.
@@ -127,6 +136,7 @@ bool _isValidPayloadLength(int code, int length) => switch (code) {
   5 => length == 4,
   6 => length == 8,
   7 || 8 => length == 2,
+  9 => length == 1,
   _ => true,
 };
 
@@ -159,6 +169,7 @@ ProgressorMessage decodeMessage(Frame frame) {
     ),
     7 => SampleRate(data.getUint16(0, Endian.little)),
     8 => BatteryStatus(payload[0], payload[1] != 0),
+    9 => CalibrationPointRemoved(payload[0] != 0),
     _ => throw FormatException('Unknown response code $code'),
   };
 }

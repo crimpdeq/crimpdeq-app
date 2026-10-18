@@ -18,6 +18,7 @@ class CalibrationTab extends ConsumerWidget {
     );
     final notifier = ref.read(progressorProvider.notifier);
     final factor = calibration.factor;
+    final busy = calibration.waitingForSteadyLoad || calibration.removingPoint;
 
     return SingleChildScrollView(
       child: Column(
@@ -30,12 +31,24 @@ class CalibrationTab extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           if (calibration.points.isNotEmpty) ...[
-            CalibrationCheckCard(points: calibration.points, factor: factor),
+            CalibrationCheckCard(
+              points: calibration.points,
+              factor: factor,
+              onRemovePoint: busy
+                  ? null
+                  : (index) => _removeCalibrationPoint(
+                      context,
+                      notifier,
+                      index,
+                      calibration.points[index],
+                    ),
+            ),
             const SizedBox(height: 16),
           ],
           CalibrationCard(
             pointCount: calibration.points.length,
             waitingForSteadyLoad: calibration.waitingForSteadyLoad,
+            removingPoint: calibration.removingPoint,
             onAddCalibrationPoint: notifier.addCalibrationPoint,
             onGetCalibration: notifier.getCalibration,
             onDefaultCalibration: notifier.defaultCalibration,
@@ -46,11 +59,62 @@ class CalibrationTab extends ConsumerWidget {
   }
 }
 
+Future<void> _removeCalibrationPoint(
+  BuildContext context,
+  ProgressorNotifier notifier,
+  int index,
+  CalibrationPoint point,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final label = 'point ${index + 1} (${point.weightKg.toStringAsFixed(3)} kg)';
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text('Remove $label?'),
+      content: const Text(
+        'The device deletes the point and refits the calibration to the '
+        'remaining points.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Remove'),
+        ),
+      ],
+    ),
+  );
+  if (!(confirmed ?? false)) return;
+
+  final result = await notifier.removeCalibrationPoint(index);
+  messenger.showSnackBar(
+    SnackBar(
+      content: Text(switch (result) {
+        CalibrationPointRemoval.removed => 'Removed $label.',
+        CalibrationPointRemoval.rejected =>
+          'The device kept $label. The remaining points may not give a '
+              'plausible calibration, or the device was busy.',
+        CalibrationPointRemoval.unsupported =>
+          'The device did not answer, so its firmware may not support '
+              'removing points. Update it, then reconnect.',
+        CalibrationPointRemoval.sendFailed =>
+          'Sending the removal to the device failed.',
+        CalibrationPointRemoval.disconnected =>
+          'The device disconnected before confirming the removal.',
+      }),
+    ),
+  );
+}
+
 class CalibrationCard extends StatefulWidget {
   const CalibrationCard({
     super.key,
     required this.pointCount,
     required this.waitingForSteadyLoad,
+    required this.removingPoint,
     required this.onAddCalibrationPoint,
     required this.onGetCalibration,
     required this.onDefaultCalibration,
@@ -58,6 +122,7 @@ class CalibrationCard extends StatefulWidget {
 
   final int pointCount;
   final bool waitingForSteadyLoad;
+  final bool removingPoint;
   final Future<CalibrationPointResult> Function(double weightKg)
   onAddCalibrationPoint;
   final VoidCallback onGetCalibration;
@@ -177,7 +242,10 @@ class _CalibrationCardState extends State<CalibrationCard> {
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: widget.waitingForSteadyLoad || limitReached
+              onPressed:
+                  widget.waitingForSteadyLoad ||
+                      widget.removingPoint ||
+                      limitReached
                   ? null
                   : _submitCalibration,
               icon: widget.waitingForSteadyLoad
@@ -227,10 +295,14 @@ class CalibrationCheckCard extends StatelessWidget {
     super.key,
     required this.points,
     required this.factor,
+    required this.onRemovePoint,
   });
 
   final List<CalibrationPoint> points;
   final double? factor;
+
+  /// Null while the calibration is busy.
+  final void Function(int index)? onRemovePoint;
 
   @override
   Widget build(BuildContext context) {
@@ -269,6 +341,7 @@ class CalibrationCheckCard extends StatelessWidget {
                 final table = _CalibrationTable(
                   points: points,
                   check: verifiedCheck,
+                  onRemovePoint: onRemovePoint,
                 );
                 if (constraints.maxWidth < 900) {
                   return Column(
@@ -423,14 +496,20 @@ class _CalibrationChart extends StatelessWidget {
 }
 
 class _CalibrationTable extends StatelessWidget {
-  const _CalibrationTable({required this.points, required this.check});
+  const _CalibrationTable({
+    required this.points,
+    required this.check,
+    required this.onRemovePoint,
+  });
 
   final List<CalibrationPoint> points;
   final CalibrationCheck? check;
+  final void Function(int index)? onRemovePoint;
 
   @override
   Widget build(BuildContext context) {
     final check = this.check;
+    final onRemovePoint = this.onRemovePoint;
     final worstErrorKg = check?.maxErrorKg;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -448,6 +527,7 @@ class _CalibrationTable extends StatelessWidget {
             DataColumn(label: Text('Fitted (kg)'), numeric: true),
             DataColumn(label: Text('Error (kg)'), numeric: true),
           ],
+          const DataColumn(label: SizedBox.shrink()),
         ],
         rows: [
           for (final (index, point) in points.indexed)
@@ -473,6 +553,17 @@ class _CalibrationTable extends StatelessWidget {
                     ),
                   ),
                 ],
+                DataCell(
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    iconSize: 20,
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Remove point ${index + 1}',
+                    onPressed: onRemovePoint == null
+                        ? null
+                        : () => onRemovePoint(index),
+                  ),
+                ),
               ],
             ),
         ],

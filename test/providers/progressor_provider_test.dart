@@ -177,4 +177,96 @@ void main() {
       isFalse,
     );
   });
+
+  testWidgets('reports the removal the device answers', (tester) async {
+    final container = await connect(tester);
+    final notifier = container.read(progressorProvider.notifier);
+    bool removingPoint() =>
+        container.read(progressorProvider).calibration.removingPoint;
+
+    final removed = notifier.removeCalibrationPoint(1);
+    expect(removingPoint(), isTrue);
+    await expectLater(notifier.removeCalibrationPoint(0), throwsStateError);
+    await tester.pump();
+    expect(
+      ble.writes,
+      contains(equals([ControlOpCode.removeCalibrationPoint.value, 1])),
+    );
+    // A factor answers other commands too, so it does not end the removal.
+    ble.notify([5, 4, ...encodeFloat32(0.08)]);
+    await tester.pump();
+    expect(removingPoint(), isTrue);
+    ble.notify([9, 1, 1]);
+    await tester.pump();
+    expect(await removed, CalibrationPointRemoval.removed);
+    expect(removingPoint(), isFalse);
+
+    final rejected = notifier.removeCalibrationPoint(0);
+    await tester.pump();
+    ble.notify([9, 1, 0]);
+    await tester.pump();
+    expect(await rejected, CalibrationPointRemoval.rejected);
+
+    // Firmware without the command does not answer.
+    final unsupported = notifier.removeCalibrationPoint(0);
+    await tester.pump(const Duration(seconds: 6));
+    expect(await unsupported, CalibrationPointRemoval.unsupported);
+    expect(removingPoint(), isFalse);
+
+    // A late answer cannot be taken for a later removal on this connection.
+    final sent = ble.writeCount(ControlOpCode.removeCalibrationPoint);
+    ble.notify([9, 1, 1]);
+    await tester.pump();
+    expect(
+      await notifier.removeCalibrationPoint(0),
+      CalibrationPointRemoval.unsupported,
+    );
+    expect(ble.writeCount(ControlOpCode.removeCalibrationPoint), sent);
+    await dispose(tester, container);
+  });
+
+  testWidgets('reports a removal whose write outlives the connection', (
+    tester,
+  ) async {
+    final container = await connect(tester);
+    final notifier = container.read(progressorProvider.notifier);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final write = Completer<void>();
+    ble.writeDelay = write.future;
+    CalibrationPointRemoval? result;
+    unawaited(notifier.removeCalibrationPoint(0).then((r) => result = r));
+    await tester.pump();
+    ble.setConnected(false);
+    await tester.pump();
+    ble.writeDelay = null;
+    write.complete();
+    await tester.pump();
+    expect(result, CalibrationPointRemoval.disconnected);
+    await dispose(tester, container);
+  });
+
+  testWidgets('ends a pending removal when the connection drops', (
+    tester,
+  ) async {
+    final container = await connect(tester);
+    final notifier = container.read(progressorProvider.notifier);
+
+    CalibrationPointRemoval? result;
+    unawaited(notifier.removeCalibrationPoint(0).then((r) => result = r));
+    await tester.pump();
+    ble.setConnected(false);
+    await tester.pump();
+    expect(result, CalibrationPointRemoval.disconnected);
+
+    // The ended removal does not unlock one started on the next connection.
+    await connect(tester, container);
+    unawaited(notifier.removeCalibrationPoint(0));
+    await tester.pump(const Duration(seconds: 4));
+    expect(
+      container.read(progressorProvider).calibration.removingPoint,
+      isTrue,
+    );
+    await dispose(tester, container);
+  });
 }
