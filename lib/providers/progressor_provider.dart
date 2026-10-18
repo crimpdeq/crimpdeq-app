@@ -89,6 +89,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   ({double weightKg, double counts})? _lastPointReading;
   // Completed with whether the device removed the requested point.
   Completer<bool>? _pointRemoved;
+  // Set once the device leaves a removal unanswered, so a late answer cannot be
+  // taken for the next removal on this connection.
+  bool _removalUnanswered = false;
 
   @override
   ProgressorState build() {
@@ -339,6 +342,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     // Ends a pending removal before a reconnect can start another one.
     _pointRemoved?.complete(false);
     _pointRemoved = null;
+    _removalUnanswered = false;
     _lastPointReading = null;
     _frameReader = FrameReader();
     _resetMeasurementRuntime();
@@ -788,6 +792,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         state.calibration.removingPoint) {
       throw StateError('A calibration point is being added or removed');
     }
+    if (_removalUnanswered) return CalibrationPointRemoval.unsupported;
 
     state = state.copyWith.calibration(removingPoint: true);
     final pointRemoved = _pointRemoved = Completer<bool>();
@@ -804,6 +809,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       }
       if (!removed) return CalibrationPointRemoval.rejected;
     } on TimeoutException {
+      _removalUnanswered = true;
       return CalibrationPointRemoval.unsupported;
     } finally {
       if (_pointRemoved == pointRemoved) _pointRemoved = null;

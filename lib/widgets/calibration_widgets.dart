@@ -98,7 +98,8 @@ Future<void> _removeCalibrationPoint(
           'The device kept $label. The remaining points may not give a '
               'plausible calibration, or the device was busy.',
         CalibrationPointRemoval.unsupported =>
-          'The device did not answer. Update its firmware to remove points.',
+          'The device did not answer, so its firmware may not support '
+              'removing points. Update it, then reconnect.',
         CalibrationPointRemoval.sendFailed =>
           'Sending the removal to the device failed.',
         CalibrationPointRemoval.disconnected =>

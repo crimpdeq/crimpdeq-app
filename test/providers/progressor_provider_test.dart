@@ -212,6 +212,16 @@ void main() {
     await tester.pump(const Duration(seconds: 6));
     expect(await unsupported, CalibrationPointRemoval.unsupported);
     expect(removingPoint(), isFalse);
+
+    // A late answer cannot be taken for a later removal on this connection.
+    final sent = ble.writeCount(ControlOpCode.removeCalibrationPoint);
+    ble.notify([9, 1, 1]);
+    await tester.pump();
+    expect(
+      await notifier.removeCalibrationPoint(0),
+      CalibrationPointRemoval.unsupported,
+    );
+    expect(ble.writeCount(ControlOpCode.removeCalibrationPoint), sent);
     await dispose(tester, container);
   });
 
