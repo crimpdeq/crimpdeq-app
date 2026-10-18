@@ -336,6 +336,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     if (steadyLoadReached != null && !steadyLoadReached.isCompleted) {
       steadyLoadReached.complete(false);
     }
+    // Ends a pending removal before a reconnect can start another one.
+    _pointRemoved?.complete(false);
+    _pointRemoved = null;
     _lastPointReading = null;
     _frameReader = FrameReader();
     _resetMeasurementRuntime();
@@ -792,16 +795,21 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       if (!await _send(ControlOpCode.removeCalibrationPoint, [index])) {
         return CalibrationPointRemoval.sendFailed;
       }
-      if (!await pointRemoved.future.timeout(_removalResponseTimeout)) {
-        return CalibrationPointRemoval.rejected;
+      final removed = await pointRemoved.future.timeout(
+        _removalResponseTimeout,
+      );
+      // Disposing the notifier also closes the connection.
+      if (!ref.mounted || !state.connection.isConnected) {
+        return CalibrationPointRemoval.disconnected;
       }
+      if (!removed) return CalibrationPointRemoval.rejected;
     } on TimeoutException {
-      return state.connection.isConnected
-          ? CalibrationPointRemoval.unsupported
-          : CalibrationPointRemoval.disconnected;
+      return CalibrationPointRemoval.unsupported;
     } finally {
       if (_pointRemoved == pointRemoved) _pointRemoved = null;
-      state = state.copyWith.calibration(removingPoint: false);
+      if (ref.mounted) {
+        state = state.copyWith.calibration(removingPoint: false);
+      }
     }
     // The previous reading may belong to the removed point.
     _lastPointReading = null;

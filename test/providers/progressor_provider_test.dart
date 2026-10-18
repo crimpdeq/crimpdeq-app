@@ -214,4 +214,28 @@ void main() {
     expect(removingPoint(), isFalse);
     await dispose(tester, container);
   });
+
+  testWidgets('ends a pending removal when the connection drops', (
+    tester,
+  ) async {
+    final container = await connect(tester);
+    final notifier = container.read(progressorProvider.notifier);
+
+    CalibrationPointRemoval? result;
+    unawaited(notifier.removeCalibrationPoint(0).then((r) => result = r));
+    await tester.pump();
+    ble.setConnected(false);
+    await tester.pump();
+    expect(result, CalibrationPointRemoval.disconnected);
+
+    // The ended removal does not unlock one started on the next connection.
+    await connect(tester, container);
+    unawaited(notifier.removeCalibrationPoint(0));
+    await tester.pump(const Duration(seconds: 4));
+    expect(
+      container.read(progressorProvider).calibration.removingPoint,
+      isTrue,
+    );
+    await dispose(tester, container);
+  });
 }
