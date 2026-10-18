@@ -178,30 +178,40 @@ void main() {
     );
   });
 
-  testWidgets('confirms a point removal only when the device answers', (
-    tester,
-  ) async {
+  testWidgets('reports the removal the device answers', (tester) async {
     final container = await connect(tester);
     final notifier = container.read(progressorProvider.notifier);
-    CalibrationState calibration() =>
-        container.read(progressorProvider).calibration;
-    // Let the device info read, which reads the calibration, finish.
-    await tester.pump(const Duration(milliseconds: 100));
+    bool removingPoint() =>
+        container.read(progressorProvider).calibration.removingPoint;
 
     final removed = notifier.removeCalibrationPoint(1);
-    expect(calibration().removingPoint, isTrue);
+    expect(removingPoint(), isTrue);
     await expectLater(notifier.removeCalibrationPoint(0), throwsStateError);
     await tester.pump();
+    expect(
+      ble.writes,
+      contains(equals([ControlOpCode.removeCalibrationPoint.value, 1])),
+    );
+    // A factor answers other commands too, so it does not end the removal.
+    ble.notify([5, 4, ...encodeFloat32(0.08)]);
+    await tester.pump();
+    expect(removingPoint(), isTrue);
+    ble.notify([9, 1, 1]);
+    await tester.pump();
     expect(await removed, CalibrationPointRemoval.removed);
-    expect(ble.writes.last, [ControlOpCode.removeCalibrationPoint.value, 1]);
-    expect(calibration().removingPoint, isFalse);
+    expect(removingPoint(), isFalse);
 
-    // The firmware keeps the point without answering.
-    ble.unanswered.add(ControlOpCode.removeCalibrationPoint);
-    final kept = notifier.removeCalibrationPoint(0);
-    await tester.pump(const Duration(seconds: 3));
-    expect(await kept, CalibrationPointRemoval.kept);
-    expect(calibration().removingPoint, isFalse);
+    final rejected = notifier.removeCalibrationPoint(0);
+    await tester.pump();
+    ble.notify([9, 1, 0]);
+    await tester.pump();
+    expect(await rejected, CalibrationPointRemoval.rejected);
+
+    // Firmware without the command does not answer.
+    final unsupported = notifier.removeCalibrationPoint(0);
+    await tester.pump(const Duration(seconds: 6));
+    expect(await unsupported, CalibrationPointRemoval.unsupported);
+    expect(removingPoint(), isFalse);
     await dispose(tester, container);
   });
 }

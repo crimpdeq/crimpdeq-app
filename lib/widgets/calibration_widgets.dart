@@ -94,10 +94,11 @@ Future<void> _removeCalibrationPoint(
     SnackBar(
       content: Text(switch (result) {
         CalibrationPointRemoval.removed => 'Removed $label.',
-        CalibrationPointRemoval.kept =>
-          'The device kept $label. Its firmware may not support removing '
-              'points, or the remaining points do not give a plausible '
-              'calibration.',
+        CalibrationPointRemoval.rejected =>
+          'The device kept $label: the remaining points do not give a '
+              'plausible calibration.',
+        CalibrationPointRemoval.unsupported =>
+          'The device did not answer. Update its firmware to remove points.',
         CalibrationPointRemoval.sendFailed =>
           'Sending the removal to the device failed.',
         CalibrationPointRemoval.disconnected =>
@@ -236,15 +237,14 @@ class _CalibrationCardState extends State<CalibrationCard> {
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              // A calibration read would confirm a removal the device refused.
-              onPressed: widget.removingPoint ? null : widget.onGetCalibration,
+              onPressed: widget.onGetCalibration,
               icon: const Icon(Icons.refresh),
               label: const Text('Get Calibration'),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
               // A pending point would land after the reset.
-              onPressed: widget.waitingForSteadyLoad || widget.removingPoint
+              onPressed: widget.waitingForSteadyLoad
                   ? null
                   : widget.onDefaultCalibration,
               icon: const Icon(Icons.settings_backup_restore),

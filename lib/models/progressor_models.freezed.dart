@@ -1134,8 +1134,8 @@ as List<WeightMeasurement>,
 /// @nodoc
 mixin _$CalibrationState {
 
- double? get factor; List<CalibrationPoint> get points; bool get waitingForSteadyLoad;/// A removal shifts the indexes of the later points, so the calibration
-/// commands wait for it.
+ double? get factor; List<CalibrationPoint> get points; bool get waitingForSteadyLoad;/// A removal shifts the indexes of the later points, so adding and
+/// removing points wait for it.
  bool get removingPoint;
 /// Create a copy of CalibrationState
 /// with the given fields replaced by the non-null parameter values.
@@ -1342,8 +1342,8 @@ class _CalibrationState implements CalibrationState {
 }
 
 @override@JsonKey() final  bool waitingForSteadyLoad;
-/// A removal shifts the indexes of the later points, so the calibration
-/// commands wait for it.
+/// A removal shifts the indexes of the later points, so adding and
+/// removing points wait for it.
 @override@JsonKey() final  bool removingPoint;
 
 /// Create a copy of CalibrationState

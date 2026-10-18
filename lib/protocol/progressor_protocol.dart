@@ -68,6 +68,13 @@ final class SampleRate extends ProgressorMessage {
   final int samplesPerSecond;
 }
 
+/// Answer to [ControlOpCode.removeCalibrationPoint], sent after the new
+/// calibration. Firmware without the command never sends it.
+final class CalibrationPointRemoved extends ProgressorMessage {
+  CalibrationPointRemoved(this.removed);
+  final bool removed;
+}
+
 /// Fuel gauge reading; firmware without GetBatteryStatus never sends it.
 final class BatteryStatus extends ProgressorMessage {
   BatteryStatus(this.percent, this.charging);
@@ -128,6 +135,7 @@ bool _isValidPayloadLength(int code, int length) => switch (code) {
   5 => length == 4,
   6 => length == 8,
   7 || 8 => length == 2,
+  9 => length == 1,
   _ => true,
 };
 
@@ -160,6 +168,7 @@ ProgressorMessage decodeMessage(Frame frame) {
     ),
     7 => SampleRate(data.getUint16(0, Endian.little)),
     8 => BatteryStatus(payload[0], payload[1] != 0),
+    9 => CalibrationPointRemoved(payload[0] != 0),
     _ => throw FormatException('Unknown response code $code'),
   };
 }

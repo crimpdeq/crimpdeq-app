@@ -80,8 +80,8 @@ sealed class CalibrationState with _$CalibrationState {
     @Default([]) List<CalibrationPoint> points,
     @Default(false) bool waitingForSteadyLoad,
 
-    /// A removal shifts the indexes of the later points, so the calibration
-    /// commands wait for it.
+    /// A removal shifts the indexes of the later points, so adding and
+    /// removing points wait for it.
     @Default(false) bool removingPoint,
   }) = _CalibrationState;
 }

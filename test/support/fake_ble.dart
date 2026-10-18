@@ -62,8 +62,7 @@ final class FakeBle extends FlutterBluePlusPlatform {
       ...(ByteData(4)..setUint32(0, 3900, Endian.little)).buffer.asUint8List(),
     ],
     ControlOpCode.getBatteryStatus => [8, 2, 80, 0],
-    ControlOpCode.getCalibration ||
-    ControlOpCode.removeCalibrationPoint => [5, 4, ...encodeFloat32(0.08)],
+    ControlOpCode.getCalibration => [5, 4, ...encodeFloat32(0.08)],
     ControlOpCode.getSampleRate => [7, 2, ...encodeUint16(80)],
     _ => null,
   };

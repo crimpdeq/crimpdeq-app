@@ -27,12 +27,20 @@ enum CalibrationPointResult {
   disconnected,
 }
 
-enum CalibrationPointRemoval { removed, kept, sendFailed, disconnected }
+enum CalibrationPointRemoval {
+  removed,
+  rejected,
+  unsupported,
+  sendFailed,
+  disconnected,
+}
 
 @riverpod
 class ProgressorNotifier extends _$ProgressorNotifier {
   static const _uiUpdateInterval = Duration(milliseconds: 66);
   static const _commandResponseTimeout = Duration(seconds: 2);
+  // The removal answer follows the new factor and up to 19 points.
+  static const _removalResponseTimeout = Duration(seconds: 5);
   static const _batteryPollInterval = Duration(minutes: 1);
   // The firmware sends the samples taken before a tare, then pauses 200 ms to
   // tare. Clearing after that keeps those samples out of the new window.
@@ -79,9 +87,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   // Steady reading of the last point sent, in tared ADC counts, to catch a
   // weight that was not hung.
   ({double weightKg, double counts})? _lastPointReading;
-  // Completed by the next calibration factor, which the device sends only once
-  // it removed a point.
-  Completer<void>? _calibrationFactorReceived;
+  // Completed with whether the device removed the requested point.
+  Completer<bool>? _pointRemoved;
 
   @override
   ProgressorState build() {
@@ -400,12 +407,18 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       case CalibrationFactor(:final factor):
         // The stored points follow the factor.
         state = state.copyWith.calibration(factor: factor, points: const []);
-        _calibrationFactorReceived?.complete();
-        _calibrationFactorReceived = null;
       case CalibrationPointMessage(:final raw, :final weightKg):
         state = state.copyWith.calibration(
           points: [...state.calibration.points, (raw: raw, weightKg: weightKg)],
         );
+      case CalibrationPointRemoved(:final removed):
+        final pointRemoved = _pointRemoved;
+        if (pointRemoved == null) {
+          _log('Ignoring unrequested calibration point removal: $removed');
+          return;
+        }
+        _pointRemoved = null;
+        pointRemoved.complete(removed);
       case SampleRate(:final samplesPerSecond):
         state = state.copyWith.deviceInfo(sampleRate: samplesPerSecond);
       case BatteryStatus(:final percent, :final charging):
@@ -765,9 +778,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   /// Removes the point at [index] from the device, which refits the factor to
-  /// the remaining points. The device answers with the new calibration, and
-  /// stays silent when it keeps the point: firmware without the command, or
-  /// remaining points that give an implausible factor.
+  /// the remaining points and answers after sending the new calibration.
+  /// Firmware without the command does not answer.
   Future<CalibrationPointRemoval> removeCalibrationPoint(int index) async {
     if (state.calibration.waitingForSteadyLoad ||
         state.calibration.removingPoint) {
@@ -775,20 +787,20 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
 
     state = state.copyWith.calibration(removingPoint: true);
-    final factorReceived = _calibrationFactorReceived = Completer<void>();
+    final pointRemoved = _pointRemoved = Completer<bool>();
     try {
       if (!await _send(ControlOpCode.removeCalibrationPoint, [index])) {
         return CalibrationPointRemoval.sendFailed;
       }
-      await factorReceived.future.timeout(_commandResponseTimeout);
+      if (!await pointRemoved.future.timeout(_removalResponseTimeout)) {
+        return CalibrationPointRemoval.rejected;
+      }
     } on TimeoutException {
       return state.connection.isConnected
-          ? CalibrationPointRemoval.kept
+          ? CalibrationPointRemoval.unsupported
           : CalibrationPointRemoval.disconnected;
     } finally {
-      if (_calibrationFactorReceived == factorReceived) {
-        _calibrationFactorReceived = null;
-      }
+      if (_pointRemoved == pointRemoved) _pointRemoved = null;
       state = state.copyWith.calibration(removingPoint: false);
     }
     // The previous reading may belong to the removed point.

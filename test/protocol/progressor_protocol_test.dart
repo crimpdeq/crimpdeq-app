@@ -132,6 +132,18 @@ void main() {
       );
     });
 
+    test('decodes the calibration point removal', () {
+      final removed = decodeMessage((code: 9, payload: _bytes([1])));
+      final kept = decodeMessage((code: 9, payload: _bytes([0])));
+
+      expect((removed as CalibrationPointRemoved).removed, isTrue);
+      expect((kept as CalibrationPointRemoved).removed, isFalse);
+      expect(
+        () => decodeMessage((code: 9, payload: _bytes([1, 0]))),
+        throwsFormatException,
+      );
+    });
+
     test('keeps command responses raw', () {
       final message = decodeMessage((code: 0, payload: _bytes([0x48, 0x0D])));
 
