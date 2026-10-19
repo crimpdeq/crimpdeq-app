@@ -1,6 +1,6 @@
 # Crimpdeq App
 
-A Flutter development app for calibrating, testing and communicating with [Crimpdeq](https://crimpdeq.com).
+A Flutter app for calibrating, testing and communicating with [Crimpdeq](https://crimpdeq.com). Use it in the browser at [app.crimpdeq.com](https://app.crimpdeq.com).
 
 ## Features
 
@@ -15,10 +15,10 @@ A Flutter development app for calibrating, testing and communicating with [Crimp
 
 ## Released Apps
 
-The app is also available via [GitHub Releases](https://github.com/crimpdeq/crimpdeq-app/releases), there you can find Android, Windows, Linux and macOS versions of the app withough building it yourself.
+The web app at [app.crimpdeq.com](https://app.crimpdeq.com) needs no installation. [GitHub Releases](https://github.com/crimpdeq/crimpdeq-app/releases) also include Android, Windows, Linux and macOS builds, so you don't need to build the app yourself.
 
 ## App Development
-As a normal user, you wont need any of this section, this is just meant for the app developers.
+This section is for app developers; you don't need it to use the app.
 
 ### Prerequisites
 
@@ -32,7 +32,7 @@ As a normal user, you wont need any of this section, this is just meant for the 
 #### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/frez-dong/crimpdeq-app.git
+git clone https://github.com/crimpdeq/crimpdeq-app.git
 cd crimpdeq-app
 ```
 
@@ -139,69 +139,26 @@ dart run flutter_launcher_icons
 
 This uses the `flutter_launcher_icons` configuration in `pubspec.yaml` to update Android, iOS, macOS, Windows, Linux, and Web assets.
 
-## GitHub Pages Deployment
+## Web Deployment
 
-This project uses a Makefile for easy building and deployment to GitHub Pages.
+Creating a GitHub Release runs `.github/workflows/release.yml`, which builds the native apps
+and publishes the web app to [app.crimpdeq.com](https://app.crimpdeq.com) on Cloudflare Pages
+(project `crimpdeq-app`). Web Bluetooth needs HTTPS, which Cloudflare Pages provides.
 
-### Initial Setup (One-time)
-
-1. **Setup GitHub Pages**:
-
-   ```bash
-   make setup-pages
-   ```
-
-   Follow the instructions displayed to configure GitHub Pages in your repository settings.
-
-2. **Install Dependencies**:
-   ```bash
-   make install
-   ```
-
-### Deploy
-
-Deploy to GitHub Pages with a single command:
+To build and serve the web app locally:
 
 ```bash
-make deploy
+make install       # Install dependencies and generate code
+make dev           # Run in Chrome
+make serve-local   # Build into dist/ and serve it on http://localhost:8000
 ```
-
-This will:
-
-- Clean and build the web app
-- Switch to `gh-pages` branch
-- Copy build files to the branch root
-- Commit and push to GitHub
-- Switch back to `main` branch
-- Show your app URL
-
-### Available Commands
-
-```bash
-make help          # Show all available commands
-make install       # Install Flutter dependencies
-make build         # Build for production (GitHub Pages)
-make build-local   # Build for local testing
-make dev           # Run development server (Chrome)
-make dev-server    # Run development server (web-server)
-make serve-local   # Serve built app locally
-make clean         # Clean build files
-make clean-pages   # Clean and reset gh-pages branch
-make check         # Check Flutter/Dart versions
-make deploy        # Build and deploy to GitHub Pages
-```
-
-### HTTPS Requirement
-
-- GitHub Pages provides HTTPS by default
-- This is required for Web Bluetooth functionality
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Bluetooth not working**: Ensure Bluetooth is enabled and necessary permissions are granted
-2. **Device not found**: Make sure the Crimpdeq device is powered on and in pairing mode and also verify that the service UUID in the app matches the Crimpdeq firmware configuration
+2. **Device not found**: Make sure the Crimpdeq device is powered on and advertising (blue status LED), and verify that the service UUID in the app matches the Crimpdeq firmware configuration
    - ServiceUUID: `7e4e1701-1ea6-40c9-9dcc-13d34ffead57`
 3. **Connection issues**: Try restarting both the app and the device
 
@@ -214,7 +171,7 @@ make deploy        # Build and deploy to GitHub Pages
 
 ## Contributing
 
-This is a development tool for the Crimpdeq project. Feel free to:
+Contributions are welcome. Feel free to:
 
 - Report bugs and issues
 - Suggest improvements
@@ -223,8 +180,8 @@ This is a development tool for the Crimpdeq project. Feel free to:
 ## Related Projects
 
 - [Crimpdeq Firmware](https://github.com/crimpdeq/crimpdeq-firmware) - Rust firmware for the device
-- [Crimpdeq Book](https://crimpdeq.github.io/book/) - Complete documentation
+- [Crimpdeq Book](https://book.crimpdeq.com) - Complete documentation
 
 ## License
 
-This project follows the same licensing as the main Crimpdeq project.
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE2) or [MIT license](LICENSE-MIT), at your option.
