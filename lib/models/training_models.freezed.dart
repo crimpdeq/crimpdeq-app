@@ -15,7 +15,8 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$WorkoutPlan {
 
- String get tool; Hand get hand; CurveSection get section; double get benchmarkKg; int get firstHangSeconds; int get reps; int get restSeconds;
+ String get tool; Hand get hand; CurveSection get section; double get benchmarkKg; int get firstHangSeconds; int get reps; int get restSeconds;/// Null follows the section's rep ratios.
+ EnergySystems? get energySystems;
 /// Create a copy of WorkoutPlan
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +28,20 @@ $WorkoutPlanCopyWith<WorkoutPlan> get copyWith => _$WorkoutPlanCopyWithImpl<Work
 @override
 bool operator ==(Object other) {
   final _this = this as WorkoutPlan;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkoutPlan&&(identical(other.tool, _this.tool) || other.tool == _this.tool)&&(identical(other.hand, _this.hand) || other.hand == _this.hand)&&(identical(other.section, _this.section) || other.section == _this.section)&&(identical(other.benchmarkKg, _this.benchmarkKg) || other.benchmarkKg == _this.benchmarkKg)&&(identical(other.firstHangSeconds, _this.firstHangSeconds) || other.firstHangSeconds == _this.firstHangSeconds)&&(identical(other.reps, _this.reps) || other.reps == _this.reps)&&(identical(other.restSeconds, _this.restSeconds) || other.restSeconds == _this.restSeconds));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkoutPlan&&(identical(other.tool, _this.tool) || other.tool == _this.tool)&&(identical(other.hand, _this.hand) || other.hand == _this.hand)&&(identical(other.section, _this.section) || other.section == _this.section)&&(identical(other.benchmarkKg, _this.benchmarkKg) || other.benchmarkKg == _this.benchmarkKg)&&(identical(other.firstHangSeconds, _this.firstHangSeconds) || other.firstHangSeconds == _this.firstHangSeconds)&&(identical(other.reps, _this.reps) || other.reps == _this.reps)&&(identical(other.restSeconds, _this.restSeconds) || other.restSeconds == _this.restSeconds)&&(identical(other.energySystems, _this.energySystems) || other.energySystems == _this.energySystems));
 }
 
 
 @override
 int get hashCode {
   final _this = this as WorkoutPlan;
-  return Object.hash(runtimeType,_this.tool,_this.hand,_this.section,_this.benchmarkKg,_this.firstHangSeconds,_this.reps,_this.restSeconds);
+  return Object.hash(runtimeType,_this.tool,_this.hand,_this.section,_this.benchmarkKg,_this.firstHangSeconds,_this.reps,_this.restSeconds,_this.energySystems);
 }
 
 @override
 String toString() {
   final _this = this as WorkoutPlan;
-  return 'WorkoutPlan(tool: ${_this.tool}, hand: ${_this.hand}, section: ${_this.section}, benchmarkKg: ${_this.benchmarkKg}, firstHangSeconds: ${_this.firstHangSeconds}, reps: ${_this.reps}, restSeconds: ${_this.restSeconds})';
+  return 'WorkoutPlan(tool: ${_this.tool}, hand: ${_this.hand}, section: ${_this.section}, benchmarkKg: ${_this.benchmarkKg}, firstHangSeconds: ${_this.firstHangSeconds}, reps: ${_this.reps}, restSeconds: ${_this.restSeconds}, energySystems: ${_this.energySystems})';
 }
 
 
@@ -51,7 +52,7 @@ abstract mixin class $WorkoutPlanCopyWith<$Res>  {
   factory $WorkoutPlanCopyWith(WorkoutPlan value, $Res Function(WorkoutPlan) _then) = _$WorkoutPlanCopyWithImpl;
 @useResult
 $Res call({
- String tool, Hand hand, CurveSection section, double benchmarkKg, int firstHangSeconds, int reps, int restSeconds
+ String tool, Hand hand, CurveSection section, double benchmarkKg, int firstHangSeconds, int reps, int restSeconds, EnergySystems? energySystems
 });
 
 
@@ -68,7 +69,7 @@ class _$WorkoutPlanCopyWithImpl<$Res>
 
 /// Create a copy of WorkoutPlan
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? tool = null,Object? hand = null,Object? section = null,Object? benchmarkKg = null,Object? firstHangSeconds = null,Object? reps = null,Object? restSeconds = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? tool = null,Object? hand = null,Object? section = null,Object? benchmarkKg = null,Object? firstHangSeconds = null,Object? reps = null,Object? restSeconds = null,Object? energySystems = freezed,}) {
   return _then(WorkoutPlan(
 tool: null == tool ? _self.tool : tool // ignore: cast_nullable_to_non_nullable
 as String,hand: null == hand ? _self.hand : hand // ignore: cast_nullable_to_non_nullable
@@ -77,7 +78,8 @@ as CurveSection,benchmarkKg: null == benchmarkKg ? _self.benchmarkKg : benchmark
 as double,firstHangSeconds: null == firstHangSeconds ? _self.firstHangSeconds : firstHangSeconds // ignore: cast_nullable_to_non_nullable
 as int,reps: null == reps ? _self.reps : reps // ignore: cast_nullable_to_non_nullable
 as int,restSeconds: null == restSeconds ? _self.restSeconds : restSeconds // ignore: cast_nullable_to_non_nullable
-as int,
+as int,energySystems: freezed == energySystems ? _self.energySystems : energySystems // ignore: cast_nullable_to_non_nullable
+as EnergySystems?,
   ));
 }
 
@@ -159,10 +161,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String tool,  Hand hand,  CurveSection section,  double benchmarkKg,  int firstHangSeconds,  int reps,  int restSeconds)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String tool,  Hand hand,  CurveSection section,  double benchmarkKg,  int firstHangSeconds,  int reps,  int restSeconds,  EnergySystems? energySystems)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _WorkoutPlan() when $default != null:
-return $default(_that.tool,_that.hand,_that.section,_that.benchmarkKg,_that.firstHangSeconds,_that.reps,_that.restSeconds);case _:
+return $default(_that.tool,_that.hand,_that.section,_that.benchmarkKg,_that.firstHangSeconds,_that.reps,_that.restSeconds,_that.energySystems);case _:
   return orElse();
 
 }
@@ -180,10 +182,10 @@ return $default(_that.tool,_that.hand,_that.section,_that.benchmarkKg,_that.firs
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String tool,  Hand hand,  CurveSection section,  double benchmarkKg,  int firstHangSeconds,  int reps,  int restSeconds)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String tool,  Hand hand,  CurveSection section,  double benchmarkKg,  int firstHangSeconds,  int reps,  int restSeconds,  EnergySystems? energySystems)  $default,) {final _that = this;
 switch (_that) {
 case _WorkoutPlan():
-return $default(_that.tool,_that.hand,_that.section,_that.benchmarkKg,_that.firstHangSeconds,_that.reps,_that.restSeconds);}
+return $default(_that.tool,_that.hand,_that.section,_that.benchmarkKg,_that.firstHangSeconds,_that.reps,_that.restSeconds,_that.energySystems);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -197,10 +199,10 @@ return $default(_that.tool,_that.hand,_that.section,_that.benchmarkKg,_that.firs
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String tool,  Hand hand,  CurveSection section,  double benchmarkKg,  int firstHangSeconds,  int reps,  int restSeconds)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String tool,  Hand hand,  CurveSection section,  double benchmarkKg,  int firstHangSeconds,  int reps,  int restSeconds,  EnergySystems? energySystems)?  $default,) {final _that = this;
 switch (_that) {
 case _WorkoutPlan() when $default != null:
-return $default(_that.tool,_that.hand,_that.section,_that.benchmarkKg,_that.firstHangSeconds,_that.reps,_that.restSeconds);case _:
+return $default(_that.tool,_that.hand,_that.section,_that.benchmarkKg,_that.firstHangSeconds,_that.reps,_that.restSeconds,_that.energySystems);case _:
   return null;
 
 }
@@ -212,7 +214,7 @@ return $default(_that.tool,_that.hand,_that.section,_that.benchmarkKg,_that.firs
 
 
 class _WorkoutPlan extends WorkoutPlan {
-  const _WorkoutPlan({required this.tool, required this.hand, required this.section, required this.benchmarkKg, required this.firstHangSeconds, required this.reps, required this.restSeconds}): super._();
+  const _WorkoutPlan({required this.tool, required this.hand, required this.section, required this.benchmarkKg, required this.firstHangSeconds, required this.reps, required this.restSeconds, this.energySystems}): super._();
   
 
 @override final  String tool;
@@ -222,6 +224,8 @@ class _WorkoutPlan extends WorkoutPlan {
 @override final  int firstHangSeconds;
 @override final  int reps;
 @override final  int restSeconds;
+/// Null follows the section's rep ratios.
+@override final  EnergySystems? energySystems;
 
 /// Create a copy of WorkoutPlan
 /// with the given fields replaced by the non-null parameter values.
@@ -233,18 +237,18 @@ _$WorkoutPlanCopyWith<_WorkoutPlan> get copyWith => __$WorkoutPlanCopyWithImpl<_
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkoutPlan&&(identical(other.tool, tool) || other.tool == tool)&&(identical(other.hand, hand) || other.hand == hand)&&(identical(other.section, section) || other.section == section)&&(identical(other.benchmarkKg, benchmarkKg) || other.benchmarkKg == benchmarkKg)&&(identical(other.firstHangSeconds, firstHangSeconds) || other.firstHangSeconds == firstHangSeconds)&&(identical(other.reps, reps) || other.reps == reps)&&(identical(other.restSeconds, restSeconds) || other.restSeconds == restSeconds));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkoutPlan&&(identical(other.tool, tool) || other.tool == tool)&&(identical(other.hand, hand) || other.hand == hand)&&(identical(other.section, section) || other.section == section)&&(identical(other.benchmarkKg, benchmarkKg) || other.benchmarkKg == benchmarkKg)&&(identical(other.firstHangSeconds, firstHangSeconds) || other.firstHangSeconds == firstHangSeconds)&&(identical(other.reps, reps) || other.reps == reps)&&(identical(other.restSeconds, restSeconds) || other.restSeconds == restSeconds)&&(identical(other.energySystems, energySystems) || other.energySystems == energySystems));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,tool,hand,section,benchmarkKg,firstHangSeconds,reps,restSeconds);
+    return Object.hash(runtimeType,tool,hand,section,benchmarkKg,firstHangSeconds,reps,restSeconds,energySystems);
 }
 
 @override
 String toString() {
-    return 'WorkoutPlan(tool: $tool, hand: $hand, section: $section, benchmarkKg: $benchmarkKg, firstHangSeconds: $firstHangSeconds, reps: $reps, restSeconds: $restSeconds)';
+    return 'WorkoutPlan(tool: $tool, hand: $hand, section: $section, benchmarkKg: $benchmarkKg, firstHangSeconds: $firstHangSeconds, reps: $reps, restSeconds: $restSeconds, energySystems: $energySystems)';
 }
 
 
@@ -255,7 +259,7 @@ abstract mixin class _$WorkoutPlanCopyWith<$Res> implements $WorkoutPlanCopyWith
   factory _$WorkoutPlanCopyWith(_WorkoutPlan value, $Res Function(_WorkoutPlan) _then) = __$WorkoutPlanCopyWithImpl;
 @override @useResult
 $Res call({
- String tool, Hand hand, CurveSection section, double benchmarkKg, int firstHangSeconds, int reps, int restSeconds
+ String tool, Hand hand, CurveSection section, double benchmarkKg, int firstHangSeconds, int reps, int restSeconds, EnergySystems? energySystems
 });
 
 
@@ -272,7 +276,7 @@ class __$WorkoutPlanCopyWithImpl<$Res>
 
 /// Create a copy of WorkoutPlan
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? tool = null,Object? hand = null,Object? section = null,Object? benchmarkKg = null,Object? firstHangSeconds = null,Object? reps = null,Object? restSeconds = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? tool = null,Object? hand = null,Object? section = null,Object? benchmarkKg = null,Object? firstHangSeconds = null,Object? reps = null,Object? restSeconds = null,Object? energySystems = freezed,}) {
   return _then(_WorkoutPlan(
 tool: null == tool ? _self.tool : tool // ignore: cast_nullable_to_non_nullable
 as String,hand: null == hand ? _self.hand : hand // ignore: cast_nullable_to_non_nullable
@@ -281,7 +285,8 @@ as CurveSection,benchmarkKg: null == benchmarkKg ? _self.benchmarkKg : benchmark
 as double,firstHangSeconds: null == firstHangSeconds ? _self.firstHangSeconds : firstHangSeconds // ignore: cast_nullable_to_non_nullable
 as int,reps: null == reps ? _self.reps : reps // ignore: cast_nullable_to_non_nullable
 as int,restSeconds: null == restSeconds ? _self.restSeconds : restSeconds // ignore: cast_nullable_to_non_nullable
-as int,
+as int,energySystems: freezed == energySystems ? _self.energySystems : energySystems // ignore: cast_nullable_to_non_nullable
+as EnergySystems?,
   ));
 }
 

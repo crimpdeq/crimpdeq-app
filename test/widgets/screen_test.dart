@@ -513,21 +513,17 @@ void main() {
 
     await select(DropdownButton<String>, 'Photon');
     await select(DropdownButton<Hand>, 'Right');
-    expect(find.text('Endurance · suggested'), findsOneWidget);
-    expect(
-      find.text('Target force: 6.8 kg (benchmark 30.0 kg)'),
-      findsOneWidget,
-    );
-    expect(
-      find.text('Rep targets: 193 s · 55 s · 43 s · 39 s'),
-      findsOneWidget,
-    );
+    expect(find.text('Workout Type: Endurance'), findsOneWidget);
+    expect(find.text('Endurance (0) · suggested'), findsOneWidget);
+    expect(find.text('Force: 6.8 kg'), findsOneWidget);
+    expect(find.text('First hang: 193 s'), findsOneWidget);
+    expect(find.text('No Endurance sessions yet.'), findsOneWidget);
 
-    await tester.tap(find.text('Power'));
+    await tester.ensureVisible(find.text('Power (0)'));
+    await tester.tap(find.text('Power (0)'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('Target force: 20.0 kg (benchmark 30.0 kg)'),
-      findsOneWidget,
-    );
+    expect(find.text('Workout Type: Power'), findsOneWidget);
+    expect(find.text('Force: 20.0 kg'), findsOneWidget);
+    expect(find.text('Reps: 6'), findsOneWidget);
   });
 }

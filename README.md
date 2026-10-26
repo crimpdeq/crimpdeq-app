@@ -11,8 +11,8 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
 - Battery voltage and estimated state of charge, with a low battery warning
 - Data visualization with charts
 - [OpenGrips](https://opengrips.xyz) training with the Crimpdeq as the weight: 5-second-max benchmarks,
-  suggested workouts on the OpenGrips force curve, a timer whose hangs follow the measured force, and
-  a workout history stored on the device
+  suggested workout types with their target and force curve graphs, the energy-system configuration,
+  a timer whose hangs follow the measured force, and a workout history stored on the device
 - Compatible with Tindeq Progressor API
 - Cross-platform support (Android, macOS, Windows, Linux, Web)
 

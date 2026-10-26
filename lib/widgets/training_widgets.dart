@@ -1,4 +1,3 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +6,7 @@ import '../analysis/opengrips_curve.dart';
 import '../models/training_models.dart';
 import '../providers/progressor_provider.dart';
 import '../providers/training_provider.dart';
+import 'training_charts.dart';
 
 /// OpenGrips training with the Crimpdeq as the weight: benchmarks, the
 /// workout timer and the workout history.
@@ -210,9 +210,12 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
       );
     }
 
-    final suggested = suggestSection([
+    final workouts = [
       for (final workout in log.workouts)
-        if (workout.tool == tool && workout.hand == hand) ?workout.curvePoint,
+        if (workout.tool == tool && workout.hand == hand) ?workout.withPoint,
+    ];
+    final suggested = suggestSection([
+      for (final (_, point) in workouts) point,
     ], benchmark.forceKg);
     final section = _section ?? suggested;
     final plan =
@@ -224,6 +227,18 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
           benchmarkKg: benchmark.forceKg,
         );
     void update(WorkoutPlan plan) => setState(() => _plan = plan);
+    final energySystems = clampEnergySystems(
+      plan.energySystems ?? section.energySystems,
+    );
+    void updateEnergySystems(EnergySystems systems) =>
+        update(plan.copyWith(energySystems: clampEnergySystems(systems)));
+    final powerEndurance = powerEnduranceRange(energySystems.endurance);
+    final power = powerRange(energySystems.powerEndurance);
+    final sessions = [
+      for (final (workout, point) in workouts.reversed)
+        if (CurveSection.of(point.forceKg, benchmark.forceKg) == section)
+          workout,
+    ];
     final benchmarkRecording = ref.watch(
       benchmarkRecorderProvider.select((recording) => recording.recording),
     );
@@ -232,7 +247,33 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ...children,
-        Text('Workout type', style: textTheme.titleSmall),
+        Text('Target Workout Graph', style: textTheme.titleSmall),
+        const SizedBox(height: 8),
+        TargetWorkoutGraph(targets: plan.targets(), section: section),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 16,
+          runSpacing: 4,
+          children: [
+            Text('Force: ${_kg(plan.targetForceKg)}'),
+            Text('First hang: ${plan.firstHangSeconds} s'),
+            Text('Reps: ${plan.reps}'),
+            Text('Total time: ${_clock(plan.totalSeconds)}'),
+          ],
+        ),
+        Text(
+          'The force is ${(plan.targetForceKg / benchmark.forceKg * 100).round()}% '
+          'of your ${_kg(benchmark.forceKg)} benchmark.',
+          style: textTheme.bodySmall,
+        ),
+        const SizedBox(height: 16),
+        Text('Workout Type: ${section.label}', style: textTheme.titleSmall),
+        Text(
+          'Suggested from your history: the type with the fewest workouts, '
+          'then the one whose first hangs fall furthest below the ideal '
+          'force curve.',
+          style: textTheme.bodySmall,
+        ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -240,12 +281,13 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
           children: [
             for (final option in CurveSection.values)
               ChoiceChip(
+                avatar: Icon(Icons.circle, color: sectionColors[option]),
                 label: Text(
-                  option == suggested
-                      ? '${option.label} · suggested'
-                      : option.label,
+                  '${option.label} (${workouts.where((entry) => CurveSection.of(entry.$2.forceKg, benchmark.forceKg) == option).length})'
+                  '${option == suggested ? ' · suggested' : ''}',
                 ),
                 selected: option == section,
+                showCheckmark: false,
                 onSelected: (_) => setState(() {
                   _section = option;
                   _plan = null;
@@ -253,45 +295,111 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
               ),
           ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Suggested from your history: the type with the fewest workouts, '
-          'then the one whose first hangs fall furthest below the ideal '
-          'force curve.',
-          style: textTheme.bodySmall,
+        const SizedBox(height: 8),
+        if (sessions.isEmpty)
+          Text('No ${section.label} sessions yet.', style: textTheme.bodySmall)
+        else
+          for (final workout in sessions)
+            Text(
+              '${_date(workout.date)} · ${_kg(workout.forceKg!)} · '
+              '${_duration(workout.meanHangSeconds.round())} average hang',
+              style: textTheme.bodySmall,
+            ),
+        ExpansionTile(
+          title: const Text('Advanced Configuration'),
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: EdgeInsets.zero,
+          expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+          shape: const Border(),
+          children: [
+            Text('Session Settings', style: textTheme.titleSmall),
+            _SliderRow(
+              label: 'First hang target: ${plan.firstHangSeconds} s',
+              value: plan.firstHangSeconds.toDouble(),
+              range: (min: 10, max: 300),
+              step: 1,
+              onChanged: (value) =>
+                  update(plan.copyWith(firstHangSeconds: value.round())),
+            ),
+            _SliderRow(
+              label: 'Reps: ${plan.reps}',
+              value: plan.reps.toDouble(),
+              range: (min: 2, max: 20),
+              step: 1,
+              onChanged: (value) => update(plan.copyWith(reps: value.round())),
+            ),
+            _SliderRow(
+              label: 'Rest between reps: ${plan.restSeconds} s',
+              value: plan.restSeconds.toDouble(),
+              range: (min: 5, max: 60),
+              step: 1,
+              onChanged: (value) =>
+                  update(plan.copyWith(restSeconds: value.round())),
+            ),
+            Text('Energy Systems', style: textTheme.titleSmall),
+            Text(
+              plan.energySystems == null
+                  ? 'The rep targets follow the ${section.label} template. '
+                        'Moving a slider shapes them with these values.'
+                  : 'The rep targets follow these values.',
+              style: textTheme.bodySmall,
+            ),
+            _SliderRow(
+              label:
+                  'Power: ${energySystems.power.toStringAsFixed(2)} '
+                  '(rep 2 target as a fraction of the first hang)',
+              value: energySystems.power,
+              range: power,
+              step: 0.01,
+              onChanged: (value) => updateEnergySystems((
+                power: value,
+                powerEndurance: energySystems.powerEndurance,
+                endurance: energySystems.endurance,
+              )),
+            ),
+            _SliderRow(
+              label:
+                  'Power-Endurance: '
+                  '${energySystems.powerEndurance.toStringAsFixed(2)} '
+                  '(how far the later reps fall)',
+              value: energySystems.powerEndurance,
+              range: powerEndurance,
+              step: 0.01,
+              onChanged: (value) => updateEnergySystems((
+                power: energySystems.power,
+                powerEndurance: value,
+                endurance: energySystems.endurance,
+              )),
+            ),
+            _SliderRow(
+              label:
+                  'Endurance: ${energySystems.endurance.toStringAsFixed(2)} '
+                  '(the tail of the later reps)',
+              value: energySystems.endurance,
+              range: enduranceRange,
+              step: 0.01,
+              onChanged: (value) => updateEnergySystems((
+                power: energySystems.power,
+                powerEndurance: energySystems.powerEndurance,
+                endurance: value,
+              )),
+            ),
+            if (plan.energySystems != null)
+              TextButton(
+                onPressed: () => update(plan.copyWith(energySystems: null)),
+                child: Text('Use the ${section.label} template'),
+              ),
+          ],
+        ),
+        Text('Force Curve Graph', style: textTheme.titleSmall),
+        const SizedBox(height: 8),
+        ForceCurveGraph(
+          benchmarkKg: benchmark.forceKg,
+          section: section,
+          targetForceKg: plan.targetForceKg,
+          workouts: [for (final (_, point) in workouts) point],
         ),
         const SizedBox(height: 12),
-        Text(
-          'Target force: ${_kg(plan.targetForceKg)} '
-          '(benchmark ${_kg(benchmark.forceKg)})',
-          style: textTheme.titleMedium,
-        ),
-        _SliderRow(
-          label: 'First hang target: ${plan.firstHangSeconds} s',
-          value: plan.firstHangSeconds,
-          min: 10,
-          max: 300,
-          onChanged: (value) => update(plan.copyWith(firstHangSeconds: value)),
-        ),
-        _SliderRow(
-          label: 'Reps: ${plan.reps}',
-          value: plan.reps,
-          min: 2,
-          max: 20,
-          onChanged: (value) => update(plan.copyWith(reps: value)),
-        ),
-        _SliderRow(
-          label: 'Rest between reps: ${plan.restSeconds} s',
-          value: plan.restSeconds,
-          min: 5,
-          max: 60,
-          onChanged: (value) => update(plan.copyWith(restSeconds: value)),
-        ),
-        Text(
-          'Rep targets: ${plan.targets().map((seconds) => '$seconds s').join(' · ')}',
-        ),
-        Text('Total time: ${_clock(plan.totalSeconds)}'),
-        const SizedBox(height: 8),
         Text(
           'Tare the Crimpdeq unloaded first. A hang starts when the force '
           'reaches ${(HoldTracker.thresholdRatio * 100).round()}% of the '
@@ -312,20 +420,25 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
   }
 }
 
+/// Seconds as OpenGrips shows hang durations: "45s" or "1:05".
+String _duration(int seconds) => seconds < 60
+    ? '$seconds s'
+    : '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+
 class _SliderRow extends StatelessWidget {
   const _SliderRow({
     required this.label,
     required this.value,
-    required this.min,
-    required this.max,
+    required this.range,
+    required this.step,
     required this.onChanged,
   });
 
   final String label;
-  final int value;
-  final int min;
-  final int max;
-  final ValueChanged<int> onChanged;
+  final double value;
+  final Range range;
+  final double step;
+  final ValueChanged<double> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -334,11 +447,11 @@ class _SliderRow extends StatelessWidget {
       children: [
         Text(label),
         Slider(
-          value: value.toDouble(),
-          min: min.toDouble(),
-          max: max.toDouble(),
-          divisions: max - min,
-          onChanged: (value) => onChanged(value.round()),
+          value: value.clamp(range.min, range.max),
+          min: range.min,
+          max: range.max,
+          divisions: ((range.max - range.min) / step).round(),
+          onChanged: onChanged,
         ),
       ],
     );
@@ -500,68 +613,16 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final workout = ref.watch(workoutProvider);
     final notifier = ref.read(workoutProvider.notifier);
     final targets = workout.targets;
     final actual = workout.actualSeconds;
     final meanForceKg = workout.meanForceKg;
-    LineChartBarData line(
-      List<num> seconds,
-      Color color, {
-      bool dashed = false,
-    }) => LineChartBarData(
-      spots: [
-        for (final (rep, value) in seconds.indexed)
-          FlSpot(rep + 1, value.toDouble()),
-      ],
-      color: color,
-      barWidth: 2.5,
-      dashArray: dashed ? [8, 6] : null,
-      dotData: const FlDotData(show: true),
-    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          height: 180,
-          child: LineChart(
-            LineChartData(
-              minY: 0,
-              lineBarsData: [
-                line(targets, colorScheme.secondary, dashed: true),
-                line(actual, colorScheme.primary),
-              ],
-              titlesData: const FlTitlesData(
-                topTitles: AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                rightTitles: AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
-                ),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(showTitles: true, interval: 1),
-                ),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 36,
-                    // The maximum is the longest hang, so its label would
-                    // overlap the interval labels.
-                    maxIncluded: false,
-                  ),
-                ),
-              ),
-              borderData: FlBorderData(show: false),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Dashed: target · Solid: actual (s)',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        RepResultsGraph(targets: targets, actual: actual),
         const SizedBox(height: 8),
         for (final (rep, seconds) in actual.indexed)
           Text(

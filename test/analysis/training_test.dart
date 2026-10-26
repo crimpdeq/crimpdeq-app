@@ -44,6 +44,62 @@ void main() {
       );
     });
 
+    test('shapes the targets with the energy systems', () {
+      expect(
+        repTargetSeconds(
+          CurveSection.strength,
+          reps: 5,
+          firstHangSeconds: 101,
+          energySystems: (power: 0.52, powerEndurance: 0.27, endurance: 0.15),
+        ),
+        [101, 54, 46, 41, 39],
+      );
+      expect(
+        repTargetSeconds(
+          CurveSection.power,
+          reps: 8,
+          firstHangSeconds: 40,
+          energySystems: (power: 0.3, powerEndurance: 0.17, endurance: 0.05),
+        ),
+        [40, 13, 10, 8, 8, 7, 7, 7],
+      );
+      expect(
+        repTargetSeconds(
+          CurveSection.endurance,
+          reps: 4,
+          firstHangSeconds: 193,
+          firstHangActualSeconds: 150,
+          energySystems: CurveSection.endurance.energySystems,
+        ),
+        [193, 112, 111, 110],
+      );
+    });
+
+    test('bounds each energy system by the previous one', () {
+      expect(powerEnduranceRange(0.15), (min: 0.19, max: 0.37));
+      expect(powerRange(0.27), (min: 0.29, max: 0.79));
+      expect(powerRange(0.17), (min: 0.22, max: 0.73));
+      expect(powerRange(0.37), (min: 0.4, max: 0.85));
+      expect(
+        clampEnergySystems((power: 0.9, powerEndurance: 0.1, endurance: 0.3)),
+        (power: 0.75, powerEndurance: 0.2, endurance: 0.2),
+      );
+      for (final section in CurveSection.values) {
+        expect(
+          clampEnergySystems(section.energySystems),
+          section.energySystems,
+          reason: section.label,
+        );
+      }
+    });
+
+    test('draws the ideal curve from the benchmark to the floor', () {
+      expect(curveFloorKg(30), 1);
+      expect(idealForceKg(5, 30), 30);
+      expect(idealForceKg(7, 30), closeTo(28.9339, 1e-4));
+      expect(idealForceKg(191, 30), closeTo(1.0368, 1e-4));
+    });
+
     test('predicts the ideal first hang', () {
       expect(idealFirstHangSeconds(13.96, 35), 54);
       expect(idealFirstHangSeconds(35, 35), 5);

@@ -133,17 +133,29 @@ class WorkoutRecord {
     'notes': notes,
   };
 
-  /// The workout on the force curve. The first hang is the first one held,
-  /// or the first target when every rep was skipped.
+  /// Hangs held, or the targets when every rep was skipped.
+  List<double> get _hangSeconds {
+    final held = actualSeconds.where((seconds) => seconds > 0).toList();
+    return held.isNotEmpty
+        ? held
+        : [for (final seconds in targetSeconds) seconds.toDouble()];
+  }
+
+  double get meanHangSeconds =>
+      _hangSeconds.reduce((a, b) => a + b) / _hangSeconds.length;
+
+  /// The workout on the force curve, by its first hang.
   CurvePoint? get curvePoint {
     final forceKg = this.forceKg;
     if (forceKg == null) return null;
-    final held = actualSeconds.where((seconds) => seconds > 0);
-    return (
-      forceKg: forceKg,
-      firstHangSeconds: held.firstOrNull ?? targetSeconds.first.toDouble(),
-    );
+    return (forceKg: forceKg, firstHangSeconds: _hangSeconds.first);
   }
+
+  /// The workout with its point, null without one.
+  (WorkoutRecord, CurvePoint)? get withPoint => switch (curvePoint) {
+    final point? => (this, point),
+    null => null,
+  };
 }
 
 @freezed
@@ -158,6 +170,9 @@ sealed class WorkoutPlan with _$WorkoutPlan {
     required int firstHangSeconds,
     required int reps,
     required int restSeconds,
+
+    /// Null follows the section's rep ratios.
+    EnergySystems? energySystems,
   }) = _WorkoutPlan;
 
   /// The section's defaults for a benchmark.
@@ -186,6 +201,7 @@ sealed class WorkoutPlan with _$WorkoutPlan {
     reps: reps,
     firstHangSeconds: firstHangSeconds,
     firstHangActualSeconds: firstHangActualSeconds,
+    energySystems: energySystems,
   );
 
   int get totalSeconds =>
