@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -160,6 +161,13 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   StreamSubscription<List<WeightMeasurement>>? _samples;
   HoldTracker? _hold;
   bool _startedMeasurement = false;
+  // Samples of the current rep since the last trace point.
+  int? _traceStartUs;
+  int? _traceLastUs;
+  // Time of the last trace point since the start of the rep.
+  int? _tracePointUs;
+  double _traceKg = 0;
+  int _traceSamples = 0;
 
   @override
   WorkoutState build() {
@@ -180,7 +188,7 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     _rest(WorkoutPhase.preRest, plan.preRestSeconds);
   }
 
-  /// Times the current hang with the samples.
+  /// Times the current hang with the samples and traces its force.
   void addSamples(List<WeightMeasurement> samples) {
     final hold = _hold;
     if (state.phase != WorkoutPhase.hang || hold == null) return;
@@ -189,11 +197,48 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
       finishRep();
       return;
     }
+    final points = _tracePoints(samples);
     // Publish at the displayed resolution, a tenth of a second.
     final heldSeconds = (hold.heldSeconds * 10).floor() / 10;
-    if (hold.started != state.holding || heldSeconds != state.heldSeconds) {
-      state = state.copyWith(holding: hold.started, heldSeconds: heldSeconds);
+    if (points.isNotEmpty ||
+        hold.started != state.holding ||
+        heldSeconds != state.heldSeconds) {
+      state = state.copyWith(
+        holding: hold.started,
+        heldSeconds: heldSeconds,
+        forceTrace: [...state.forceTrace, ...points],
+      );
     }
+  }
+
+  /// New trace points: the mean force every 0.1 s.
+  List<FlSpot> _tracePoints(List<WeightMeasurement> samples) {
+    final points = <FlSpot>[];
+    for (final sample in samples) {
+      final lastUs = _traceLastUs;
+      // A tare or restart moves the timeline back: continue the trace.
+      if (lastUs != null && sample.timestampUs < lastUs) {
+        _traceStartUs = _traceStartUs! + sample.timestampUs - lastUs;
+      }
+      final startUs = _traceStartUs ??= sample.timestampUs;
+      _traceLastUs = sample.timestampUs;
+      _traceKg += sample.weightKg;
+      _traceSamples++;
+      final sinceStartUs = sample.timestampUs - startUs;
+      final pointUs = _tracePointUs;
+      if (pointUs == null || sinceStartUs - pointUs >= 100000) {
+        points.add(
+          FlSpot(
+            sinceStartUs / Duration.microsecondsPerSecond,
+            _traceKg / _traceSamples,
+          ),
+        );
+        _tracePointUs = sinceStartUs;
+        _traceKg = 0;
+        _traceSamples = 0;
+      }
+    }
+    return points;
   }
 
   /// Ends the current hang with the time held so far.
@@ -276,12 +321,18 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   void _hang(int rep) {
     _restTimer?.cancel();
     _hold = HoldTracker(state.plan!.targetForceKg);
+    _traceStartUs = null;
+    _traceLastUs = null;
+    _tracePointUs = null;
+    _traceKg = 0;
+    _traceSamples = 0;
     state = state.copyWith(
       phase: WorkoutPhase.hang,
       rep: rep,
       paused: false,
       holding: false,
       heldSeconds: 0,
+      forceTrace: const [],
     );
   }
 

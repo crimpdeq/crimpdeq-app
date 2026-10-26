@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../analysis/opengrips_curve.dart';
@@ -229,6 +230,10 @@ sealed class WorkoutState with _$WorkoutState {
     /// The force reached the target in the current rep.
     @Default(false) bool holding,
     @Default(0.0) double heldSeconds,
+
+    /// Force of the current rep over the seconds since its first sample, a
+    /// mean point every 0.1 s.
+    @Default([]) List<FlSpot> forceTrace,
     @Default([]) List<double> actualSeconds,
 
     /// Mean force of each rep, null for a rep not held.

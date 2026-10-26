@@ -5,6 +5,7 @@ import 'package:crimpdeq/models/progressor_models.dart';
 import 'package:crimpdeq/models/training_models.dart';
 import 'package:crimpdeq/providers/progressor_provider.dart';
 import 'package:crimpdeq/providers/training_provider.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -80,6 +81,12 @@ void main() {
     expect(state().rep, 2);
 
     workout.addSamples(_pull(14, 3, 20000));
+    // A new trace for each hang: a mean point every 0.1 s from its first
+    // sample, here one per sample.
+    final trace = state().forceTrace;
+    expect(trace.length, 30);
+    expect(trace.first, const FlSpot(0, 14));
+    expect(trace.last.x, closeTo(2.9, 1e-9));
     workout.finishRep();
     workout.skip();
     expect(state().rep, 3);

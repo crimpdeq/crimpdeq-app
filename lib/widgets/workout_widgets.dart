@@ -373,10 +373,10 @@ class _WorkoutTimer extends ConsumerWidget {
           'Target: ${formatClock(target)} at ${formatKg(plan.targetForceKg)}',
         ),
         const SizedBox(height: 8),
-        LinearProgressIndicator(
-          value: ((currentKg ?? 0) / plan.targetForceKg).clamp(0, 1),
-          minHeight: 10,
-          borderRadius: BorderRadius.circular(5),
+        LiveForceGraph(
+          trace: workout.forceTrace,
+          targetKg: plan.targetForceKg,
+          section: plan.section,
         ),
         const SizedBox(height: 4),
         Text('Force: ${currentKg == null ? '—' : formatKg(currentKg)}'),

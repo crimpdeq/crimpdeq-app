@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../analysis/hold_tracker.dart';
 import '../analysis/opengrips_curve.dart';
 
 /// OpenGrips colors of the curve sections.
@@ -169,6 +170,100 @@ class TargetWorkoutGraph extends StatelessWidget {
           ),
         ),
         _Legend([(color, 'Forecasted')]),
+      ],
+    );
+  }
+}
+
+/// The current rep's force, against the target force and the threshold the
+/// hang counts above.
+class LiveForceGraph extends StatelessWidget {
+  const LiveForceGraph({
+    super.key,
+    required this.trace,
+    required this.targetKg,
+    required this.section,
+  });
+
+  final List<FlSpot> trace;
+  final double targetKg;
+  final CurveSection section;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final targetColor = sectionColors[section]!;
+    final thresholdKg = targetKg * HoldTracker.thresholdRatio;
+    final peakKg = trace.fold(0.0, (peak, spot) => max(peak, spot.y));
+    return Column(
+      children: [
+        SizedBox(
+          height: 200,
+          child: LineChart(
+            duration: Duration.zero,
+            LineChartData(
+              minX: 0,
+              // Grows with the rep, from 10 s.
+              maxX: max(10, trace.lastOrNull?.x ?? 0),
+              minY: 0,
+              maxY: max(targetKg * 1.25, peakKg * 1.1),
+              clipData: const FlClipData.all(),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: trace,
+                  color: colorScheme.primary,
+                  barWidth: 2.5,
+                  dotData: const FlDotData(show: false),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    color: colorScheme.primary.withValues(alpha: 0.12),
+                  ),
+                ),
+              ],
+              extraLinesData: ExtraLinesData(
+                horizontalLines: [
+                  HorizontalLine(
+                    y: targetKg,
+                    color: targetColor,
+                    strokeWidth: 2,
+                  ),
+                  HorizontalLine(
+                    y: thresholdKg,
+                    color: targetColor.withValues(alpha: 0.7),
+                    strokeWidth: 1.5,
+                    dashArray: [6, 4],
+                  ),
+                ],
+              ),
+              lineTouchData: const LineTouchData(enabled: false),
+              titlesData: FlTitlesData(
+                topTitles: _hiddenTitles,
+                rightTitles: _hiddenTitles,
+                leftTitles: _titles(
+                  context,
+                  (value) => '${value.round()} kg',
+                  reservedSize: 44,
+                  maxIncluded: false,
+                ),
+                bottomTitles: _titles(
+                  context,
+                  (value) => '${value.round()} s',
+                  maxIncluded: false,
+                ),
+              ),
+              gridData: _grid(colorScheme),
+              borderData: FlBorderData(show: false),
+            ),
+          ),
+        ),
+        _Legend([
+          (colorScheme.primary, 'Force'),
+          (targetColor, 'Target ${targetKg.toStringAsFixed(1)} kg'),
+          (
+            targetColor.withValues(alpha: 0.7),
+            '${(HoldTracker.thresholdRatio * 100).round()}%: hang counts',
+          ),
+        ]),
       ],
     );
   }
