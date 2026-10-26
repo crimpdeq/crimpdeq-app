@@ -44,6 +44,15 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
   Hand? _hand;
 
   @override
+  void initState() {
+    super.initState();
+    // The latest benchmark's tool and hand, the likeliest next ones.
+    final latest = ref.read(trainingLogProvider).value?.benchmarks.lastOrNull;
+    _tool = latest?.tool;
+    _hand = latest?.hand;
+  }
+
+  @override
   void dispose() {
     _weightKg.dispose();
     _heldSeconds.dispose();

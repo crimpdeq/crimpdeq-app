@@ -10,6 +10,7 @@ import '../analysis/opengrips_curve.dart';
 import '../models/progressor_models.dart';
 import '../models/training_models.dart';
 import 'progressor_provider.dart';
+import 'workout_feedback_provider.dart';
 
 typedef TrainingLog = ({
   List<Benchmark> benchmarks,
@@ -76,6 +77,28 @@ class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
       workouts: workouts ?? log.workouts,
     ));
   }
+}
+
+final workoutSetupProvider =
+    NotifierProvider<WorkoutSetupNotifier, WorkoutSetup>(
+      WorkoutSetupNotifier.new,
+    );
+
+class WorkoutSetupNotifier extends Notifier<WorkoutSetup> {
+  @override
+  WorkoutSetup build() => const WorkoutSetup();
+
+  /// Another tool or hand has its own suggestion and template.
+  void selectTool(String? tool) =>
+      state = WorkoutSetup(tool: tool, hand: state.hand);
+
+  void selectHand(Hand? hand) =>
+      state = WorkoutSetup(tool: state.tool, hand: hand);
+
+  void selectSection(CurveSection section) =>
+      state = state.copyWith(section: section, plan: null);
+
+  void updatePlan(WorkoutPlan plan) => state = state.copyWith(plan: plan);
 }
 
 /// Starts measuring unless the device already is. Returns whether it measures
@@ -167,6 +190,8 @@ final workoutProvider = NotifierProvider<WorkoutNotifier, WorkoutState>(
 );
 
 class WorkoutNotifier extends Notifier<WorkoutState> {
+  late WorkoutFeedback _feedback;
+  bool _screenKeptOn = false;
   Timer? _restTimer;
   StreamSubscription<List<WeightMeasurement>>? _samples;
   HoldTracker? _hold;
@@ -181,7 +206,16 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
 
   @override
   WorkoutState build() {
-    ref.onDispose(_cancel);
+    _feedback = ref.read(workoutFeedbackProvider);
+    ref.onDispose(() {
+      _cancel();
+      if (_screenKeptOn) _feedback.keepScreenOn(false);
+    });
+    listenSelf((_, next) {
+      if (next.isRunning == _screenKeptOn) return;
+      _screenKeptOn = next.isRunning;
+      _feedback.keepScreenOn(_screenKeptOn);
+    });
     ref.listen(
       progressorProvider.select(
         (state) => (
@@ -229,6 +263,10 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     final points = _tracePoints(samples);
     // Publish at the displayed resolution, a tenth of a second.
     final heldSeconds = (hold.heldSeconds * 10).floor() / 10;
+    final target = state.targets[state.rep - 1];
+    if (state.heldSeconds < target && heldSeconds >= target) {
+      _cue(WorkoutCue.go);
+    }
     if (points.isNotEmpty ||
         hold.started != state.holding ||
         heldSeconds != state.heldSeconds) {
@@ -346,17 +384,29 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   void _rest(WorkoutPhase phase, int seconds) {
     _hold = null;
     state = state.copyWith(phase: phase, restRemainingSeconds: seconds);
+    _restCue(seconds);
     _restTimer?.cancel();
     _restTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (state.paused) return;
       if (state.restRemainingSeconds > 1) {
-        state = state.copyWith(
-          restRemainingSeconds: state.restRemainingSeconds - 1,
-        );
+        final remaining = state.restRemainingSeconds - 1;
+        state = state.copyWith(restRemainingSeconds: remaining);
+        _restCue(remaining);
         return;
       }
       _hang(state.phase == WorkoutPhase.preRest ? 1 : state.rep + 1);
     });
+  }
+
+  /// Warns at 5 s of rest left, then counts the last 2 s down.
+  void _restCue(int remaining) {
+    if (remaining == 5) _cue(WorkoutCue.restWarning);
+    if (remaining <= 2) _cue(WorkoutCue.countdown);
+  }
+
+  void _cue(WorkoutCue cue) {
+    if (ref.read(soundsMutedProvider).value ?? false) return;
+    _feedback.play(cue);
   }
 
   void _hang(int rep) {
@@ -375,6 +425,7 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
       heldSeconds: 0,
       forceTrace: const [],
     );
+    _cue(WorkoutCue.go);
   }
 
   void _endRep(double heldSeconds, double? forceKg) {

@@ -684,4 +684,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Photon · Right: 30.0 kg'), findsNothing);
   });
+
+  testWidgets('keeps the workout setup and defaults the benchmark form', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      part: 'Training',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Power (0)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Workout Type: Power'), findsOneWidget);
+
+    await tester.tap(find.text('Benchmarks'));
+    await tester.pumpAndSettle();
+    // The latest benchmark's tool and hand, so a hold saves at once.
+    final save = find.widgetWithText(OutlinedButton, 'Save Hold');
+    await tester.ensureVisible(save);
+    expect(tester.widget<OutlinedButton>(save).onPressed, isNotNull);
+
+    await tester.tap(find.text('Workout'));
+    await tester.pumpAndSettle();
+    expect(find.text('Workout Type: Power'), findsOneWidget);
+  });
 }

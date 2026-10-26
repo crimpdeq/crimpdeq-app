@@ -294,6 +294,297 @@ as EnergySystems?,
 }
 
 /// @nodoc
+mixin _$WorkoutSetup {
+
+ String? get tool; Hand? get hand; CurveSection? get section; WorkoutPlan? get plan;
+/// Create a copy of WorkoutSetup
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$WorkoutSetupCopyWith<WorkoutSetup> get copyWith => _$WorkoutSetupCopyWithImpl<WorkoutSetup>(this as WorkoutSetup, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  final _this = this as WorkoutSetup;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkoutSetup&&(identical(other.tool, _this.tool) || other.tool == _this.tool)&&(identical(other.hand, _this.hand) || other.hand == _this.hand)&&(identical(other.section, _this.section) || other.section == _this.section)&&(identical(other.plan, _this.plan) || other.plan == _this.plan));
+}
+
+
+@override
+int get hashCode {
+  final _this = this as WorkoutSetup;
+  return Object.hash(runtimeType,_this.tool,_this.hand,_this.section,_this.plan);
+}
+
+@override
+String toString() {
+  final _this = this as WorkoutSetup;
+  return 'WorkoutSetup(tool: ${_this.tool}, hand: ${_this.hand}, section: ${_this.section}, plan: ${_this.plan})';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $WorkoutSetupCopyWith<$Res>  {
+  factory $WorkoutSetupCopyWith(WorkoutSetup value, $Res Function(WorkoutSetup) _then) = _$WorkoutSetupCopyWithImpl;
+@useResult
+$Res call({
+ String? tool, Hand? hand, CurveSection? section, WorkoutPlan? plan
+});
+
+
+$WorkoutPlanCopyWith<$Res>? get plan;
+
+}
+/// @nodoc
+class _$WorkoutSetupCopyWithImpl<$Res>
+    implements $WorkoutSetupCopyWith<$Res> {
+  _$WorkoutSetupCopyWithImpl(this._self, this._then);
+
+  final WorkoutSetup _self;
+  final $Res Function(WorkoutSetup) _then;
+
+/// Create a copy of WorkoutSetup
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? tool = freezed,Object? hand = freezed,Object? section = freezed,Object? plan = freezed,}) {
+  return _then(WorkoutSetup(
+tool: freezed == tool ? _self.tool : tool // ignore: cast_nullable_to_non_nullable
+as String?,hand: freezed == hand ? _self.hand : hand // ignore: cast_nullable_to_non_nullable
+as Hand?,section: freezed == section ? _self.section : section // ignore: cast_nullable_to_non_nullable
+as CurveSection?,plan: freezed == plan ? _self.plan : plan // ignore: cast_nullable_to_non_nullable
+as WorkoutPlan?,
+  ));
+}
+/// Create a copy of WorkoutSetup
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$WorkoutPlanCopyWith<$Res>? get plan {
+    if (_self.plan == null) {
+    return null;
+  }
+
+  return $WorkoutPlanCopyWith<$Res>(_self.plan!, (value) {
+    return _then(_self.copyWith(plan: value));
+  });
+}
+}
+
+
+/// Adds pattern-matching-related methods to [WorkoutSetup].
+extension WorkoutSetupPatterns on WorkoutSetup {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _WorkoutSetup value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _WorkoutSetup() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _WorkoutSetup value)  $default,){
+final _that = this;
+switch (_that) {
+case _WorkoutSetup():
+return $default(_that);}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _WorkoutSetup value)?  $default,){
+final _that = this;
+switch (_that) {
+case _WorkoutSetup() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? tool,  Hand? hand,  CurveSection? section,  WorkoutPlan? plan)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _WorkoutSetup() when $default != null:
+return $default(_that.tool,_that.hand,_that.section,_that.plan);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? tool,  Hand? hand,  CurveSection? section,  WorkoutPlan? plan)  $default,) {final _that = this;
+switch (_that) {
+case _WorkoutSetup():
+return $default(_that.tool,_that.hand,_that.section,_that.plan);}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? tool,  Hand? hand,  CurveSection? section,  WorkoutPlan? plan)?  $default,) {final _that = this;
+switch (_that) {
+case _WorkoutSetup() when $default != null:
+return $default(_that.tool,_that.hand,_that.section,_that.plan);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+
+
+class _WorkoutSetup implements WorkoutSetup {
+  const _WorkoutSetup({this.tool, this.hand, this.section, this.plan});
+  
+
+@override final  String? tool;
+@override final  Hand? hand;
+@override final  CurveSection? section;
+@override final  WorkoutPlan? plan;
+
+/// Create a copy of WorkoutSetup
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$WorkoutSetupCopyWith<_WorkoutSetup> get copyWith => __$WorkoutSetupCopyWithImpl<_WorkoutSetup>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkoutSetup&&(identical(other.tool, tool) || other.tool == tool)&&(identical(other.hand, hand) || other.hand == hand)&&(identical(other.section, section) || other.section == section)&&(identical(other.plan, plan) || other.plan == plan));
+}
+
+
+@override
+int get hashCode {
+    return Object.hash(runtimeType,tool,hand,section,plan);
+}
+
+@override
+String toString() {
+    return 'WorkoutSetup(tool: $tool, hand: $hand, section: $section, plan: $plan)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$WorkoutSetupCopyWith<$Res> implements $WorkoutSetupCopyWith<$Res> {
+  factory _$WorkoutSetupCopyWith(_WorkoutSetup value, $Res Function(_WorkoutSetup) _then) = __$WorkoutSetupCopyWithImpl;
+@override @useResult
+$Res call({
+ String? tool, Hand? hand, CurveSection? section, WorkoutPlan? plan
+});
+
+
+@override $WorkoutPlanCopyWith<$Res>? get plan;
+
+}
+/// @nodoc
+class __$WorkoutSetupCopyWithImpl<$Res>
+    implements _$WorkoutSetupCopyWith<$Res> {
+  __$WorkoutSetupCopyWithImpl(this._self, this._then);
+
+  final _WorkoutSetup _self;
+  final $Res Function(_WorkoutSetup) _then;
+
+/// Create a copy of WorkoutSetup
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? tool = freezed,Object? hand = freezed,Object? section = freezed,Object? plan = freezed,}) {
+  return _then(_WorkoutSetup(
+tool: freezed == tool ? _self.tool : tool // ignore: cast_nullable_to_non_nullable
+as String?,hand: freezed == hand ? _self.hand : hand // ignore: cast_nullable_to_non_nullable
+as Hand?,section: freezed == section ? _self.section : section // ignore: cast_nullable_to_non_nullable
+as CurveSection?,plan: freezed == plan ? _self.plan : plan // ignore: cast_nullable_to_non_nullable
+as WorkoutPlan?,
+  ));
+}
+
+/// Create a copy of WorkoutSetup
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$WorkoutPlanCopyWith<$Res>? get plan {
+    if (_self.plan == null) {
+    return null;
+  }
+
+  return $WorkoutPlanCopyWith<$Res>(_self.plan!, (value) {
+    return _then(_self.copyWith(plan: value));
+  });
+}
+}
+
+/// @nodoc
 mixin _$WorkoutState {
 
  WorkoutPlan? get plan; WorkoutPhase get phase;/// Current rep, or the last one during a rest. 1-based.

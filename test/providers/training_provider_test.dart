@@ -6,6 +6,7 @@ import 'package:crimpdeq/models/training_models.dart';
 import 'package:crimpdeq/protocol/progressor_protocol.dart';
 import 'package:crimpdeq/providers/progressor_provider.dart';
 import 'package:crimpdeq/providers/training_provider.dart';
+import 'package:crimpdeq/providers/workout_feedback_provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,9 +60,23 @@ List<WeightMeasurement> _pull(double weightKg, double seconds, int startMs) => [
     ),
 ];
 
+/// Records the cues and the screen instead of using the platform.
+class _Feedback extends WorkoutFeedback {
+  final events = <String>[];
+
+  @override
+  Future<void> play(WorkoutCue cue) async => events.add(cue.name);
+
+  @override
+  Future<void> keepScreenOn(bool on) async => events.add('screen $on');
+}
+
 /// Kept alive like the screen keeps the device state.
-ProviderContainer _measuring() => ProviderContainer(
-  overrides: [progressorProvider.overrideWith(_MeasuringProgressor.new)],
+ProviderContainer _measuring([_Feedback? feedback]) => ProviderContainer(
+  overrides: [
+    progressorProvider.overrideWith(_MeasuringProgressor.new),
+    workoutFeedbackProvider.overrideWithValue(feedback ?? _Feedback()),
+  ],
 )..listen(progressorProvider, (_, _) {});
 
 void main() {
@@ -225,5 +240,45 @@ void main() {
     await container.read(workoutProvider.notifier).stop();
     // Stopping the workout does not restart the measurement.
     expect(device.starts, 1);
+  });
+
+  testWidgets('cues the rests and hangs and keeps the screen on', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final feedback = _Feedback();
+    final container = _measuring(feedback);
+    addTearDown(container.dispose);
+    final workout = container.read(workoutProvider.notifier);
+    final events = feedback.events;
+
+    // A 6 s rest between reps, so its pre-rest lasts 3 s.
+    await workout.start(plan.copyWith(restSeconds: 6, reps: 2));
+    expect(events, ['screen true']);
+    await tester.pump(const Duration(seconds: 3));
+    // 2 and 1 s left, then the hang starts.
+    expect(events.sublist(1), ['countdown', 'countdown', 'go']);
+    events.clear();
+
+    // The 10 s target, reached once.
+    workout.addSamples(_pull(12, 10.2, 0));
+    workout.addSamples(_pull(12, 1, 10200));
+    expect(events, ['go']);
+    workout.addSamples(_pull(0, 1.1, 11200));
+    // The 6 s rest: 5 s left, then 2 and 1 s.
+    await tester.pump(const Duration(seconds: 6));
+    expect(events.sublist(1), ['restWarning', 'countdown', 'countdown', 'go']);
+    events.clear();
+
+    workout.skip();
+    expect(events, ['screen false']);
+
+    await container.read(soundsMutedProvider.notifier).toggle();
+    events.clear();
+    await workout.start(plan);
+    await tester.pump(const Duration(seconds: 10));
+    expect(events, ['screen true']);
+    await workout.stop();
+    expect(events, ['screen true', 'screen false']);
   });
 }

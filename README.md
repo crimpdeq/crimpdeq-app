@@ -13,7 +13,8 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
 - Training, following [OpenGrips](https://opengrips.xyz) with the Crimpdeq as the weight:
   - Benchmarks: 5-second-max pulls or held weights, with personal bests
   - Workout: suggested workout types with their target and force curve graphs, the energy-system
-    configuration, and a timer whose hangs follow the measured force
+    configuration, and a timer whose hangs follow the measured force, with sound cues and the
+    screen kept on
   - History: workouts on the force curve with their per-rep results, stored on the device
 - Debugging: calibration and measurements
 - Compatible with Tindeq Progressor API
@@ -118,6 +119,8 @@ test/                  # Unit and widget tests
 - `fl_chart`: Data visualization
 - `permission_handler`: Opening the app settings
 - `shared_preferences`: Storing the training benchmarks and workouts
+- `audioplayers`: Workout sound cues (needs GStreamer to build for Linux)
+- `wakelock_plus`: Keeping the screen on during a workout
 - `freezed`: Code generation for immutable classes
 
 The Inter and Space Grotesk fonts are bundled in `assets/fonts/` (SIL Open Font License), so the

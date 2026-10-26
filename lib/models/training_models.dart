@@ -215,6 +215,19 @@ sealed class WorkoutPlan with _$WorkoutPlan {
       preRestSeconds;
 }
 
+/// The workout setup choices, kept while switching tabs. Null follows the
+/// default: the latest benchmark's tool and hand, the suggested section and
+/// its template.
+@freezed
+sealed class WorkoutSetup with _$WorkoutSetup {
+  const factory WorkoutSetup({
+    String? tool,
+    Hand? hand,
+    CurveSection? section,
+    WorkoutPlan? plan,
+  }) = _WorkoutSetup;
+}
+
 enum WorkoutPhase { idle, preRest, hang, rest, done }
 
 @freezed

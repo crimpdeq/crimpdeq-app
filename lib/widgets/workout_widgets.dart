@@ -6,6 +6,7 @@ import '../analysis/opengrips_curve.dart';
 import '../models/training_models.dart';
 import '../providers/progressor_provider.dart';
 import '../providers/training_provider.dart';
+import '../providers/workout_feedback_provider.dart';
 import 'training_charts.dart';
 import 'connection_widgets.dart';
 import 'training_common.dart';
@@ -43,28 +44,16 @@ class WorkoutTab extends ConsumerWidget {
   }
 }
 
-class _WorkoutSetup extends ConsumerStatefulWidget {
+class _WorkoutSetup extends ConsumerWidget {
   const _WorkoutSetup({required this.log});
 
   final TrainingLog log;
 
   @override
-  ConsumerState<_WorkoutSetup> createState() => _WorkoutSetupState();
-}
-
-class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
-  // Null follows the latest benchmark, so a new benchmark unlocks workouts.
-  String? _tool;
-  Hand? _hand;
-  // Null follows the suggestion.
-  CurveSection? _section;
-  // Null uses the section defaults.
-  WorkoutPlan? _plan;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
-    final log = widget.log;
+    final setup = ref.watch(workoutSetupProvider);
+    final setupNotifier = ref.read(workoutSetupProvider.notifier);
     final tools = [
       for (final tool in trainingTools)
         if (log.benchmarks.any((benchmark) => benchmark.tool == tool)) tool,
@@ -76,25 +65,18 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
       );
     }
 
+    // The latest benchmark by default, so a new benchmark unlocks workouts.
     final latest = log.benchmarks.last;
-    final tool = _tool ?? latest.tool;
-    final hand = _hand ?? latest.hand;
+    final tool = setup.tool ?? latest.tool;
+    final hand = setup.hand ?? latest.hand;
     final benchmark = bestBenchmark(log.benchmarks, tool, hand);
     final children = <Widget>[
       ToolAndHand(
         tools: tools,
         tool: tool,
         hand: hand,
-        onToolChanged: (tool) => setState(() {
-          _tool = tool;
-          _section = null;
-          _plan = null;
-        }),
-        onHandChanged: (hand) => setState(() {
-          _hand = hand;
-          _section = null;
-          _plan = null;
-        }),
+        onToolChanged: setupNotifier.selectTool,
+        onHandChanged: setupNotifier.selectHand,
       ),
       const SizedBox(height: 12),
     ];
@@ -118,16 +100,17 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
     final suggested = suggestSection([
       for (final (_, point) in workouts) point,
     ], benchmark.forceKg);
-    final section = _section ?? suggested;
+    final section = setup.section ?? suggested;
+    // An edited plan follows the current best benchmark.
     final plan =
-        _plan ??
+        setup.plan?.copyWith(benchmarkKg: benchmark.forceKg) ??
         WorkoutPlan.forSection(
           tool: tool,
           hand: hand,
           section: section,
           benchmarkKg: benchmark.forceKg,
         );
-    void update(WorkoutPlan plan) => setState(() => _plan = plan);
+    final update = setupNotifier.updatePlan;
     final energySystems = clampEnergySystems(
       plan.energySystems ?? section.energySystems,
     );
@@ -148,26 +131,6 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ...children,
-        Text('Target Workout Graph', style: textTheme.titleSmall),
-        const SizedBox(height: 8),
-        TargetWorkoutGraph(targets: plan.targets(), section: section),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 16,
-          runSpacing: 4,
-          children: [
-            Text('Force: ${formatKg(plan.targetForceKg)}'),
-            Text('First hang: ${plan.firstHangSeconds} s'),
-            Text('Reps: ${plan.reps}'),
-            Text('Total time: ${formatClock(plan.totalSeconds)}'),
-          ],
-        ),
-        Text(
-          'The force is ${(plan.targetForceKg / benchmark.forceKg * 100).round()}% '
-          'of your ${formatKg(benchmark.forceKg)} benchmark.',
-          style: textTheme.bodySmall,
-        ),
-        const SizedBox(height: 16),
         Text('Workout Type: ${section.label}', style: textTheme.titleSmall),
         Text(
           'Suggested from your history: the type with the fewest workouts, '
@@ -189,10 +152,7 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
                 ),
                 selected: option == section,
                 showCheckmark: false,
-                onSelected: (_) => setState(() {
-                  _section = option;
-                  _plan = null;
-                }),
+                onSelected: (_) => setupNotifier.selectSection(option),
               ),
           ],
         ),
@@ -206,6 +166,52 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
               '${formatDuration(workout.meanHangSeconds.round())} average hang',
               style: textTheme.bodySmall,
             ),
+        const SizedBox(height: 16),
+        Text('Target Workout Graph', style: textTheme.titleSmall),
+        const SizedBox(height: 8),
+        TargetWorkoutGraph(targets: plan.targets(), section: section),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 16,
+          runSpacing: 4,
+          children: [
+            Text('Force: ${formatKg(plan.targetForceKg)}'),
+            Text('First hang: ${plan.firstHangSeconds} s'),
+            Text('Reps: ${plan.reps}'),
+            Text('Total time: ${formatClock(plan.totalSeconds)}'),
+          ],
+        ),
+        Text(
+          'The force is ${(plan.targetForceKg / benchmark.forceKg * 100).round()}% '
+          'of your ${formatKg(benchmark.forceKg)} benchmark.',
+          style: textTheme.bodySmall,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Tare the Crimpdeq unloaded first. Each hang counts down from its '
+          'target while you pull more than '
+          '${HoldTracker.thresholdKg.toStringAsFixed(0)} kg, and ends a '
+          'second after you let go. Pull close to the target force: the '
+          'force you actually pull is what the workout records.',
+          style: textTheme.bodySmall,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            const TareButton(),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: benchmarkRecording || !watchConnected(ref)
+                    ? null
+                    : () => ref.read(workoutProvider.notifier).start(plan),
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Start Workout'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         ExpansionTile(
           title: const Text('Advanced Configuration'),
           tilePadding: EdgeInsets.zero,
@@ -300,31 +306,6 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
           targetForceKg: plan.targetForceKg,
           workouts: [for (final (_, point) in workouts) point],
         ),
-        const SizedBox(height: 12),
-        Text(
-          'Tare the Crimpdeq unloaded first. Each hang counts down from its '
-          'target while you pull more than '
-          '${HoldTracker.thresholdKg.toStringAsFixed(0)} kg, and ends a '
-          'second after you let go. Pull close to the target force: the '
-          'force you actually pull is what the workout records.',
-          style: textTheme.bodySmall,
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            const TareButton(),
-            const SizedBox(width: 8),
-            Expanded(
-              child: FilledButton.icon(
-                onPressed: benchmarkRecording || !watchConnected(ref)
-                    ? null
-                    : () => ref.read(workoutProvider.notifier).start(plan),
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Start Workout'),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -359,6 +340,23 @@ class _SliderRow extends StatelessWidget {
           onChanged: onChanged,
         ),
       ],
+    );
+  }
+}
+
+/// A reading further from zero, unloaded, offsets every force.
+const _unloadedToleranceKg = 0.5;
+
+class _MuteButton extends ConsumerWidget {
+  const _MuteButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final muted = ref.watch(soundsMutedProvider).value ?? false;
+    return IconButton.outlined(
+      tooltip: muted ? 'Unmute sounds' : 'Mute sounds',
+      onPressed: ref.read(soundsMutedProvider.notifier).toggle,
+      icon: Icon(muted ? Icons.volume_off : Icons.volume_up),
     );
   }
 }
@@ -445,6 +443,12 @@ class _WorkoutTimer extends ConsumerWidget {
             style: textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.error,
             ),
+          )
+        else if ((currentKg ?? 0).abs() > _unloadedToleranceKg)
+          Text(
+            'It reads ${formatKg(currentKg!)} unloaded: tare it, so the '
+            'forces start from zero.',
+            style: textTheme.bodySmall,
           ),
       ];
     }
@@ -467,7 +471,8 @@ class _WorkoutTimer extends ConsumerWidget {
         const SizedBox(height: 8),
         ...details,
         const SizedBox(height: 16),
-        if (hanging)
+        // Before the pull, ending the rep is the same as skipping it.
+        if (hanging && workout.holding)
           FilledButton(
             onPressed: notifier.finishRep,
             child: Text(
@@ -476,7 +481,7 @@ class _WorkoutTimer extends ConsumerWidget {
                   : 'Finished Now',
             ),
           )
-        else
+        else if (!hanging)
           FilledButton.icon(
             onPressed: notifier.togglePause,
             icon: Icon(workout.paused ? Icons.play_arrow : Icons.pause),
@@ -492,6 +497,8 @@ class _WorkoutTimer extends ConsumerWidget {
                 label: const Text('Stop'),
               ),
             ),
+            const SizedBox(width: 8),
+            const _MuteButton(),
             const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton.icon(
