@@ -137,8 +137,8 @@ flutter test
 ```
 
 `integration_test/board_test.dart` runs the app against a device in range: it connects, measures,
-records a benchmark, and runs workouts, including a disconnect and the 1000 SPS sample rate, which
-it restores. It expects the simulated pulls of the
+records a benchmark, and runs workouts, including tares, a disconnect and the 1000 SPS sample rate,
+which it restores. The macOS build migrates the project files in `macos/`; do not commit them. It expects the simulated pulls of the
 [firmware](https://github.com/crimpdeq/crimpdeq-firmware) built with `--features esp-rust-board`:
 
 ```bash

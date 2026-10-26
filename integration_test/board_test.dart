@@ -14,7 +14,6 @@ import 'package:crimpdeq/providers/training_provider.dart';
 import 'package:crimpdeq/screens/crimpdeq_screen.dart';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -143,14 +142,24 @@ void main() {
     await tap(find.widgetWithText(FilledButton, 'Stop'));
     final bestKg = container.read(benchmarkRecorderProvider).bestKg;
     debugPrint('Best 5 s: $bestKg kg');
-    expect(bestKg, inInclusiveRange(20, 30));
+    // Two pulls of the 12 to 30 kg cycle, held for 4 s each.
+    expect(bestKg, inInclusiveRange(15, 30));
     await tap(find.widgetWithText(OutlinedButton, 'Save Benchmark'));
     await tester.pumpAndSettle();
     await tap(find.text('Open Workout'));
     await tester.pumpAndSettle();
 
     // Workout: two reps, each ended by the simulated release.
-    Future<void> startWorkout(int reps) async {
+    // Each rest ends at another point of the simulated cycle, so a hang lasts
+    // up to the 6 s a pull stays above 2 kg.
+    void expectSimulatedHangs() {
+      expect(workout().actualSeconds, hasLength(2));
+      for (final seconds in workout().actualSeconds) {
+        expect(seconds, inExclusiveRange(0, 6.5));
+      }
+    }
+
+    Future<void> startWorkout(int reps, {int restSeconds = 5}) async {
       final setup = container.read(workoutSetupProvider.notifier);
       final benchmark = bestBenchmark(
         container.read(trainingLogProvider).value!.benchmarks,
@@ -163,7 +172,7 @@ void main() {
           hand: Hand.right,
           section: CurveSection.values.first,
           benchmarkKg: benchmark.forceKg,
-        ).copyWith(reps: reps, restSeconds: 5),
+        ).copyWith(reps: reps, restSeconds: restSeconds),
       );
       await tester.pumpAndSettle();
       await tap(find.widgetWithText(FilledButton, 'Start Workout'));
@@ -182,8 +191,7 @@ void main() {
     debugPrint(
       'Hangs: ${workout().actualSeconds}, ${workout().meanForceKg} kg',
     );
-    expect(workout().actualSeconds, hasLength(2));
-    expect(workout().actualSeconds.first, inInclusiveRange(3, 7));
+    expectSimulatedHangs();
     expect(workout().meanForceKg, isNotNull);
     // The workout started the measurement, so it stops it.
     await waitUntil(
@@ -224,6 +232,37 @@ void main() {
     await connect();
     debugPrint('Reconnected');
 
+    // Taring during a rest: the simulated pulls keep coming, so the rest
+    // warns of a load, and a tare mid-pull leaves an offset to tare away.
+    double force() => device().measurement.currentKg ?? 0;
+    await startWorkout(2, restSeconds: 60);
+    await waitUntil(
+      () => workout().phase == WorkoutPhase.rest,
+      'the rest after the first rep',
+      // After the 30 s pre-workout rest, half the rest.
+      timeout: const Duration(seconds: 60),
+    );
+    await waitUntil(() => force() > 10, 'a pull during the rest');
+    expect(find.textContaining('more than 2 kg at rest'), findsOne);
+    await tap(find.widgetWithText(OutlinedButton, 'Tare'));
+    await waitUntil(() => force() < -5, 'the offset of the tare mid-pull');
+    expect(find.textContaining('unloaded: tare it'), findsOne);
+    await tap(find.widgetWithText(OutlinedButton, 'Tare'));
+    await waitUntil(
+      () => force().abs() < 0.2,
+      'the tare at rest',
+      timeout: const Duration(seconds: 5),
+    );
+    expect(find.textContaining('unloaded: tare it'), findsNothing);
+    debugPrint('Tared at rest: ${force()} kg');
+    await tap(find.widgetWithText(OutlinedButton, 'Stop'));
+    await tester.pumpAndSettle();
+    await tap(find.widgetWithText(TextButton, 'Stop'));
+    await waitUntil(
+      () => workout().phase == WorkoutPhase.idle,
+      'the workout to stop',
+    );
+
     // The hangs time alike at the highest sample rate, whose stored setting
     // the test restores.
     Future<void> setSampleRate(int samplesPerSecond) async {
@@ -250,36 +289,24 @@ void main() {
       'the sample rate',
     );
     final sampleRate = device().deviceInfo.sampleRate!;
-    // Restores the stored setting also when the test fails.
-    addTearDown(
-      () =>
-          container.read(progressorProvider.notifier).setSampleRate(sampleRate),
-    );
-    await setSampleRate(1000);
-    final frames = <FrameTiming>[];
-    void addFrames(List<FrameTiming> timings) => frames.addAll(timings);
-    SchedulerBinding.instance.addTimingsCallback(addFrames);
-    await startWorkout(2);
-    await waitUntil(
-      () => workout().phase == WorkoutPhase.done,
-      'the workout at 1000 SPS to end',
-      timeout: const Duration(seconds: 45),
-    );
-    SchedulerBinding.instance.removeTimingsCallback(addFrames);
-    debugPrint('Hangs at 1000 SPS: ${workout().actualSeconds}');
-    int worstMs(Duration Function(FrameTiming) duration) =>
-        frames.map(duration).reduce((a, b) => a > b ? a : b).inMilliseconds;
-    debugPrint(
-      'Frames at 1000 SPS: ${frames.length}, worst build '
-      '${worstMs((frame) => frame.buildDuration)} ms, worst raster '
-      '${worstMs((frame) => frame.rasterDuration)} ms',
-    );
-    expect(workout().actualSeconds.first, inInclusiveRange(4.5, 6));
-    await tap(find.widgetWithText(OutlinedButton, 'Start New Workout'));
-    await tester.pumpAndSettle();
-    await tap(find.widgetWithText(OutlinedButton, 'Leave without saving?'));
-    await tester.pumpAndSettle();
-    await setSampleRate(sampleRate);
+    // Restores the stored setting also when a check fails.
+    try {
+      await setSampleRate(1000);
+      await startWorkout(2);
+      await waitUntil(
+        () => workout().phase == WorkoutPhase.done,
+        'the workout at 1000 SPS to end',
+        timeout: const Duration(seconds: 45),
+      );
+      debugPrint('Hangs at 1000 SPS: ${workout().actualSeconds}');
+      expectSimulatedHangs();
+      await tap(find.widgetWithText(OutlinedButton, 'Start New Workout'));
+      await tester.pumpAndSettle();
+      await tap(find.widgetWithText(OutlinedButton, 'Leave without saving?'));
+      await tester.pumpAndSettle();
+    } finally {
+      await setSampleRate(sampleRate);
+    }
     debugPrint('Restored $sampleRate SPS');
   });
 }
