@@ -526,4 +526,33 @@ void main() {
     expect(find.text('Force: 20.0 kg'), findsOneWidget);
     expect(find.text('Reps: 6'), findsOneWidget);
   });
+  testWidgets('saves a manual benchmark', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await _pumpScreen(tester, ProgressorState(connection: _connected));
+    await tester.tap(find.text('Training'));
+    await tester.pumpAndSettle();
+
+    // The benchmark card has the only tool and hand fields before one exists.
+    await tester.tap(find.byType(DropdownButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Spark').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButton<Hand>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Left').last);
+    await tester.pumpAndSettle();
+
+    final field = find.widgetWithText(TextField, 'Or enter your 5 s max (kg)');
+    await tester.ensureVisible(field);
+    await tester.enterText(field, 'abc');
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Save'));
+    await tester.pump();
+    expect(find.text('Enter a positive force in kg.'), findsOneWidget);
+
+    await tester.enterText(field, '32,5');
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Spark · Left: 32.5 kg'), findsOneWidget);
+    expect(find.textContaining('Record a benchmark below first'), findsNothing);
+  });
 }

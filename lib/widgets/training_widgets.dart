@@ -702,8 +702,38 @@ class _Benchmarks extends ConsumerStatefulWidget {
 }
 
 class _BenchmarksState extends ConsumerState<_Benchmarks> {
+  final _manualKg = TextEditingController();
   String? _tool;
   Hand? _hand;
+
+  @override
+  void dispose() {
+    _manualKg.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save(double forceKg) => ref
+      .read(trainingLogProvider.notifier)
+      .addBenchmark(
+        Benchmark(
+          date: DateTime.now(),
+          tool: _tool!,
+          hand: _hand!,
+          forceKg: forceKg,
+        ),
+      );
+
+  Future<void> _saveManual() async {
+    final forceKg = double.tryParse(_manualKg.text.trim().replaceAll(',', '.'));
+    if (forceKg == null || forceKg <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a positive force in kg.')),
+      );
+      return;
+    }
+    await _save(forceKg);
+    _manualKg.clear();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -773,20 +803,32 @@ class _BenchmarksState extends ConsumerState<_Benchmarks> {
                         hand == null
                     ? null
                     : () async {
-                        await ref
-                            .read(trainingLogProvider.notifier)
-                            .addBenchmark(
-                              Benchmark(
-                                date: DateTime.now(),
-                                tool: tool,
-                                hand: hand,
-                                forceKg: bestKg,
-                              ),
-                            );
+                        await _save(bestKg);
                         recorder.clear();
                       },
                 child: const Text('Save Benchmark'),
               ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _manualKg,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Or enter your 5 s max (kg)',
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton(
+              onPressed: tool == null || hand == null ? null : _saveManual,
+              child: const Text('Save'),
             ),
           ],
         ),
