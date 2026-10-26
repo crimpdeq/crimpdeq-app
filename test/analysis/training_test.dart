@@ -153,30 +153,30 @@ void main() {
   });
 
   group('HoldTracker', () {
-    test('times the hang from reaching 90% of the target to failing', () {
-      final tracker = HoldTracker(10);
-      final samples = _samples([
+    test('counts the time pulling more than 2 kg until released', () {
+      final tracker = HoldTracker();
+      _samples([
         ..._repeat(0, 0.5),
         ..._repeat(10, 3),
-        // A dip under a second counts as hanging.
-        ..._repeat(8, 0.5),
+        // The time of a dip to 2 kg or less does not count.
+        ..._repeat(1.5, 0.5),
         ..._repeat(10, 1),
         ..._repeat(0, 0.9),
-      ]);
-      samples.forEach(tracker.add);
+      ]).forEach(tracker.add);
       expect(tracker.started, isTrue);
       expect(tracker.failed, isFalse);
-      expect(tracker.heldSeconds, closeTo(4.4, 1e-9));
-      expect(tracker.meanKg, closeTo(43 / 4.4, 1e-9));
+      // 2.9 s from the first pulling sample, then 1 s from the end of the dip.
+      expect(tracker.heldSeconds, closeTo(3.9, 1e-9));
+      expect(tracker.meanKg, closeTo(10, 1e-9));
 
       tracker.add(const WeightMeasurement(weightKg: 0, timestampUs: 5900000));
       expect(tracker.failed, isTrue);
-      expect(tracker.heldSeconds, closeTo(4.4, 1e-9));
+      expect(tracker.heldSeconds, closeTo(3.9, 1e-9));
     });
 
-    test('waits for the force to reach the threshold', () {
-      final tracker = HoldTracker(10);
-      _samples(_repeat(8.9, 3)).forEach(tracker.add);
+    test('waits for a pull of more than 2 kg', () {
+      final tracker = HoldTracker();
+      _samples(_repeat(2, 3)).forEach(tracker.add);
       expect(tracker.started, isFalse);
       expect(tracker.failed, isFalse);
       expect(tracker.meanKg, isNull);

@@ -2,31 +2,25 @@ import 'dart:collection';
 
 import '../models/progressor_models.dart';
 
-/// Times a hang on the Crimpdeq, which stands in for a hung weight. A weight
-/// is either lifted or not, while a pull varies, so the hang starts when the
-/// force first reaches 90% of the target and ends when it stays below that
-/// for a second. Dips shorter than that count as hanging.
+/// Times a hang on the Crimpdeq, which stands in for a hung weight. The hang
+/// counts only while the pull is above 2 kg, so it starts with the pull at
+/// any force and ends when the force stays below 2 kg for a second, once
+/// released.
 class HoldTracker {
-  HoldTracker(double targetKg) : thresholdKg = targetKg * thresholdRatio;
-
-  static const thresholdRatio = 0.9;
+  static const thresholdKg = 2.0;
   static const failureUs = 1000000;
-
-  final double thresholdKg;
 
   int? _lastUs;
   int _heldUs = 0;
   double _heldKgUs = 0;
-  // Time and force impulse since the force last reached the threshold.
   int _belowUs = 0;
-  double _belowKgUs = 0;
 
   bool started = false;
   bool failed = false;
 
   double get heldSeconds => _heldUs / Duration.microsecondsPerSecond;
 
-  /// Mean force over the hang, null before it starts.
+  /// Mean force over the time held, null before the hang starts.
   double? get meanKg => _heldUs == 0 ? null : _heldKgUs / _heldUs;
 
   void add(WeightMeasurement sample) {
@@ -37,20 +31,18 @@ class HoldTracker {
         : sample.timestampUs - lastUs;
     _lastUs = sample.timestampUs;
     if (failed) return;
+    final pulling = sample.weightKg > thresholdKg;
     if (!started) {
-      started = sample.weightKg >= thresholdKg;
+      started = pulling;
       return;
     }
-
-    _belowUs += dtUs;
-    _belowKgUs += sample.weightKg * dtUs;
-    if (sample.weightKg >= thresholdKg) {
-      _heldUs += _belowUs;
-      _heldKgUs += _belowKgUs;
+    if (pulling) {
+      _heldUs += dtUs;
+      _heldKgUs += sample.weightKg * dtUs;
       _belowUs = 0;
-      _belowKgUs = 0;
-    } else if (_belowUs >= failureUs) {
-      failed = true;
+    } else {
+      _belowUs += dtUs;
+      failed = _belowUs >= failureUs;
     }
   }
 }

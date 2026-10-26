@@ -288,10 +288,11 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
         ),
         const SizedBox(height: 12),
         Text(
-          'Tare the Crimpdeq unloaded first. A hang starts when the force '
-          'reaches ${(HoldTracker.thresholdRatio * 100).round()}% of the '
-          'target and ends after a second below it, so the timer adapts '
-          'to the hangs you actually hold.',
+          'Tare the Crimpdeq unloaded first. Each hang counts down from its '
+          'target while you pull more than '
+          '${HoldTracker.thresholdKg.toStringAsFixed(0)} kg, and ends a '
+          'second after you let go. Pull close to the target force: the '
+          'force you actually pull is what the workout records.',
           style: textTheme.bodySmall,
         ),
         const SizedBox(height: 12),
@@ -363,12 +364,20 @@ class _WorkoutTimer extends ConsumerWidget {
       final target = targets[workout.rep - 1];
       final remaining = target - workout.heldSeconds;
       title = 'Rep ${workout.rep} of ${plan.reps}';
-      clock = !workout.holding
-          ? 'Pull ≥ ${formatKg(plan.targetForceKg * HoldTracker.thresholdRatio)}'
-          : remaining >= 0
+      // Counts down from the target while pulling, then up past it.
+      clock = remaining >= 0
           ? formatClock(remaining.ceil())
           : '+${formatClock((-remaining).floor())}';
       details = [
+        if (!workout.holding)
+          Text(
+            'Pull more than ${HoldTracker.thresholdKg.toStringAsFixed(0)} kg '
+            'to start the timer',
+            style: textTheme.titleMedium?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            textAlign: TextAlign.center,
+          ),
         Text(
           'Target: ${formatClock(target)} at ${formatKg(plan.targetForceKg)}',
         ),

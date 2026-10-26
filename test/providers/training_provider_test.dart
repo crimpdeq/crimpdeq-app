@@ -61,8 +61,8 @@ void main() {
     expect(state().phase, WorkoutPhase.hang);
     expect(state().rep, 1);
 
-    // 11.97 kg target, so the hang starts at 10.77 kg.
-    workout.addSamples(_pull(5, 1, 0));
+    // The hang starts with a pull of more than 2 kg.
+    workout.addSamples(_pull(1.5, 1, 0));
     expect(state().holding, isFalse);
     workout.addSamples([..._pull(12, 15, 1000), ..._pull(0, 1.1, 16000)]);
     expect(state().phase, WorkoutPhase.rest);

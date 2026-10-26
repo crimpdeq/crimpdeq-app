@@ -320,7 +320,7 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
 
   void _hang(int rep) {
     _restTimer?.cancel();
-    _hold = HoldTracker(state.plan!.targetForceKg);
+    _hold = HoldTracker();
     _traceStartUs = null;
     _traceLastUs = null;
     _tracePointUs = null;

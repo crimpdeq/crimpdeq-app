@@ -175,8 +175,8 @@ class TargetWorkoutGraph extends StatelessWidget {
   }
 }
 
-/// The current rep's force, against the target force and the threshold the
-/// hang counts above.
+/// The current rep's force, against the target force and the force the hang
+/// counts above.
 class LiveForceGraph extends StatelessWidget {
   const LiveForceGraph({
     super.key,
@@ -193,7 +193,6 @@ class LiveForceGraph extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final targetColor = sectionColors[section]!;
-    final thresholdKg = targetKg * HoldTracker.thresholdRatio;
     final peakKg = trace.fold(0.0, (peak, spot) => max(peak, spot.y));
     return Column(
       children: [
@@ -228,7 +227,7 @@ class LiveForceGraph extends StatelessWidget {
                     strokeWidth: 2,
                   ),
                   HorizontalLine(
-                    y: thresholdKg,
+                    y: HoldTracker.thresholdKg,
                     color: targetColor.withValues(alpha: 0.7),
                     strokeWidth: 1.5,
                     dashArray: [6, 4],
@@ -261,7 +260,7 @@ class LiveForceGraph extends StatelessWidget {
           (targetColor, 'Target ${targetKg.toStringAsFixed(1)} kg'),
           (
             targetColor.withValues(alpha: 0.7),
-            '${(HoldTracker.thresholdRatio * 100).round()}%: hang counts',
+            '${HoldTracker.thresholdKg.toStringAsFixed(0)} kg: hang counts',
           ),
         ]),
       ],
