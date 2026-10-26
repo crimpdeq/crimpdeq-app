@@ -6,14 +6,42 @@ import '../providers/theme_mode_provider.dart';
 import '../theme.dart';
 import '../widgets/calibration_widgets.dart';
 import '../widgets/connection_widgets.dart';
+import '../widgets/benchmark_widgets.dart';
+import '../widgets/history_widgets.dart';
 import '../widgets/measurement_widgets.dart';
-import '../widgets/training_widgets.dart';
+import '../widgets/workout_widgets.dart';
 
-class CrimpdeqScreen extends ConsumerWidget {
+/// The app parts, each a set of tabs.
+enum _Part {
+  training('Training', Icons.fitness_center, [
+    ('Workout', WorkoutTab()),
+    ('Benchmarks', BenchmarksTab()),
+    ('History', HistoryTab()),
+  ]),
+  debugging('Debugging', Icons.bug_report_outlined, [
+    ('Calibration', CalibrationTab()),
+    ('Measurements', MeasurementTab()),
+  ]);
+
+  const _Part(this.label, this.icon, this.tabs);
+
+  final String label;
+  final IconData icon;
+  final List<(String, Widget)> tabs;
+}
+
+class CrimpdeqScreen extends ConsumerStatefulWidget {
   const CrimpdeqScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CrimpdeqScreen> createState() => _CrimpdeqScreenState();
+}
+
+class _CrimpdeqScreenState extends ConsumerState<CrimpdeqScreen> {
+  var _part = _Part.training;
+
+  @override
+  Widget build(BuildContext context) {
     final isConnected = ref.watch(
       progressorProvider.select((state) => state.connection.isConnected),
     );
@@ -24,6 +52,20 @@ class CrimpdeqScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: const _CrimpdeqAppBar(),
+      bottomNavigationBar: isConnected
+          ? NavigationBar(
+              selectedIndex: _part.index,
+              onDestinationSelected: (index) =>
+                  setState(() => _part = _Part.values[index]),
+              destinations: [
+                for (final part in _Part.values)
+                  NavigationDestination(
+                    icon: Icon(part.icon),
+                    label: part.label,
+                  ),
+              ],
+            )
+          : null,
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -62,7 +104,7 @@ class CrimpdeqScreen extends ConsumerWidget {
                   ],
                   Expanded(
                     child: isConnected
-                        ? const _DeviceTabs()
+                        ? _PartTabs(key: ValueKey(_part), part: _part)
                         : const _ConnectView(),
                   ),
                 ],
@@ -194,26 +236,22 @@ class _ConnectView extends ConsumerWidget {
   }
 }
 
-class _DeviceTabs extends StatelessWidget {
-  const _DeviceTabs();
+class _PartTabs extends StatelessWidget {
+  const _PartTabs({super.key, required this.part});
+
+  final _Part part;
 
   @override
   Widget build(BuildContext context) {
-    return const DefaultTabController(
-      length: 3,
+    return DefaultTabController(
+      length: part.tabs.length,
       child: Column(
         children: [
-          TabBar(
-            tabs: [
-              Tab(text: 'Calibration'),
-              Tab(text: 'Measurements'),
-              Tab(text: 'Training'),
-            ],
-          ),
-          SizedBox(height: 12),
+          TabBar(tabs: [for (final (label, _) in part.tabs) Tab(text: label)]),
+          const SizedBox(height: 12),
           Expanded(
             child: TabBarView(
-              children: [CalibrationTab(), MeasurementTab(), TrainingTab()],
+              children: [for (final (_, tab) in part.tabs) tab],
             ),
           ),
         ],

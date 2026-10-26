@@ -107,6 +107,14 @@ void main() {
       expect(idealFirstHangSeconds(60, 90), 40);
     });
 
+    test('derives the 5 s max from a longer hold', () {
+      expect(deriveBenchmarkKg(30, 10), 32.92);
+      expect(deriveBenchmarkKg(20, 30), 31.66);
+      expect(deriveBenchmarkKg(25, 7), 25.88);
+      expect(deriveBenchmarkKg(10, 60), 25.91);
+      expect(deriveBenchmarkKg(35, 5), 35);
+    });
+
     test('classifies a force into its section', () {
       expect(CurveSection.of(10, 30), CurveSection.strengthEndurance);
       expect(CurveSection.of(19, 30), CurveSection.power);

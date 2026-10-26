@@ -133,6 +133,15 @@ class WorkoutRecord {
         : [for (final seconds in targetSeconds) seconds.toDouble()];
   }
 
+  double get meanTargetSeconds =>
+      targetSeconds.reduce((a, b) => a + b) / targetSeconds.length;
+
+  double get meanActualSeconds =>
+      actualSeconds.reduce((a, b) => a + b) / actualSeconds.length;
+
+  /// Mean of each rep's actual minus target hang.
+  double get meanDeltaSeconds => meanActualSeconds - meanTargetSeconds;
+
   double get meanHangSeconds =>
       _hangSeconds.reduce((a, b) => a + b) / _hangSeconds.length;
 

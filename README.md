@@ -10,9 +10,12 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
 - Measurement reset, tare and selectable sample rate
 - Battery voltage and estimated state of charge, with a low battery warning
 - Data visualization with charts
-- [OpenGrips](https://opengrips.xyz) training with the Crimpdeq as the weight: 5-second-max benchmarks,
-  suggested workout types with their target and force curve graphs, the energy-system configuration,
-  a timer whose hangs follow the measured force, and a workout history stored on the device
+- Training, following [OpenGrips](https://opengrips.xyz) with the Crimpdeq as the weight:
+  - Benchmarks: 5-second-max pulls or held weights, with personal bests
+  - Workout: suggested workout types with their target and force curve graphs, the energy-system
+    configuration, and a timer whose hangs follow the measured force
+  - History: workouts on the force curve with their per-rep results, stored on the device
+- Debugging: calibration and measurements
 - Compatible with Tindeq Progressor API
 - Cross-platform support (Android, macOS, Windows, Linux, Web)
 
@@ -103,7 +106,7 @@ lib/
 ├── constants/         # App constants
 ├── models/            # State models
 ├── providers/         # State management (Riverpod)
-├── screens/           # Main screen and app bar
+├── screens/           # Main screen, app bar, and the Training and Debugging parts
 └── widgets/           # Connection, measurement, calibration, training and chart widgets
 test/                  # Unit and widget tests
 ```

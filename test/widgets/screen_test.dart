@@ -55,10 +55,12 @@ final _connected = DeviceConnection(
   status: 'Connected to Progressor',
 );
 
+/// Opens [part] of the app once connected.
 Future<_FakeProgressor> _pumpScreen(
   WidgetTester tester,
-  ProgressorState state,
-) async {
+  ProgressorState state, {
+  String part = 'Debugging',
+}) async {
   final fake = _FakeProgressor(state);
   await tester.pumpWidget(
     ProviderScope(
@@ -66,8 +68,17 @@ Future<_FakeProgressor> _pumpScreen(
       child: MaterialApp(theme: buildDarkTheme(), home: const CrimpdeqScreen()),
     ),
   );
+  if (state.connection.isConnected) {
+    // A pump, since a pending calibration point animates without settling.
+    await tester.tap(find.widgetWithText(NavigationDestination, part));
+    await tester.pump();
+  }
   return fake;
 }
+
+const _benchmark =
+    '{"date":"2026-10-26T10:00:00.000","tool":"Photon","hand":"right",'
+    '"forceKg":30}';
 
 void main() {
   // Measure the app bar with the bundled font instead of the test font.
@@ -481,38 +492,31 @@ void main() {
   });
   testWidgets('asks for a benchmark before the first workout', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    await _pumpScreen(tester, ProgressorState(connection: _connected));
-    await tester.tap(find.text('Training'));
-    await tester.pumpAndSettle();
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      part: 'Training',
+    );
 
     expect(
-      find.textContaining('Record a benchmark below first'),
+      find.textContaining('Record a benchmark in the Benchmarks tab first'),
       findsOneWidget,
     );
-    expect(find.text('No workouts yet.'), findsOneWidget);
+    await tester.tap(find.text('History'));
+    await tester.pumpAndSettle();
+    expect(find.text('No workout results found.'), findsOneWidget);
   });
 
-  testWidgets('suggests a workout from the benchmark', (tester) async {
+  testWidgets('unlocks the workout with the latest benchmark', (tester) async {
     SharedPreferences.setMockInitialValues({
-      'training.benchmarks':
-          '[{"date":"2026-10-26T10:00:00.000","tool":"Photon",'
-          '"hand":"right","forceKg":30}]',
+      'training.benchmarks': '[$_benchmark]',
     });
-    await _pumpScreen(tester, ProgressorState(connection: _connected));
-    await tester.tap(find.text('Training'));
-    await tester.pumpAndSettle();
-    expect(find.text('Photon · Right: 30.0 kg'), findsOneWidget);
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      part: 'Training',
+    );
 
-    // The workout setup comes before the benchmarks.
-    Future<void> select(Type dropdown, String option) async {
-      await tester.tap(find.byType(dropdown).first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(option).last);
-      await tester.pumpAndSettle();
-    }
-
-    await select(DropdownButton<String>, 'Photon');
-    await select(DropdownButton<Hand>, 'Right');
     expect(find.text('Workout Type: Endurance'), findsOneWidget);
     expect(find.text('Endurance (0) · suggested'), findsOneWidget);
     expect(find.text('Force: 6.8 kg'), findsOneWidget);
@@ -526,33 +530,110 @@ void main() {
     expect(find.text('Force: 20.0 kg'), findsOneWidget);
     expect(find.text('Reps: 6'), findsOneWidget);
   });
-  testWidgets('saves a manual benchmark', (tester) async {
+
+  testWidgets('saves a held weight as a benchmark and opens its workout', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
-    await _pumpScreen(tester, ProgressorState(connection: _connected));
-    await tester.tap(find.text('Training'));
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      part: 'Training',
+    );
+    await tester.tap(find.text('Benchmarks'));
     await tester.pumpAndSettle();
 
-    // The benchmark card has the only tool and hand fields before one exists.
-    await tester.tap(find.byType(DropdownButton<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Spark').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButton<Hand>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Left').last);
-    await tester.pumpAndSettle();
+    // The add form comes before the entries filter.
+    Future<void> select(Type dropdown, String option) async {
+      await tester.tap(find.byType(dropdown).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(option).last);
+      await tester.pumpAndSettle();
+    }
 
-    final field = find.widgetWithText(TextField, 'Or enter your 5 s max (kg)');
-    await tester.ensureVisible(field);
-    await tester.enterText(field, 'abc');
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Save'));
+    await select(DropdownButton<String>, 'Spark');
+    await select(DropdownButton<Hand>, 'Left');
+    final weight = find.widgetWithText(TextField, 'Weight held (kg)');
+    final save = find.widgetWithText(OutlinedButton, 'Save Hold');
+    await tester.ensureVisible(save);
+    await tester.enterText(weight, 'abc');
+    await tester.tap(save);
     await tester.pump();
-    expect(find.text('Enter a positive force in kg.'), findsOneWidget);
+    expect(find.text('Enter the weight held, in kg.'), findsOneWidget);
 
-    await tester.enterText(field, '32,5');
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Save'));
+    // 30 kg for 10 s is a 32.92 kg 5 s max.
+    await tester.enterText(weight, '30');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Time held (s)'),
+      '10',
+    );
+    await tester.tap(save);
     await tester.pumpAndSettle();
-    expect(find.text('Spark · Left: 32.5 kg'), findsOneWidget);
-    expect(find.textContaining('Record a benchmark below first'), findsNothing);
+    expect(find.text('Spark · Left: 32.9 kg'), findsOneWidget);
+    expect(find.text('PB'), findsOneWidget);
+
+    await tester.tap(find.text('Open Workout'));
+    await tester.pumpAndSettle();
+    expect(find.text('Workout Type: Endurance'), findsOneWidget);
+    expect(find.text('Force: 7.5 kg'), findsOneWidget);
+  });
+
+  testWidgets('compares benchmarks with the previous and best ones', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks':
+          '[$_benchmark,'
+          '{"date":"2026-10-27T10:00:00.000","tool":"Photon",'
+          '"hand":"right","forceKg":28}]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      part: 'Training',
+    );
+    await tester.tap(find.text('Benchmarks'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Photon · Right: 28.0 kg'));
+
+    expect(find.textContaining('vs Prev -2.0 kg · vs Best -2.0 kg'), findsOne);
+    expect(find.textContaining('vs Prev — · vs Best 0.0 kg'), findsOne);
+    expect(find.text('Tracking'), findsOneWidget);
+    expect(find.text('PB'), findsOneWidget);
+  });
+
+  testWidgets('shows the workout history with each rep', (tester) async {
+    String workout(String date, List<num> actual) =>
+        '{"date":"$date","tool":"Photon","hand":"right",'
+        '"section":"strength","targetForceKg":11.97,"forceKg":12.1,'
+        '"restSeconds":20,"targetSeconds":[50,36],"actualSeconds":$actual,'
+        '"perceivedExertion":7,"notes":"Felt good"}';
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+      'training.workouts':
+          '[${workout('2026-10-26T10:00:00.000', [40, 30])},'
+          '${workout('2026-10-27T10:00:00.000', [46, 36])}]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      part: 'Training',
+    );
+    await tester.tap(find.text('History'));
+    await tester.pumpAndSettle();
+
+    // Mean deltas of -2 s and -8 s.
+    expect(find.textContaining('avg Δ -2.0 s · vs Prev +6.0 s'), findsOne);
+    expect(find.textContaining('avg Δ -8.0 s · vs Prev —'), findsOne);
+
+    final latest = find.textContaining('2026-10-27 10:00');
+    await tester.ensureVisible(latest);
+    await tester.tap(latest);
+    await tester.pumpAndSettle();
+    expect(find.text('Notes: Felt good'), findsOneWidget);
+    expect(find.text('-4.0 s'), findsOneWidget);
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('2026-10-27 10:00'), findsNothing);
   });
 }

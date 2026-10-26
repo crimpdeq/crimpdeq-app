@@ -200,11 +200,33 @@ double _curveDecay(double benchmarkKg) =>
 double idealForceKg(double seconds, double benchmarkKg) =>
     benchmarkKg * exp(-_curveDecay(benchmarkKg) * (seconds - 5));
 
-/// First hang the ideal force curve predicts at [forceKg].
-int idealFirstHangSeconds(double forceKg, double benchmarkKg) {
+/// Hang the ideal force curve predicts at [forceKg], unrounded.
+double _idealSeconds(double forceKg, double benchmarkKg) {
   final decay = _curveDecay(benchmarkKg);
   if (decay == 0) return 0;
-  return max(1, (5 - log(forceKg / max(benchmarkKg, 1e-6)) / decay).round());
+  return max(1, 5 - log(forceKg / max(benchmarkKg, 1e-6)) / decay);
+}
+
+/// First hang the ideal force curve predicts at [forceKg].
+int idealFirstHangSeconds(double forceKg, double benchmarkKg) =>
+    _idealSeconds(forceKg, benchmarkKg).round();
+
+/// The 5 s max of a hold of [forceKg] for [heldSeconds]: the benchmark whose
+/// ideal curve passes through the hold, rounded to 10 g. Holds of 5 s or less
+/// are the benchmark itself.
+double deriveBenchmarkKg(double forceKg, double heldSeconds) {
+  if (forceKg <= 0 || heldSeconds <= 5) return forceKg;
+  var low = forceKg;
+  var high = max(100 * forceKg, 1000.0);
+  for (var i = 0; i < 100; i++) {
+    final middle = (low + high) / 2;
+    if (_idealSeconds(forceKg, middle) > heldSeconds) {
+      high = middle;
+    } else {
+      low = middle;
+    }
+  }
+  return _round2((low + high) / 2);
 }
 
 /// A past workout on the curve: its mean force and its first hang.

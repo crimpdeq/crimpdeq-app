@@ -7,134 +7,24 @@ import '../models/training_models.dart';
 import '../providers/progressor_provider.dart';
 import '../providers/training_provider.dart';
 import 'training_charts.dart';
+import 'training_common.dart';
 
-/// OpenGrips training with the Crimpdeq as the weight: benchmarks, the
-/// workout timer and the workout history.
-class TrainingTab extends ConsumerWidget {
-  const TrainingTab({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return switch (ref.watch(trainingLogProvider)) {
-      AsyncData(value: final log) => SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _TitledCard(
-              title: 'Workout',
-              child: _Workout(log: log),
-            ),
-            const SizedBox(height: 16),
-            _TitledCard(
-              title: 'Benchmarks',
-              child: _Benchmarks(benchmarks: log.benchmarks),
-            ),
-            const SizedBox(height: 16),
-            _TitledCard(
-              title: 'History',
-              child: _History(workouts: log.workouts),
-            ),
-          ],
-        ),
-      ),
-      AsyncError(:final error) => Center(
-        child: Text('Could not load the training log: $error'),
-      ),
-      _ => const Center(child: CircularProgressIndicator()),
-    };
-  }
-}
-
-String _kg(double kg) => '${kg.toStringAsFixed(1)} kg';
-
-String _clock(int seconds) =>
-    '${(seconds ~/ 60).toString().padLeft(2, '0')}:'
-    '${(seconds % 60).toString().padLeft(2, '0')}';
-
-String _date(DateTime date) => date.toLocal().toString().substring(0, 16);
-
-class _TitledCard extends StatelessWidget {
-  const _TitledCard({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Workout extends ConsumerWidget {
-  const _Workout({required this.log});
-
-  final TrainingLog log;
+/// The OpenGrips workout timer, with the Crimpdeq as the weight.
+class WorkoutTab extends ConsumerWidget {
+  const WorkoutTab({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return switch (ref.watch(workoutProvider.select((state) => state.phase))) {
-      WorkoutPhase.idle => _WorkoutSetup(log: log),
-      WorkoutPhase.done => const _WorkoutResults(),
-      _ => const _WorkoutTimer(),
-    };
-  }
-}
-
-class _ToolAndHand extends StatelessWidget {
-  const _ToolAndHand({
-    required this.tools,
-    required this.tool,
-    required this.hand,
-    required this.onToolChanged,
-    required this.onHandChanged,
-  });
-
-  final List<String> tools;
-  final String? tool;
-  final Hand? hand;
-  final ValueChanged<String?> onToolChanged;
-  final ValueChanged<Hand?> onHandChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: DropdownButtonFormField<String>(
-            initialValue: tool,
-            decoration: const InputDecoration(labelText: 'Training tool'),
-            items: [
-              for (final tool in tools)
-                DropdownMenuItem(value: tool, child: Text(tool)),
-            ],
-            onChanged: onToolChanged,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: DropdownButtonFormField<Hand>(
-            initialValue: hand,
-            decoration: const InputDecoration(labelText: 'Hand'),
-            items: [
-              for (final hand in Hand.values)
-                DropdownMenuItem(value: hand, child: Text(hand.label)),
-            ],
-            onChanged: onHandChanged,
-          ),
-        ),
-      ],
+    final phase = ref.watch(workoutProvider.select((state) => state.phase));
+    return TrainingLogView(
+      builder: (context, log) => TitledCard(
+        title: 'Workout Timer',
+        child: switch (phase) {
+          WorkoutPhase.idle => _WorkoutSetup(log: log),
+          WorkoutPhase.done => const _WorkoutResults(),
+          _ => const _WorkoutTimer(),
+        },
+      ),
     );
   }
 }
@@ -149,6 +39,7 @@ class _WorkoutSetup extends ConsumerStatefulWidget {
 }
 
 class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
+  // Null follows the latest benchmark, so a new benchmark unlocks workouts.
   String? _tool;
   Hand? _hand;
   // Null follows the suggestion.
@@ -166,18 +57,17 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
     ];
     if (tools.isEmpty) {
       return const Text(
-        'Record a benchmark below first: the workout targets are fractions '
-        'of it.',
+        'Record a benchmark in the Benchmarks tab first: the workout targets '
+        'are fractions of it.',
       );
     }
 
-    final tool = _tool;
-    final hand = _hand;
-    final benchmark = tool == null || hand == null
-        ? null
-        : bestBenchmark(log.benchmarks, tool, hand);
+    final latest = log.benchmarks.last;
+    final tool = _tool ?? latest.tool;
+    final hand = _hand ?? latest.hand;
+    final benchmark = bestBenchmark(log.benchmarks, tool, hand);
     final children = <Widget>[
-      _ToolAndHand(
+      ToolAndHand(
         tools: tools,
         tool: tool,
         hand: hand,
@@ -194,18 +84,15 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
       ),
       const SizedBox(height: 12),
     ];
-    if (tool == null || hand == null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [...children, const Text('Select a tool and a hand.')],
-      );
-    }
     if (benchmark == null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ...children,
-          Text('Record a benchmark for $tool with the ${hand.label} hand.'),
+          Text(
+            'Record a benchmark for $tool with the ${hand.label} hand in the '
+            'Benchmarks tab.',
+          ),
         ],
       );
     }
@@ -255,15 +142,15 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
           spacing: 16,
           runSpacing: 4,
           children: [
-            Text('Force: ${_kg(plan.targetForceKg)}'),
+            Text('Force: ${formatKg(plan.targetForceKg)}'),
             Text('First hang: ${plan.firstHangSeconds} s'),
             Text('Reps: ${plan.reps}'),
-            Text('Total time: ${_clock(plan.totalSeconds)}'),
+            Text('Total time: ${formatClock(plan.totalSeconds)}'),
           ],
         ),
         Text(
           'The force is ${(plan.targetForceKg / benchmark.forceKg * 100).round()}% '
-          'of your ${_kg(benchmark.forceKg)} benchmark.',
+          'of your ${formatKg(benchmark.forceKg)} benchmark.',
           style: textTheme.bodySmall,
         ),
         const SizedBox(height: 16),
@@ -301,8 +188,8 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
         else
           for (final workout in sessions)
             Text(
-              '${_date(workout.date)} · ${_kg(workout.forceKg!)} · '
-              '${_duration(workout.meanHangSeconds.round())} average hang',
+              '${formatDate(workout.date)} · ${formatKg(workout.forceKg!)} · '
+              '${formatDuration(workout.meanHangSeconds.round())} average hang',
               style: textTheme.bodySmall,
             ),
         ExpansionTile(
@@ -420,11 +307,6 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
   }
 }
 
-/// Seconds as OpenGrips shows hang durations: "45s" or "1:05".
-String _duration(int seconds) => seconds < 60
-    ? '$seconds s'
-    : '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
-
 class _SliderRow extends StatelessWidget {
   const _SliderRow({
     required this.label,
@@ -482,12 +364,14 @@ class _WorkoutTimer extends ConsumerWidget {
       final remaining = target - workout.heldSeconds;
       title = 'Rep ${workout.rep} of ${plan.reps}';
       clock = !workout.holding
-          ? 'Pull ≥ ${_kg(plan.targetForceKg * HoldTracker.thresholdRatio)}'
+          ? 'Pull ≥ ${formatKg(plan.targetForceKg * HoldTracker.thresholdRatio)}'
           : remaining >= 0
-          ? _clock(remaining.ceil())
-          : '+${_clock((-remaining).floor())}';
+          ? formatClock(remaining.ceil())
+          : '+${formatClock((-remaining).floor())}';
       details = [
-        Text('Target: ${_clock(target)} at ${_kg(plan.targetForceKg)}'),
+        Text(
+          'Target: ${formatClock(target)} at ${formatKg(plan.targetForceKg)}',
+        ),
         const SizedBox(height: 8),
         LinearProgressIndicator(
           value: ((currentKg ?? 0) / plan.targetForceKg).clamp(0, 1),
@@ -495,18 +379,18 @@ class _WorkoutTimer extends ConsumerWidget {
           borderRadius: BorderRadius.circular(5),
         ),
         const SizedBox(height: 4),
-        Text('Force: ${currentKg == null ? '—' : _kg(currentKg)}'),
+        Text('Force: ${currentKg == null ? '—' : formatKg(currentKg)}'),
       ];
     } else {
       final upcoming = preRest ? 1 : workout.rep + 1;
       final target = targets[upcoming - 1];
       final planned = plan.targets()[upcoming - 1];
       title = preRest ? 'Pre-workout rest' : 'Rest after Rep ${workout.rep}';
-      clock = _clock(workout.restRemainingSeconds);
+      clock = formatClock(workout.restRemainingSeconds);
       details = [
         Text(
-          'Upcoming target (Rep $upcoming of ${plan.reps}): ${_clock(target)}'
-          '${target == planned ? '' : ' (previously ${_clock(planned)})'}',
+          'Upcoming target (Rep $upcoming of ${plan.reps}): ${formatClock(target)}'
+          '${target == planned ? '' : ' (previously ${formatClock(planned)})'}',
         ),
       ];
     }
@@ -633,8 +517,8 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
         Text(
           meanForceKg == null
               ? 'No rep held.'
-              : 'Mean force: ${_kg(meanForceKg)} '
-                    '(target ${_kg(workout.plan!.targetForceKg)})',
+              : 'Mean force: ${formatKg(meanForceKg)} '
+                    '(target ${formatKg(workout.plan!.targetForceKg)})',
         ),
         const SizedBox(height: 12),
         Text('Perceived exertion: $_exertion/10'),
@@ -690,208 +574,4 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
   }
 
   static String _signed(int value) => value > 0 ? '+$value' : '$value';
-}
-
-class _Benchmarks extends ConsumerStatefulWidget {
-  const _Benchmarks({required this.benchmarks});
-
-  final List<Benchmark> benchmarks;
-
-  @override
-  ConsumerState<_Benchmarks> createState() => _BenchmarksState();
-}
-
-class _BenchmarksState extends ConsumerState<_Benchmarks> {
-  final _manualKg = TextEditingController();
-  String? _tool;
-  Hand? _hand;
-
-  @override
-  void dispose() {
-    _manualKg.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save(double forceKg) => ref
-      .read(trainingLogProvider.notifier)
-      .addBenchmark(
-        Benchmark(
-          date: DateTime.now(),
-          tool: _tool!,
-          hand: _hand!,
-          forceKg: forceKg,
-        ),
-      );
-
-  Future<void> _saveManual() async {
-    final forceKg = double.tryParse(_manualKg.text.trim().replaceAll(',', '.'));
-    if (forceKg == null || forceKg <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a positive force in kg.')),
-      );
-      return;
-    }
-    await _save(forceKg);
-    _manualKg.clear();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final recording = ref.watch(benchmarkRecorderProvider);
-    final recorder = ref.read(benchmarkRecorderProvider.notifier);
-    final currentKg = ref.watch(
-      progressorProvider.select((state) => state.measurement.currentKg),
-    );
-    final workoutRunning = ref.watch(
-      workoutProvider.select((state) => state.isRunning),
-    );
-    final tool = _tool;
-    final hand = _hand;
-    final bestKg = recording.bestKg;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Tare the Crimpdeq unloaded, then pull as hard as you can for at '
-          'least 5 s. The benchmark is the highest mean force over 5 s: the '
-          'weight you could hold for 5 s.',
-          style: textTheme.bodySmall,
-        ),
-        const SizedBox(height: 12),
-        _ToolAndHand(
-          tools: trainingTools,
-          tool: tool,
-          hand: hand,
-          onToolChanged: (tool) => setState(() => _tool = tool),
-          onHandChanged: (hand) => setState(() => _hand = hand),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Force: ${currentKg == null ? '—' : _kg(currentKg)} · '
-          'Elapsed: ${recording.elapsedSeconds.toStringAsFixed(1)} s · '
-          'Best 5 s: ${bestKg == null ? '—' : _kg(bestKg)}',
-        ),
-        if (!recording.recording &&
-            recording.elapsedSeconds > 0 &&
-            bestKg == null)
-          const Text('Pull for at least 5 s.'),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: recording.recording
-                  ? FilledButton.icon(
-                      onPressed: recorder.stop,
-                      icon: const Icon(Icons.stop),
-                      label: const Text('Stop'),
-                    )
-                  : FilledButton.icon(
-                      onPressed: workoutRunning ? null : recorder.start,
-                      icon: const Icon(Icons.fiber_manual_record),
-                      label: const Text('Start Pull'),
-                    ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton(
-                onPressed:
-                    recording.recording ||
-                        bestKg == null ||
-                        tool == null ||
-                        hand == null
-                    ? null
-                    : () async {
-                        await _save(bestKg);
-                        recorder.clear();
-                      },
-                child: const Text('Save Benchmark'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _manualKg,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Or enter your 5 s max (kg)',
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            OutlinedButton(
-              onPressed: tool == null || hand == null ? null : _saveManual,
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        for (final benchmark in widget.benchmarks.reversed)
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(
-              '${benchmark.tool} · ${benchmark.hand.label}: '
-              '${_kg(benchmark.forceKg)}',
-            ),
-            subtitle: Text(_date(benchmark.date)),
-            trailing: IconButton(
-              tooltip: 'Delete benchmark',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => ref
-                  .read(trainingLogProvider.notifier)
-                  .deleteBenchmark(benchmark),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _History extends StatelessWidget {
-  const _History({required this.workouts});
-
-  final List<WorkoutRecord> workouts;
-
-  @override
-  Widget build(BuildContext context) {
-    if (workouts.isEmpty) return const Text('No workouts yet.');
-    final textTheme = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final workout in workouts.reversed)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${_date(workout.date)} · ${workout.tool} '
-                  '${workout.hand.label} · ${workout.section.label}',
-                  style: textTheme.titleSmall,
-                ),
-                Text(
-                  'Force ${workout.forceKg == null ? '—' : _kg(workout.forceKg!)} '
-                  '(target ${_kg(workout.targetForceKg)}) · '
-                  'exertion ${workout.perceivedExertion}/10',
-                ),
-                Text(
-                  'Hangs (actual/target s): ${[for (final (rep, seconds) in workout.actualSeconds.indexed) '${seconds.round()}/${workout.targetSeconds[rep]}'].join(' · ')}',
-                ),
-                if (workout.notes.isNotEmpty)
-                  Text(workout.notes, style: textTheme.bodySmall),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
 }

@@ -53,6 +53,11 @@ class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
     await _save(workouts: [...log.workouts, workout]);
   }
 
+  Future<void> deleteWorkout(WorkoutRecord workout) async {
+    final log = await future;
+    await _save(workouts: [...log.workouts]..remove(workout));
+  }
+
   Future<void> _save({
     List<Benchmark>? benchmarks,
     List<WorkoutRecord>? workouts,

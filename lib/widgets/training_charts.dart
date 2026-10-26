@@ -174,25 +174,26 @@ class TargetWorkoutGraph extends StatelessWidget {
   }
 }
 
-/// Past workouts by force and first hang, against the ideal force curve,
-/// with the section's force range and the target force.
+/// Past workouts by force and first hang, against the ideal force curve.
+/// With a [section], also its force range and the target force.
 class ForceCurveGraph extends StatelessWidget {
   const ForceCurveGraph({
     super.key,
     required this.benchmarkKg,
-    required this.section,
-    required this.targetForceKg,
     required this.workouts,
+    this.section,
+    this.targetForceKg,
   });
 
   final double benchmarkKg;
-  final CurveSection section;
-  final double targetForceKg;
   final List<CurvePoint> workouts;
+  final CurveSection? section;
+  final double? targetForceKg;
 
   @override
   Widget build(BuildContext context) {
-    final color = sectionColors[section]!;
+    final section = this.section;
+    final targetForceKg = this.targetForceKg;
     final floorKg = curveFloorKg(benchmarkKg);
     final balancedKg = benchmarkKg * balancedRatio;
     final maxSeconds = [
@@ -205,12 +206,6 @@ class ForceCurveGraph extends StatelessWidget {
             when kg >= floorKg)
           FlSpot(kg, seconds.toDouble()),
     ].reversed.toList();
-    final sectionFromKg = section == CurveSection.values.first
-        ? floorKg
-        : balancedKg * section.bottomRatio;
-    final sectionToKg = section == CurveSection.values.last
-        ? benchmarkKg
-        : balancedKg * section.topRatio;
 
     return Column(
       children: [
@@ -226,21 +221,33 @@ class ForceCurveGraph extends StatelessWidget {
               clipData: const FlClipData.all(),
               rangeAnnotations: RangeAnnotations(
                 verticalRangeAnnotations: [
-                  VerticalRangeAnnotation(
-                    x1: sectionFromKg.clamp(floorKg, benchmarkKg),
-                    x2: sectionToKg.clamp(floorKg, benchmarkKg),
-                    color: color.withValues(alpha: 0.15),
-                  ),
+                  if (section != null)
+                    VerticalRangeAnnotation(
+                      x1: section == CurveSection.values.first
+                          ? floorKg
+                          : (balancedKg * section.bottomRatio).clamp(
+                              floorKg,
+                              benchmarkKg,
+                            ),
+                      x2: section == CurveSection.values.last
+                          ? benchmarkKg
+                          : (balancedKg * section.topRatio).clamp(
+                              floorKg,
+                              benchmarkKg,
+                            ),
+                      color: sectionColors[section]!.withValues(alpha: 0.15),
+                    ),
                 ],
               ),
               extraLinesData: ExtraLinesData(
                 verticalLines: [
-                  VerticalLine(
-                    x: targetForceKg,
-                    color: color,
-                    strokeWidth: 2,
-                    dashArray: [5, 5],
-                  ),
+                  if (section != null && targetForceKg != null)
+                    VerticalLine(
+                      x: targetForceKg,
+                      color: sectionColors[section]!,
+                      strokeWidth: 2,
+                      dashArray: [5, 5],
+                    ),
                 ],
               ),
               lineBarsData: [
@@ -309,7 +316,8 @@ class ForceCurveGraph extends StatelessWidget {
         _Legend([
           (_idealCurveColor, 'Ideal force curve'),
           (_workoutColor, 'First hangs'),
-          (color, '${section.label} range and target'),
+          if (section != null)
+            (sectionColors[section]!, '${section.label} range and target'),
         ]),
       ],
     );
