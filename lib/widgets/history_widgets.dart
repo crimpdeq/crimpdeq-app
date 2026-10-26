@@ -191,9 +191,18 @@ class _Details extends ConsumerWidget {
       ),
       actions: [
         TextButton(
-          onPressed: () {
-            ref.read(trainingLogProvider.notifier).deleteWorkout(workout);
-            Navigator.pop(context);
+          onPressed: () async {
+            final navigator = Navigator.of(context);
+            if (!await confirm(
+              context,
+              title: 'Delete the workout?',
+              content: 'Its results leave the history and the force curve.',
+              action: 'Delete',
+            )) {
+              return;
+            }
+            await ref.read(trainingLogProvider.notifier).deleteWorkout(workout);
+            navigator.pop();
           },
           child: const Text('Delete'),
         ),

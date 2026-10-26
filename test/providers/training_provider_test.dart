@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:crimpdeq/analysis/opengrips_curve.dart';
 import 'package:crimpdeq/models/progressor_models.dart';
 import 'package:crimpdeq/models/training_models.dart';
+import 'package:crimpdeq/protocol/progressor_protocol.dart';
 import 'package:crimpdeq/providers/progressor_provider.dart';
 import 'package:crimpdeq/providers/training_provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +22,32 @@ class _MeasuringProgressor extends ProgressorNotifier {
 
   @override
   Stream<List<WeightMeasurement>> get sampleBatches => samples.stream;
+
+  int starts = 0;
+
+  @override
+  Future<void> startMeasurement() async {
+    starts++;
+    setMeasuring(true);
+  }
+
+  @override
+  Future<void> stopMeasurement() async => setMeasuring(false);
+
+  void setMeasuring(bool isMeasuring) =>
+      state = state.copyWith.measurement(isMeasuring: isMeasuring);
+
+  void link() => state = state.copyWith.connection(
+    device: BluetoothDevice.fromId('00:11:22:33:44:55'),
+    writeCharacteristic: BluetoothCharacteristic(
+      remoteId: const DeviceIdentifier('00:11:22:33:44:55'),
+      serviceUuid: Guid(progressorServiceUuid),
+      characteristicUuid: Guid(progressorWriteCharUuid),
+    ),
+  );
+
+  /// Like the device: the connection and the measurement end together.
+  void drop() => state = const ProgressorState();
 }
 
 /// Samples every 100 ms.
@@ -132,5 +160,70 @@ void main() {
     expect(recording.recording, isFalse);
     expect(recording.elapsedSeconds, 6.9);
     expect(recording.bestKg, closeTo(25, 1e-9));
+  });
+
+  testWidgets('keeps the reps done when the device disconnects', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final workout = container.read(workoutProvider.notifier);
+    final device =
+        container.read(progressorProvider.notifier) as _MeasuringProgressor;
+    WorkoutState state() => container.read(workoutProvider);
+
+    await workout.start(plan);
+    device.link();
+    workout.skip();
+    workout.addSamples([..._pull(12, 5, 0), ..._pull(0, 1.1, 5000)]);
+    expect(state().phase, WorkoutPhase.rest);
+
+    device.drop();
+    expect(state().phase, WorkoutPhase.done);
+    expect(state().disconnected, isTrue);
+    expect(state().actualSeconds, [closeTo(4.9, 1e-9)]);
+    // The rest timer stopped with it.
+    await tester.pump(const Duration(seconds: 10));
+    expect(state().phase, WorkoutPhase.done);
+
+    await workout.save(perceivedExertion: 5, notes: '');
+    final saved = (await container.read(trainingLogProvider.future)).workouts;
+    // The averages cover the rep done, whose target saves as the ideal one.
+    expect(saved.single.targetSeconds, hasLength(3));
+    expect(saved.single.meanTargetSeconds, idealFirstHangSeconds(12, 30));
+  });
+
+  testWidgets('abandons a workout disconnected before the first rep', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final device =
+        container.read(progressorProvider.notifier) as _MeasuringProgressor;
+
+    await container.read(workoutProvider.notifier).start(plan);
+    device.link();
+    device.drop();
+    expect(container.read(workoutProvider).phase, WorkoutPhase.idle);
+  });
+
+  testWidgets('measures again when the measurement stops mid-workout', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final device =
+        container.read(progressorProvider.notifier) as _MeasuringProgressor;
+
+    await container.read(workoutProvider.notifier).start(plan);
+    device.link();
+    device.setMeasuring(false);
+    expect(device.starts, 1);
+    await container.read(workoutProvider.notifier).stop();
+    // Stopping the workout does not restart the measurement.
+    expect(device.starts, 1);
   });
 }

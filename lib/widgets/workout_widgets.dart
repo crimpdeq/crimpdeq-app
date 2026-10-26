@@ -7,6 +7,7 @@ import '../models/training_models.dart';
 import '../providers/progressor_provider.dart';
 import '../providers/training_provider.dart';
 import 'training_charts.dart';
+import 'connection_widgets.dart';
 import 'training_common.dart';
 
 /// The OpenGrips workout timer, with the Crimpdeq as the weight.
@@ -16,14 +17,27 @@ class WorkoutTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final phase = ref.watch(workoutProvider.select((state) => state.phase));
+    final isConnected = watchConnected(ref);
     return TrainingLogView(
-      builder: (context, log) => TitledCard(
-        title: 'Workout Timer',
-        child: switch (phase) {
-          WorkoutPhase.idle => _WorkoutSetup(log: log),
-          WorkoutPhase.done => const _WorkoutResults(),
-          _ => const _WorkoutTimer(),
-        },
+      builder: (context, log) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (!isConnected && phase == WorkoutPhase.idle) ...[
+            const TitledCard(
+              title: 'Connect a Crimpdeq to start',
+              child: ConnectView(inline: true),
+            ),
+            const SizedBox(height: 16),
+          ],
+          TitledCard(
+            title: 'Workout Timer',
+            child: switch (phase) {
+              WorkoutPhase.idle => _WorkoutSetup(log: log),
+              WorkoutPhase.done => const _WorkoutResults(),
+              _ => const _WorkoutTimer(),
+            },
+          ),
+        ],
       ),
     );
   }
@@ -296,12 +310,20 @@ class _WorkoutSetupState extends ConsumerState<_WorkoutSetup> {
           style: textTheme.bodySmall,
         ),
         const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: benchmarkRecording
-              ? null
-              : () => ref.read(workoutProvider.notifier).start(plan),
-          icon: const Icon(Icons.play_arrow),
-          label: const Text('Start Workout'),
+        Row(
+          children: [
+            const TareButton(),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: benchmarkRecording || !watchConnected(ref)
+                    ? null
+                    : () => ref.read(workoutProvider.notifier).start(plan),
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Start Workout'),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -396,11 +418,34 @@ class _WorkoutTimer extends ConsumerWidget {
       final planned = plan.targets()[upcoming - 1];
       title = preRest ? 'Pre-workout rest' : 'Rest after Rep ${workout.rep}';
       clock = formatClock(workout.restRemainingSeconds);
+      // A reading above the threshold at rest would start the next hang at
+      // once and never end it.
+      final loaded = (currentKg ?? 0) > HoldTracker.thresholdKg;
       details = [
         Text(
           'Upcoming target (Rep $upcoming of ${plan.reps}): ${formatClock(target)}'
           '${target == planned ? '' : ' (previously ${formatClock(planned)})'}',
         ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Force: ${currentKg == null ? '—' : formatKg(currentKg)}',
+              ),
+            ),
+            const TareButton(),
+          ],
+        ),
+        if (loaded)
+          Text(
+            'The Crimpdeq reads more than '
+            '${HoldTracker.thresholdKg.toStringAsFixed(0)} kg at rest, so the '
+            'next hang would start at once. Release it, or tare it unloaded.',
+            style: textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.error,
+            ),
+          ),
       ];
     }
 
@@ -515,7 +560,20 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        RepResultsGraph(targets: targets, actual: actual),
+        if (workout.disconnected) ...[
+          Text(
+            'The Crimpdeq disconnected after rep ${actual.length} of '
+            '${workout.plan!.reps}. You can still save the reps done.',
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: Theme.of(context).colorScheme.error),
+          ),
+          const SizedBox(height: 8),
+        ],
+        RepResultsGraph(
+          targets: targets,
+          actual: actual,
+          section: workout.plan!.section,
+        ),
         const SizedBox(height: 8),
         for (final (rep, seconds) in actual.indexed)
           Text(

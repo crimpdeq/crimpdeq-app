@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/training_models.dart';
+import '../providers/progressor_provider.dart';
 import '../providers/training_provider.dart';
 
 String formatKg(double kg) => '${kg.toStringAsFixed(1)} kg';
@@ -122,3 +123,50 @@ class ToolAndHand extends StatelessWidget {
     );
   }
 }
+
+/// Whether a device is connected, which measuring needs.
+bool watchConnected(WidgetRef ref) => ref.watch(
+  progressorProvider.select((state) => state.connection.isConnected),
+);
+
+/// Tares the Crimpdeq, unloaded, so the forces start from zero.
+class TareButton extends ConsumerWidget {
+  const TareButton({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return OutlinedButton.icon(
+      onPressed: watchConnected(ref)
+          ? ref.read(progressorProvider.notifier).tareScale
+          : null,
+      icon: const Icon(Icons.adjust),
+      label: const Text('Tare'),
+    );
+  }
+}
+
+/// Asks before an action that cannot be undone, such as a deletion.
+Future<bool> confirm(
+  BuildContext context, {
+  required String title,
+  required String content,
+  required String action,
+}) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(action),
+          ),
+        ],
+      ),
+    ) ??
+    false;

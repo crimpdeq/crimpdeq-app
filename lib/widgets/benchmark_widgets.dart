@@ -114,6 +114,7 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
     );
     final selected = _tool != null && _hand != null;
     final bestKg = recording.bestKg;
+    final isConnected = watchConnected(ref);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -135,8 +136,11 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
         const SizedBox(height: 16),
         Text('Measure with the Crimpdeq', style: textTheme.titleSmall),
         Text(
-          'Tare it unloaded, then pull as hard as you can for at least 5 s. '
-          'The benchmark is the highest mean force over 5 s.',
+          isConnected
+              ? 'Tare it unloaded, then pull as hard as you can for at least '
+                    '5 s. The benchmark is the highest mean force over 5 s.'
+              : 'Connect a Crimpdeq in the Workout tab to measure a pull, or '
+                    'enter a hold below.',
           style: textTheme.bodySmall,
         ),
         const SizedBox(height: 8),
@@ -152,6 +156,8 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
         const SizedBox(height: 8),
         Row(
           children: [
+            const TareButton(),
+            const SizedBox(width: 8),
             Expanded(
               child: recording.recording
                   ? FilledButton.icon(
@@ -160,7 +166,9 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
                       label: const Text('Stop'),
                     )
                   : FilledButton.icon(
-                      onPressed: workoutRunning ? null : recorder.start,
+                      onPressed: workoutRunning || !isConnected
+                          ? null
+                          : recorder.start,
                       icon: const Icon(Icons.fiber_manual_record),
                       label: const Text('Start Pull'),
                     ),
@@ -260,9 +268,21 @@ class _EntriesState extends ConsumerState<_Entries> {
             _Entry(
               benchmark: benchmark,
               comparison: _compare(benchmark, benchmarks),
-              onDelete: () => ref
-                  .read(trainingLogProvider.notifier)
-                  .deleteBenchmark(benchmark),
+              onDelete: () async {
+                if (await confirm(
+                  context,
+                  title: 'Delete the benchmark?',
+                  content:
+                      '${benchmark.tool} ${benchmark.hand.label}, '
+                      '${formatKg(benchmark.forceKg)}. The workouts of a tool '
+                      'and hand lock without a benchmark.',
+                  action: 'Delete',
+                )) {
+                  await ref
+                      .read(trainingLogProvider.notifier)
+                      .deleteBenchmark(benchmark);
+                }
+              },
             ),
       ],
     );

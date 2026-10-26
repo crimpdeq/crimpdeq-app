@@ -52,20 +52,15 @@ class _CrimpdeqScreenState extends ConsumerState<CrimpdeqScreen> {
 
     return Scaffold(
       appBar: const _CrimpdeqAppBar(),
-      bottomNavigationBar: isConnected
-          ? NavigationBar(
-              selectedIndex: _part.index,
-              onDestinationSelected: (index) =>
-                  setState(() => _part = _Part.values[index]),
-              destinations: [
-                for (final part in _Part.values)
-                  NavigationDestination(
-                    icon: Icon(part.icon),
-                    label: part.label,
-                  ),
-              ],
-            )
-          : null,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _part.index,
+        onDestinationSelected: (index) =>
+            setState(() => _part = _Part.values[index]),
+        destinations: [
+          for (final part in _Part.values)
+            NavigationDestination(icon: Icon(part.icon), label: part.label),
+        ],
+      ),
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -103,9 +98,11 @@ class _CrimpdeqScreenState extends ConsumerState<CrimpdeqScreen> {
                     const SizedBox(height: 12),
                   ],
                   Expanded(
-                    child: isConnected
+                    // Training keeps the benchmarks and history offline; the
+                    // workout and pulls ask for the device where they need it.
+                    child: isConnected || _part == _Part.training
                         ? _PartTabs(key: ValueKey(_part), part: _part)
-                        : const _ConnectView(),
+                        : const ConnectView(),
                   ),
                 ],
               ),
@@ -216,22 +213,6 @@ class _AppTitle extends StatelessWidget {
           Text('Crimpdeq', style: theme.appBarTheme.titleTextStyle),
         ],
       ],
-    );
-  }
-}
-
-class _ConnectView extends ConsumerWidget {
-  const _ConnectView();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(progressorProvider.notifier);
-    return ConnectPanel(
-      connection: ref.watch(
-        progressorProvider.select((state) => state.connection),
-      ),
-      onStartScanning: notifier.startScanning,
-      onConnect: notifier.connect,
     );
   }
 }

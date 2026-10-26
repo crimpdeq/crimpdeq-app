@@ -68,11 +68,9 @@ Future<_FakeProgressor> _pumpScreen(
       child: MaterialApp(theme: buildDarkTheme(), home: const CrimpdeqScreen()),
     ),
   );
-  if (state.connection.isConnected) {
-    // A pump, since a pending calibration point animates without settling.
-    await tester.tap(find.widgetWithText(NavigationDestination, part));
-    await tester.pump();
-  }
+  // A pump, since a pending calibration point animates without settling.
+  await tester.tap(find.widgetWithText(NavigationDestination, part));
+  await tester.pump();
   return fake;
 }
 
@@ -90,6 +88,7 @@ void main() {
     }
     await inter.load();
   });
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('shows the device and opens its details', (tester) async {
     final fake = await _pumpScreen(
@@ -634,6 +633,55 @@ void main() {
     expect(find.text('-4.0 s'), findsOneWidget);
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
+    expect(find.text('Delete the workout?'), findsOneWidget);
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
     expect(find.textContaining('2026-10-27 10:00'), findsNothing);
+  });
+
+  testWidgets('keeps the training available without a device', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+    });
+    await _pumpScreen(
+      tester,
+      const ProgressorState(connection: DeviceConnection(bluetoothReady: true)),
+      part: 'Training',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Connect a Crimpdeq to start'), findsOneWidget);
+    expect(find.text('Scan'), findsOneWidget);
+    expect(find.text('Workout Type: Endurance'), findsOneWidget);
+    final start = find.widgetWithText(FilledButton, 'Start Workout');
+    await tester.ensureVisible(start);
+    expect(tester.widget<FilledButton>(start).onPressed, isNull);
+
+    await tester.tap(find.text('Benchmarks'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Start Pull'))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      find.textContaining('Connect a Crimpdeq in the Workout tab'),
+      findsOne,
+    );
+
+    // Deleting asks first.
+    final delete = find.byTooltip('Delete benchmark');
+    await tester.ensureVisible(delete);
+    await tester.tap(delete);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Photon · Right: 30.0 kg'), findsOneWidget);
+    await tester.tap(delete);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    expect(find.text('Photon · Right: 30.0 kg'), findsNothing);
   });
 }

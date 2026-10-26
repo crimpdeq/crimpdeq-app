@@ -134,8 +134,11 @@ class WorkoutRecord {
         : [for (final seconds in targetSeconds) seconds.toDouble()];
   }
 
+  /// Mean target of the reps done: a workout ended by a disconnect has fewer
+  /// hangs than targets.
   double get meanTargetSeconds =>
-      targetSeconds.reduce((a, b) => a + b) / targetSeconds.length;
+      targetSeconds.take(actualSeconds.length).reduce((a, b) => a + b) /
+      actualSeconds.length;
 
   double get meanActualSeconds =>
       actualSeconds.reduce((a, b) => a + b) / actualSeconds.length;
@@ -239,6 +242,9 @@ sealed class WorkoutState with _$WorkoutState {
     /// Mean force of each rep, null for a rep not held.
     @Default([]) List<double?> repForcesKg,
     @Default(false) bool saved,
+
+    /// The device disconnected before the last rep.
+    @Default(false) bool disconnected,
   }) = _WorkoutState;
 
   bool get isRunning =>

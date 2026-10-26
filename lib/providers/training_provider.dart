@@ -108,6 +108,16 @@ class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
   @override
   BenchmarkRecording build() {
     ref.onDispose(() => _samples?.cancel());
+    // The device stops measuring when it disconnects.
+    ref.listen(
+      progressorProvider.select((state) => state.connection.isConnected),
+      (_, isConnected) {
+        if (!isConnected && state.recording) {
+          _startedMeasurement = false;
+          stop();
+        }
+      },
+    );
     return (recording: false, elapsedSeconds: 0, bestKg: null);
   }
 
@@ -172,6 +182,25 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   @override
   WorkoutState build() {
     ref.onDispose(_cancel);
+    ref.listen(
+      progressorProvider.select(
+        (state) => (
+          isConnected: state.connection.isConnected,
+          isMeasuring: state.measurement.isMeasuring,
+        ),
+      ),
+      (_, device) {
+        if (!state.isRunning) return;
+        if (!device.isConnected) {
+          _endEarly();
+        } else if (!device.isMeasuring) {
+          // Stopped elsewhere, such as in the Measurements tab: the hangs need
+          // the samples, so measure again until the workout ends.
+          _startedMeasurement = true;
+          ref.read(progressorProvider.notifier).startMeasurement();
+        }
+      },
+    );
     return const WorkoutState();
   }
 
@@ -263,8 +292,20 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
 
   /// Abandons the workout.
   Future<void> stop() async {
-    await _release();
+    // Idle first, so stopping the measurement does not restart it.
     state = const WorkoutState();
+    await _release();
+  }
+
+  /// Ends the workout when the device disconnects, with the reps done so far
+  /// to save, or abandons it before the first rep.
+  void _endEarly() {
+    _cancel();
+    // The measurement ended with the connection.
+    _startedMeasurement = false;
+    state = state.actualSeconds.isEmpty
+        ? const WorkoutState()
+        : state.copyWith(phase: WorkoutPhase.done, disconnected: true);
   }
 
   /// Saves the finished workout. The first target becomes the one the ideal

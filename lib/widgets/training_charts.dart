@@ -418,20 +418,23 @@ class ForceCurveGraph extends StatelessWidget {
   }
 }
 
-/// Each rep's target and actual hang.
+/// Each rep's target, in the section's color, and actual hang.
 class RepResultsGraph extends StatelessWidget {
   const RepResultsGraph({
     super.key,
     required this.targets,
     required this.actual,
+    required this.section,
   });
 
   final List<int> targets;
   final List<double> actual;
+  final CurveSection section;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final targetColor = sectionColors[section]!;
     LineChartBarData line(
       List<num> seconds,
       Color color, {
@@ -454,7 +457,7 @@ class RepResultsGraph extends StatelessWidget {
               maxX: max(targets.length, 2).toDouble(),
               minY: 0,
               lineBarsData: [
-                line(targets, colorScheme.secondary, dashed: true),
+                line(targets, targetColor, dashed: true),
                 line(actual, colorScheme.primary),
               ],
               titlesData: FlTitlesData(
@@ -478,7 +481,7 @@ class RepResultsGraph extends StatelessWidget {
           ),
         ),
         _Legend([
-          (colorScheme.secondary, 'Target (dashed)'),
+          (targetColor, 'Target (dashed)'),
           (colorScheme.primary, 'Actual'),
         ]),
       ],
