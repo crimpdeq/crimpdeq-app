@@ -6,17 +6,9 @@ import '../analysis/opengrips_curve.dart';
 
 part 'training_models.freezed.dart';
 
-/// Grips the Crimpdeq pulls through. Photon and Spark are the crimpdeq-grips
-/// rebuilds of the OpenGrips Prometheus and Sisyphus.
-const trainingTools = [
-  'Photon',
-  'Spark',
-  'Prometheus',
-  'Sisyphus',
-  'Micro',
-  'Crusher',
-  'Other',
-];
+/// Grips the Crimpdeq pulls through: the crimpdeq-grips rebuilds of the
+/// OpenGrips Prometheus and Sisyphus.
+const trainingTools = ['Photon', 'Spark'];
 
 enum Hand {
   left('Left'),
