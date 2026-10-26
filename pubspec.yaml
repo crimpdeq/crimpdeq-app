@@ -30,6 +30,9 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Runs the app against a real device, see integration_test/.
+  integration_test:
+    sdk: flutter
   flutter_lints: ^6.0.0
   # Fakes the Bluetooth platform in tests, at the version flutter_blue_plus pins.
   flutter_blue_plus_platform_interface: 9.0.0

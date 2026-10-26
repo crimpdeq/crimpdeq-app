@@ -136,6 +136,15 @@ flutter analyze
 flutter test
 ```
 
+`integration_test/board_test.dart` runs the app against a device in range: it connects, measures,
+records a benchmark, and runs workouts, including a disconnect and the 1000 SPS sample rate, which
+it restores. It expects the simulated pulls of the
+[firmware](https://github.com/crimpdeq/crimpdeq-firmware) built with `--features esp-rust-board`:
+
+```bash
+flutter test integration_test/board_test.dart -d macos --dart-define=DEVICE_NAME=Progressor_7125
+```
+
 #### Update App Icon
 
 To change the app/launcher icons (including web favicons):
