@@ -76,6 +76,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   int _windowStartUs = 0;
   var _stats = ForceStats();
   final _pendingSamples = <WeightMeasurement>[];
+  final _sampleBatches = StreamController<List<WeightMeasurement>>.broadcast();
   final _lastSecondTimestamps = Queue<int>();
   final _notifyIntervalsMs = <double>[];
   DateTime? _lastNotifyTime;
@@ -100,11 +101,16 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       _isScanningSubscription?.cancel();
       _scanSubscription?.cancel();
       _closeConnection();
+      _sampleBatches.close();
     });
 
     _initializeBle();
     return const ProgressorState();
   }
+
+  /// Every batch of samples as it arrives, unlike the throttled state. The
+  /// timestamps move back at a start, tare or reset.
+  Stream<List<WeightMeasurement>> get sampleBatches => _sampleBatches.stream;
 
   void _log(String message) {
     debugPrint('[ProgressorNotifier] $message');
@@ -484,6 +490,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       _lastSecondTimestamps.removeFirst();
     }
 
+    _sampleBatches.add(samples);
     final steadyLoadReached = _steadyLoadReached;
     if (steadyLoadReached != null &&
         !steadyLoadReached.isCompleted &&

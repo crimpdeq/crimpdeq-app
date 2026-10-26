@@ -10,6 +10,9 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
 - Measurement reset, tare and selectable sample rate
 - Battery voltage and estimated state of charge, with a low battery warning
 - Data visualization with charts
+- [OpenGrips](https://opengrips.xyz) training with the Crimpdeq as the weight: 5-second-max benchmarks,
+  suggested workouts on the OpenGrips force curve, a timer whose hangs follow the measured force, and
+  a workout history stored on the device
 - Compatible with Tindeq Progressor API
 - Cross-platform support (Android, macOS, Windows, Linux, Web)
 
@@ -95,12 +98,13 @@ lib/
 ├── app.dart           # MaterialApp
 ├── theme.dart         # Light and dark themes, bundled fonts
 ├── protocol/          # Progressor BLE protocol: frames, messages, commands
-├── analysis/          # Force stats and RFD, steady load, calibration check, battery
+├── analysis/          # Force stats and RFD, steady load, calibration check, battery, OpenGrips
+│                      # force curve and hang timing
 ├── constants/         # App constants
 ├── models/            # State models
 ├── providers/         # State management (Riverpod)
 ├── screens/           # Main screen and app bar
-└── widgets/           # Connection, measurement, calibration and chart widgets
+└── widgets/           # Connection, measurement, calibration, training and chart widgets
 test/                  # Unit and widget tests
 ```
 
@@ -110,6 +114,7 @@ test/                  # Unit and widget tests
 - `flutter_riverpod`: State management
 - `fl_chart`: Data visualization
 - `permission_handler`: Opening the app settings
+- `shared_preferences`: Storing the training benchmarks and workouts
 - `freezed`: Code generation for immutable classes
 
 The Inter and Space Grotesk fonts are bundled in `assets/fonts/` (SIL Open Font License), so the

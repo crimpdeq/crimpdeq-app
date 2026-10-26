@@ -7,6 +7,7 @@ import '../theme.dart';
 import '../widgets/calibration_widgets.dart';
 import '../widgets/connection_widgets.dart';
 import '../widgets/measurement_widgets.dart';
+import '../widgets/training_widgets.dart';
 
 class CrimpdeqScreen extends ConsumerWidget {
   const CrimpdeqScreen({super.key});
@@ -199,18 +200,21 @@ class _DeviceTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const DefaultTabController(
-      length: 2,
+      length: 3,
       child: Column(
         children: [
           TabBar(
             tabs: [
               Tab(text: 'Calibration'),
               Tab(text: 'Measurements'),
+              Tab(text: 'Training'),
             ],
           ),
           SizedBox(height: 12),
           Expanded(
-            child: TabBarView(children: [CalibrationTab(), MeasurementTab()]),
+            child: TabBarView(
+              children: [CalibrationTab(), MeasurementTab(), TrainingTab()],
+            ),
           ),
         ],
       ),

@@ -1,4 +1,5 @@
 import 'package:crimpdeq/models/progressor_models.dart';
+import 'package:crimpdeq/models/training_models.dart';
 import 'package:crimpdeq/protocol/progressor_protocol.dart';
 import 'package:crimpdeq/providers/progressor_provider.dart';
 import 'package:crimpdeq/screens/crimpdeq_screen.dart';
@@ -9,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Serves a fixed state and records the commands instead of using Bluetooth.
 class _FakeProgressor extends ProgressorNotifier {
@@ -476,5 +478,56 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'Reset'));
     await tester.pumpAndSettle();
     expect(fake.calls, ['defaultCalibration']);
+  });
+  testWidgets('asks for a benchmark before the first workout', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await _pumpScreen(tester, ProgressorState(connection: _connected));
+    await tester.tap(find.text('Training'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Record a benchmark below first'),
+      findsOneWidget,
+    );
+    expect(find.text('No workouts yet.'), findsOneWidget);
+  });
+
+  testWidgets('suggests a workout from the benchmark', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks':
+          '[{"date":"2026-10-26T10:00:00.000","tool":"Photon",'
+          '"hand":"right","forceKg":30}]',
+    });
+    await _pumpScreen(tester, ProgressorState(connection: _connected));
+    await tester.tap(find.text('Training'));
+    await tester.pumpAndSettle();
+    expect(find.text('Photon · Right: 30.0 kg'), findsOneWidget);
+
+    // The workout setup comes before the benchmarks.
+    Future<void> select(Type dropdown, String option) async {
+      await tester.tap(find.byType(dropdown).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(option).last);
+      await tester.pumpAndSettle();
+    }
+
+    await select(DropdownButton<String>, 'Photon');
+    await select(DropdownButton<Hand>, 'Right');
+    expect(find.text('Endurance · suggested'), findsOneWidget);
+    expect(
+      find.text('Target force: 6.8 kg (benchmark 30.0 kg)'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Rep targets: 193 s · 55 s · 43 s · 39 s'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Power'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Target force: 20.0 kg (benchmark 30.0 kg)'),
+      findsOneWidget,
+    );
   });
 }
