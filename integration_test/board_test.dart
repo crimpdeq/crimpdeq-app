@@ -55,6 +55,29 @@ void main() {
       }
     }
 
+    double force() => device().measurement.currentKg ?? 0;
+
+    /// Waits for the simulated rest, when the reading holds still, and
+    /// returns it. Ramps and the tiring holds keep changing.
+    Future<double> waitForRest(String what) async {
+      final readings = <(DateTime, double)>[];
+      await waitUntil(() {
+        final now = DateTime.now();
+        readings
+          ..add((now, force()))
+          // Wider than the 400 ms held, so polls of any interval span them.
+          ..removeWhere(
+            (reading) =>
+                now.difference(reading.$1) > const Duration(milliseconds: 700),
+          );
+        final values = readings.map((reading) => reading.$2);
+        return now.difference(readings.first.$1) >=
+                const Duration(milliseconds: 400) &&
+            values.reduce(max) - values.reduce(min) < 0.05;
+      }, what);
+      return force();
+    }
+
     Future<void> tap(Finder finder) async {
       await tester.ensureVisible(finder);
       await tester.pump();
@@ -110,12 +133,30 @@ void main() {
     await tap(find.text('Measurements'));
     await tester.pumpAndSettle();
     await tap(find.widgetWithText(ElevatedButton, 'Start'));
+    // A tare at the simulated rest clears an offset left by an earlier run.
+    await waitForRest('the first simulated rest');
+    await tap(find.widgetWithText(ElevatedButton, 'Tare'));
     await waitUntil(
       () => (device().measurement.peakKg ?? 0) > 15,
       'a simulated pull',
       timeout: const Duration(seconds: 15),
     );
     debugPrint('Measured peak ${device().measurement.peakKg} kg');
+    // The simulated charge drops 1% every 45 s and the app polls the fuel
+    // gauge every minute, also while measuring.
+    final batteryPercent = device().deviceInfo.batteryPercent;
+    container.listen(
+      progressorProvider.select((state) => state.deviceInfo.batteryPercent),
+      (_, percent) => debugPrint(
+        'Battery $percent% (measuring: ${device().measurement.isMeasuring})',
+      ),
+    );
+    await waitUntil(
+      () => device().deviceInfo.batteryPercent != batteryPercent,
+      'the battery to update while measuring',
+      timeout: const Duration(seconds: 150),
+    );
+    expect(device().measurement.isMeasuring, isTrue);
     await tap(find.widgetWithText(ElevatedButton, 'Stop'));
     await waitUntil(
       () => !device().measurement.isMeasuring,
@@ -236,28 +277,6 @@ void main() {
 
     // Taring during a rest: the simulated pulls keep coming, so the rest
     // warns of a load, and a tare mid-pull leaves an offset to tare away.
-    double force() => device().measurement.currentKg ?? 0;
-
-    /// Waits for the simulated rest, when the reading holds still, and
-    /// returns it. Ramps and the tiring holds keep changing.
-    Future<double> waitForRest(String what) async {
-      final readings = <(DateTime, double)>[];
-      await waitUntil(() {
-        final now = DateTime.now();
-        readings
-          ..add((now, force()))
-          ..removeWhere(
-            (reading) =>
-                now.difference(reading.$1) > const Duration(milliseconds: 500),
-          );
-        final values = readings.map((reading) => reading.$2);
-        return now.difference(readings.first.$1) >=
-                const Duration(milliseconds: 400) &&
-            values.reduce(max) - values.reduce(min) < 0.05;
-      }, what);
-      return force();
-    }
-
     await startWorkout(2, restSeconds: 60);
     await waitUntil(
       () => workout().phase == WorkoutPhase.rest,
