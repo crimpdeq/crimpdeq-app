@@ -281,4 +281,18 @@ void main() {
     await workout.stop();
     expect(events, ['screen true', 'screen false']);
   });
+
+  testWidgets('keeps a stored mute from the first cue', (tester) async {
+    SharedPreferences.setMockInitialValues({'training.muted': true});
+    final feedback = _Feedback();
+    final container = _measuring(feedback);
+    addTearDown(container.dispose);
+    final workout = container.read(workoutProvider.notifier);
+
+    await workout.start(plan.copyWith(restSeconds: 5));
+    await tester.pump(const Duration(seconds: 3));
+    expect(container.read(workoutProvider).phase, WorkoutPhase.hang);
+    expect(feedback.events, ['screen true']);
+    await workout.stop();
+  });
 }

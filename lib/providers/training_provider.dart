@@ -240,6 +240,8 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
 
   Future<void> start(WorkoutPlan plan) async {
     if (state.isRunning) return;
+    // Loaded before the first cue, which reads it.
+    await ref.read(soundsMutedProvider.future);
     final (:measuring, :started) = await _ensureMeasuring(ref);
     if (!measuring) return;
     _startedMeasurement = started;
