@@ -337,12 +337,28 @@ void main() {
     try {
       await setSampleRate(1000);
       await startWorkout(2);
+      // The rate of the samples received, which drops when the link cannot
+      // carry them and the device discards them.
+      final receivedHz = <double>[];
       await waitUntil(
-        () => workout().phase == WorkoutPhase.done,
+        () {
+          final performance = device().performance;
+          if (performance.dataPacketCount > 0) {
+            receivedHz.add(performance.currentHz);
+          }
+          return workout().phase == WorkoutPhase.done;
+        },
         'the workout at 1000 SPS to end',
         timeout: const Duration(seconds: 45),
       );
-      debugPrint('Hangs at 1000 SPS: ${workout().actualSeconds}');
+      receivedHz.sort();
+      final medianHz = receivedHz[receivedHz.length ~/ 2];
+      debugPrint(
+        'Hangs at 1000 SPS: ${workout().actualSeconds}, received '
+        '${receivedHz.first.round()}-${receivedHz.last.round()} Hz, '
+        'median ${medianHz.round()} Hz',
+      );
+      expect(medianHz, greaterThan(900));
       expectSimulatedHangs();
       await tap(find.widgetWithText(OutlinedButton, 'Start New Workout'));
       await tester.pumpAndSettle();
