@@ -391,8 +391,11 @@ class _WorkoutTimer extends ConsumerWidget {
       details = [
         if (!workout.holding)
           Text(
-            'Pull more than ${HoldTracker.thresholdKg.toStringAsFixed(0)} kg '
-            'to start the timer',
+            workout.waitingForRelease
+                ? 'Release the Crimpdeq, then pull to start the timer'
+                : 'Pull more than '
+                      '${HoldTracker.thresholdKg.toStringAsFixed(0)} kg to '
+                      'start the timer',
             style: textTheme.titleMedium?.copyWith(
               color: Theme.of(context).colorScheme.primary,
             ),
@@ -504,7 +507,13 @@ class _WorkoutTimer extends ConsumerWidget {
               child: OutlinedButton.icon(
                 onPressed: notifier.skip,
                 icon: const Icon(Icons.skip_next),
-                label: Text(hanging ? 'Skip Rep' : 'Skip Rest'),
+                label: Text(
+                  hanging
+                      ? 'Skip Rep'
+                      : preRest
+                      ? 'Start Now'
+                      : 'Skip Rest',
+                ),
               ),
             ),
           ],

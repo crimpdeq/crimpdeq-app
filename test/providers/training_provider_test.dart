@@ -295,4 +295,54 @@ void main() {
     expect(feedback.events, ['screen true']);
     await workout.stop();
   });
+
+  testWidgets('measures again when the measurement stops mid-pull', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final device =
+        container.read(progressorProvider.notifier) as _MeasuringProgressor;
+    final recorder = container.read(benchmarkRecorderProvider.notifier);
+
+    device.setMeasuring(false);
+    await recorder.start();
+    device.link();
+    expect(device.starts, 1);
+    device.setMeasuring(false);
+    expect(device.starts, 2);
+    await recorder.stop();
+    // Stopping the pull stops the measurement without restarting it.
+    expect(device.starts, 2);
+    expect(container.read(progressorProvider).measurement.isMeasuring, isFalse);
+  });
+
+  for (final (name, loadedSeconds, waits) in [
+    ('waits for a load left on through the rest to drop', 4.0, true),
+    ('starts with a pull begun in the last seconds of rest', 2.0, false),
+  ]) {
+    testWidgets(name, (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final container = _measuring();
+      addTearDown(container.dispose);
+      final workout = container.read(workoutProvider.notifier);
+      WorkoutState state() => container.read(workoutProvider);
+
+      // The 10 s pre-workout rest, loaded for its last seconds.
+      await workout.start(plan.copyWith(restSeconds: 20));
+      final loadedFromMs = ((10 - loadedSeconds) * 1000).round();
+      workout.addSamples([
+        ..._pull(0, loadedFromMs / 1000, 0),
+        ..._pull(5, loadedSeconds, loadedFromMs),
+      ]);
+      await tester.pump(const Duration(seconds: 10));
+      expect(state().phase, WorkoutPhase.hang);
+      expect(state().waitingForRelease, waits);
+
+      workout.addSamples(_pull(5, 1, 10000));
+      expect(state().holding, !waits);
+      await workout.stop();
+    });
+  }
 }

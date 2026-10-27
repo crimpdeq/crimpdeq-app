@@ -105,6 +105,23 @@ void main() {
     await dispose(tester, container);
   });
 
+  testWidgets('reads only the fuel gauge status while measuring', (
+    tester,
+  ) async {
+    final container = await connect(tester);
+    await tester.pump(const Duration(seconds: 1));
+    final notifier = container.read(progressorProvider.notifier);
+    unawaited(notifier.startMeasurement());
+    await tester.pump();
+    ble.writes.clear();
+
+    await tester.pump(const Duration(minutes: 1));
+    expect(ble.writeCount(ControlOpCode.sampleBattery), 0);
+    expect(ble.writeCount(ControlOpCode.getBatteryStatus), 1);
+    expect(container.read(progressorProvider).deviceInfo.batteryPercent, 80);
+    await dispose(tester, container);
+  });
+
   // The second previous measurement passed half the u32 range, where the jump
   // back after the start looks like a wrap.
   for (final staleMs in [5000, 2400000]) {

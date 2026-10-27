@@ -637,7 +637,12 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   Future<void> _readBattery() async {
     // A Tindeq Progressor must stop measuring before it samples the battery.
-    if (state.measurement.isMeasuring) return;
+    // The Crimpdeq fuel gauge status needs no sample, so long workouts keep
+    // it current.
+    if (state.measurement.isMeasuring) {
+      await _send(ControlOpCode.getBatteryStatus);
+      return;
+    }
     final connectionId = _connectionId;
     final payload = await _request(ControlOpCode.sampleBattery);
     if (payload == null || connectionId != _connectionId) return;

@@ -245,6 +245,9 @@ sealed class WorkoutState with _$WorkoutState {
 
     /// The force reached the target in the current rep.
     @Default(false) bool holding,
+
+    /// The current rep waits for a load left on from the rest to drop.
+    @Default(false) bool waitingForRelease,
     @Default(0.0) double heldSeconds,
 
     /// Force of the current rep over the seconds since its first sample, a

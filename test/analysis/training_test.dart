@@ -174,6 +174,19 @@ void main() {
       expect(tracker.heldSeconds, closeTo(3.9, 1e-9));
     });
 
+    test('waits for a load left on to drop first', () {
+      final tracker = HoldTracker(waitForRelease: true);
+      _samples(_repeat(5, 2)).forEach(tracker.add);
+      expect(tracker.started, isFalse);
+      expect(tracker.waitForRelease, isTrue);
+      _samples([
+        ..._repeat(0, 0.5),
+        ..._repeat(10, 2),
+      ], startMs: 2000).forEach(tracker.add);
+      expect(tracker.waitForRelease, isFalse);
+      expect(tracker.heldSeconds, closeTo(1.9, 1e-9));
+    });
+
     test('waits for a pull of more than 2 kg', () {
       final tracker = HoldTracker();
       _samples(_repeat(2, 3)).forEach(tracker.add);

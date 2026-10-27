@@ -131,13 +131,23 @@ class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
   @override
   BenchmarkRecording build() {
     ref.onDispose(() => _samples?.cancel());
-    // The device stops measuring when it disconnects.
     ref.listen(
-      progressorProvider.select((state) => state.connection.isConnected),
-      (_, isConnected) {
-        if (!isConnected && state.recording) {
+      progressorProvider.select(
+        (state) => (
+          isConnected: state.connection.isConnected,
+          isMeasuring: state.measurement.isMeasuring,
+        ),
+      ),
+      (_, device) {
+        if (!state.recording) return;
+        if (!device.isConnected) {
+          // The measurement ended with the connection.
           _startedMeasurement = false;
           stop();
+        } else if (!device.isMeasuring) {
+          // Stopped elsewhere, such as in the Measurements tab.
+          _startedMeasurement = true;
+          ref.read(progressorProvider.notifier).startMeasurement();
         }
       },
     );
@@ -168,6 +178,7 @@ class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
   Future<void> stop() async {
     _samples?.cancel();
     _samples = null;
+    // Not recording first, so stopping the measurement does not restart it.
     state = (
       recording: false,
       elapsedSeconds: state.elapsedSeconds,
@@ -203,6 +214,13 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   int? _tracePointUs;
   double _traceKg = 0;
   int _traceSamples = 0;
+  // Device time since the force stayed above the hang threshold during the
+  // rest, and of the latest rest sample.
+  int? _restLoadedSinceUs;
+  int? _restLastUs;
+
+  /// A load on for this long at the end of a rest is left on, not a pull.
+  static const _leftOnUs = 3000000;
 
   @override
   WorkoutState build() {
@@ -255,6 +273,11 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
 
   /// Times the current hang with the samples and traces its force.
   void addSamples(List<WeightMeasurement> samples) {
+    if (state.phase == WorkoutPhase.preRest ||
+        state.phase == WorkoutPhase.rest) {
+      _trackRestLoad(samples);
+      return;
+    }
     final hold = _hold;
     if (state.phase != WorkoutPhase.hang || hold == null) return;
     samples.forEach(hold.add);
@@ -271,12 +294,28 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     }
     if (points.isNotEmpty ||
         hold.started != state.holding ||
+        hold.waitForRelease != state.waitingForRelease ||
         heldSeconds != state.heldSeconds) {
       state = state.copyWith(
         holding: hold.started,
+        waitingForRelease: hold.waitForRelease,
         heldSeconds: heldSeconds,
         forceTrace: [...state.forceTrace, ...points],
       );
+    }
+  }
+
+  void _trackRestLoad(List<WeightMeasurement> samples) {
+    for (final sample in samples) {
+      final lastUs = _restLastUs;
+      // A tare or restart moves the timeline back: the load starts over.
+      if (lastUs != null && sample.timestampUs < lastUs) {
+        _restLoadedSinceUs = null;
+      }
+      _restLastUs = sample.timestampUs;
+      _restLoadedSinceUs = sample.weightKg > HoldTracker.thresholdKg
+          ? _restLoadedSinceUs ?? sample.timestampUs
+          : null;
     }
   }
 
@@ -413,7 +452,12 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
 
   void _hang(int rep) {
     _restTimer?.cancel();
-    _hold = HoldTracker();
+    final loadedSinceUs = _restLoadedSinceUs;
+    final leftOn =
+        loadedSinceUs != null && _restLastUs! - loadedSinceUs >= _leftOnUs;
+    _restLoadedSinceUs = null;
+    _restLastUs = null;
+    _hold = HoldTracker(waitForRelease: leftOn);
     _traceStartUs = null;
     _traceLastUs = null;
     _tracePointUs = null;
@@ -424,6 +468,7 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
       rep: rep,
       paused: false,
       holding: false,
+      waitingForRelease: leftOn,
       heldSeconds: 0,
       forceTrace: const [],
     );

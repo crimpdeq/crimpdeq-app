@@ -5,6 +5,8 @@
 //
 // The simulated load cell repeats 8.5 s cycles from each start: 2 s unloaded,
 // then a pull above 2 kg for about 6 s, peaking at 18, 30, 24, 12 and 27 kg.
+import 'dart:math';
+
 import 'package:crimpdeq/analysis/opengrips_curve.dart';
 import 'package:crimpdeq/app.dart';
 import 'package:crimpdeq/models/training_models.dart';
@@ -235,6 +237,27 @@ void main() {
     // Taring during a rest: the simulated pulls keep coming, so the rest
     // warns of a load, and a tare mid-pull leaves an offset to tare away.
     double force() => device().measurement.currentKg ?? 0;
+
+    /// Waits for the simulated rest, when the reading holds still, and
+    /// returns it. Ramps and the tiring holds keep changing.
+    Future<double> waitForRest(String what) async {
+      final readings = <(DateTime, double)>[];
+      await waitUntil(() {
+        final now = DateTime.now();
+        readings
+          ..add((now, force()))
+          ..removeWhere(
+            (reading) =>
+                now.difference(reading.$1) > const Duration(milliseconds: 500),
+          );
+        final values = readings.map((reading) => reading.$2);
+        return now.difference(readings.first.$1) >=
+                const Duration(milliseconds: 400) &&
+            values.reduce(max) - values.reduce(min) < 0.05;
+      }, what);
+      return force();
+    }
+
     await startWorkout(2, restSeconds: 60);
     await waitUntil(
       () => workout().phase == WorkoutPhase.rest,
@@ -245,13 +268,15 @@ void main() {
     await waitUntil(() => force() > 10, 'a pull during the rest');
     expect(find.textContaining('more than 2 kg at rest'), findsOne);
     await tap(find.widgetWithText(OutlinedButton, 'Tare'));
-    await waitUntil(() => force() < -5, 'the offset of the tare mid-pull');
+    final offsetKg = await waitForRest('the rest after the tare mid-pull');
+    expect(offsetKg, lessThan(-5));
     expect(find.textContaining('unloaded: tare it'), findsOne);
+    // Tared unloaded, the next rest reads zero again.
     await tap(find.widgetWithText(OutlinedButton, 'Tare'));
-    await waitUntil(
-      () => force().abs() < 0.2,
-      'the tare at rest',
-      timeout: const Duration(seconds: 5),
+    await waitUntil(() => force() > 5, 'the next pull');
+    expect(
+      await waitForRest('the rest after the tare at rest'),
+      closeTo(0, 0.05),
     );
     expect(find.textContaining('unloaded: tare it'), findsNothing);
     debugPrint('Tared at rest: ${force()} kg');
