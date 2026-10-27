@@ -345,4 +345,34 @@ void main() {
       await workout.stop();
     });
   }
+
+  testWidgets('counts nothing after the rest until pulling more than 2 kg', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final workout = container.read(workoutProvider.notifier);
+    WorkoutState state() => container.read(workoutProvider);
+
+    // A 6 s rest between reps, so the pre-workout rest lasts 3 s.
+    await workout.start(plan.copyWith(restSeconds: 6));
+    await tester.pump(const Duration(seconds: 3));
+    expect(state().phase, WorkoutPhase.hang);
+
+    // 10 s at 2 kg or less, as time passes.
+    for (var second = 0; second < 10; second++) {
+      workout.addSamples(_pull(second.isEven ? 2 : 0.5, 1, second * 1000));
+      await tester.pump(const Duration(seconds: 1));
+    }
+    expect(state().holding, isFalse);
+    expect(state().heldSeconds, 0);
+    expect(state().phase, WorkoutPhase.hang);
+
+    // The first sample above 2 kg starts the hang, so 2 s of samples hold 1.9 s.
+    workout.addSamples(_pull(12, 2, 10000));
+    expect(state().holding, isTrue);
+    expect(state().heldSeconds, 1.9);
+    await workout.stop();
+  });
 }
