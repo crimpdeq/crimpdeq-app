@@ -622,10 +622,13 @@ void main() {
     await tester.pumpAndSettle();
 
     // Mean deltas of -2 s and -8 s.
-    expect(find.textContaining('avg Δ -2.0 s · vs Prev +6.0 s'), findsOne);
-    expect(find.textContaining('avg Δ -8.0 s · vs Prev —'), findsOne);
+    expect(find.text('-2.0 s'), findsOne);
+    expect(find.text('-8.0 s'), findsOne);
+    // Only the latest has a previous workout to compare with.
+    expect(find.text('+6.0 s vs previous'), findsOne);
+    expect(find.text('2 of 2 reps held'), findsNWidgets(2));
 
-    final latest = find.textContaining('2026-10-27 10:00');
+    final latest = find.text('Tue 27 Oct · 10:00');
     await tester.ensureVisible(latest);
     await tester.tap(latest);
     await tester.pumpAndSettle();
@@ -636,7 +639,7 @@ void main() {
     expect(find.text('Delete the workout?'), findsOneWidget);
     await tester.tap(find.text('Delete').last);
     await tester.pumpAndSettle();
-    expect(find.textContaining('2026-10-27 10:00'), findsNothing);
+    expect(latest, findsNothing);
   });
 
   testWidgets('keeps the training available without a device', (tester) async {

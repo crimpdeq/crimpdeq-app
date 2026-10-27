@@ -246,7 +246,7 @@ void main() {
     await waitUntil(() => workout().saved, 'the workout to save');
     await tap(find.text('History'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Photon Right'), findsOne);
+    expect(find.text('Photon · Right hand'), findsOne);
 
     // A disconnect mid-workout keeps the reps done.
     await tap(find.text('Workout'));
