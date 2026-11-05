@@ -180,6 +180,26 @@ void main() {
     }
   });
 
+  testWidgets('saves a workout once for a second tap', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final workout = container.read(workoutProvider.notifier);
+
+    // The pre-rest, both hangs and the rest between them.
+    await workout.start(plan.copyWith(reps: 2));
+    for (var i = 0; i < 4; i++) {
+      workout.skip();
+    }
+    expect(container.read(workoutProvider).phase, WorkoutPhase.done);
+    await Future.wait([
+      workout.save(perceivedExertion: 5, notes: ''),
+      workout.save(perceivedExertion: 5, notes: ''),
+    ]);
+    final saved = (await container.read(trainingLogProvider.future)).workouts;
+    expect(saved, hasLength(1));
+  });
+
   testWidgets('records the best 5 s of a benchmark pull', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final container = _measuring();

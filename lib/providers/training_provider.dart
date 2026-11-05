@@ -221,6 +221,9 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   // The workout runs after the measurement starts: a second tap meanwhile
   // would subscribe twice.
   bool _starting = false;
+  // The workout is saved once stored: a second tap meanwhile would store it
+  // twice.
+  bool _saving = false;
   // Samples of the current rep since the last trace point.
   int? _traceStartUs;
   int? _traceLastUs;
@@ -412,30 +415,36 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     required int perceivedExertion,
     required String notes,
   }) async {
-    final plan = state.plan!;
-    final forceKg = state.meanForceKg;
-    final targets = [...state.targets];
-    if (forceKg != null && forceKg > 0) {
-      targets[0] = idealFirstHangSeconds(forceKg, plan.benchmarkKg);
+    if (state.saved || _saving) return;
+    _saving = true;
+    try {
+      final plan = state.plan!;
+      final forceKg = state.meanForceKg;
+      final targets = [...state.targets];
+      if (forceKg != null && forceKg > 0) {
+        targets[0] = idealFirstHangSeconds(forceKg, plan.benchmarkKg);
+      }
+      await ref
+          .read(trainingLogProvider.notifier)
+          .addWorkout(
+            WorkoutRecord(
+              date: DateTime.now(),
+              tool: plan.tool,
+              hand: plan.hand,
+              section: plan.section,
+              targetForceKg: plan.targetForceKg,
+              forceKg: forceKg,
+              restSeconds: plan.restSeconds,
+              targetSeconds: targets,
+              actualSeconds: state.actualSeconds,
+              perceivedExertion: perceivedExertion,
+              notes: notes,
+            ),
+          );
+      state = state.copyWith(saved: true);
+    } finally {
+      _saving = false;
     }
-    await ref
-        .read(trainingLogProvider.notifier)
-        .addWorkout(
-          WorkoutRecord(
-            date: DateTime.now(),
-            tool: plan.tool,
-            hand: plan.hand,
-            section: plan.section,
-            targetForceKg: plan.targetForceKg,
-            forceKg: forceKg,
-            restSeconds: plan.restSeconds,
-            targetSeconds: targets,
-            actualSeconds: state.actualSeconds,
-            perceivedExertion: perceivedExertion,
-            notes: notes,
-          ),
-        );
-    state = state.copyWith(saved: true);
   }
 
   /// Returns to the setup after the results.
