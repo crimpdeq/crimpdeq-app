@@ -1,7 +1,9 @@
+import 'package:crimpdeq/analysis/opengrips_curve.dart';
 import 'package:crimpdeq/models/progressor_models.dart';
 import 'package:crimpdeq/models/training_models.dart';
 import 'package:crimpdeq/protocol/progressor_protocol.dart';
 import 'package:crimpdeq/providers/progressor_provider.dart';
+import 'package:crimpdeq/providers/training_provider.dart';
 import 'package:crimpdeq/screens/crimpdeq_screen.dart';
 import 'package:crimpdeq/theme.dart';
 import 'package:flutter/material.dart';
@@ -528,6 +530,49 @@ void main() {
     expect(find.text('Workout Type: Power'), findsOneWidget);
     expect(find.text('Force: 20.0 kg'), findsOneWidget);
     expect(find.text('Reps: 6'), findsOneWidget);
+  });
+
+  testWidgets('drops an edited plan when the default tool or hand moves', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      part: 'Training',
+    );
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CrimpdeqScreen)),
+    );
+    container
+        .read(workoutSetupProvider.notifier)
+        .updatePlan(
+          WorkoutPlan.forSection(
+            tool: 'Photon',
+            hand: Hand.right,
+            section: CurveSection.endurance,
+            benchmarkKg: 30,
+          ).copyWith(reps: 17),
+        );
+    await tester.pump();
+    expect(find.text('Reps: 17'), findsOneWidget);
+
+    // The latest benchmark sets the default tool and hand.
+    await container
+        .read(trainingLogProvider.notifier)
+        .addBenchmark(
+          Benchmark(
+            date: DateTime(2026, 10, 27),
+            tool: 'Spark',
+            hand: Hand.left,
+            forceKg: 30,
+          ),
+        );
+    await tester.pumpAndSettle();
+    expect(find.text('Reps: 17'), findsNothing);
   });
 
   testWidgets('saves a held weight as a benchmark and opens its workout', (

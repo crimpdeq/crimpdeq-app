@@ -101,15 +101,21 @@ class _WorkoutSetup extends ConsumerWidget {
       for (final (_, point) in workouts) point,
     ], benchmark.forceKg);
     final section = setup.section ?? suggested;
-    // An edited plan follows the current best benchmark.
+    // An edited plan follows the current best benchmark. A new benchmark or
+    // workout can move the default tool, hand or section away from it.
+    final edited = setup.plan;
     final plan =
-        setup.plan?.copyWith(benchmarkKg: benchmark.forceKg) ??
-        WorkoutPlan.forSection(
-          tool: tool,
-          hand: hand,
-          section: section,
-          benchmarkKg: benchmark.forceKg,
-        );
+        edited != null &&
+            edited.tool == tool &&
+            edited.hand == hand &&
+            edited.section == section
+        ? edited.copyWith(benchmarkKg: benchmark.forceKg)
+        : WorkoutPlan.forSection(
+            tool: tool,
+            hand: hand,
+            section: section,
+            benchmarkKg: benchmark.forceKg,
+          );
     final update = setupNotifier.updatePlan;
     final energySystems = clampEnergySystems(
       plan.energySystems ?? section.energySystems,
