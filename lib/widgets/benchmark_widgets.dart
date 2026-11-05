@@ -8,6 +8,10 @@ import '../providers/progressor_provider.dart';
 import '../providers/training_provider.dart';
 import 'training_common.dart';
 
+/// The lightest benchmark with a workout whose hangs count: the Power target,
+/// the balanced force, must pull more than the hang threshold.
+const _minBenchmarkKg = HoldTracker.thresholdKg / balancedRatio;
+
 /// OpenGrips benchmarks: the highest force held for 5 s with each tool and
 /// hand. The first one for a tool and hand unlocks its workouts.
 class BenchmarksTab extends StatelessWidget {
@@ -102,7 +106,15 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
       _showError('The hold must last at least 5 s.');
       return;
     }
-    await _save(deriveBenchmarkKg(weightKg, heldSeconds));
+    final benchmarkKg = deriveBenchmarkKg(weightKg, heldSeconds);
+    if (benchmarkKg <= _minBenchmarkKg) {
+      _showError(
+        'The hold is a ${formatKg(benchmarkKg)} benchmark. A workout needs '
+        'more than ${formatKg(_minBenchmarkKg)}.',
+      );
+      return;
+    }
+    await _save(benchmarkKg);
     _weightKg.clear();
     _heldSeconds.text = '5';
   }
@@ -124,8 +136,7 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
     );
     final selected = _tool != null && _hand != null;
     final bestKg = recording.bestKg;
-    // A force the hangs cannot count, such as no pull at all, is no benchmark.
-    final pulled = bestKg != null && bestKg > HoldTracker.thresholdKg;
+    final pulled = bestKg != null && bestKg > _minBenchmarkKg;
     final isConnected = watchConnected(ref);
 
     return Column(
@@ -162,11 +173,7 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
           'Best 5 s: ${bestKg == null ? '—' : formatKg(bestKg)}',
         ),
         if (!recording.recording && recording.elapsedSeconds > 0 && !pulled)
-          Text(
-            'Pull more than '
-            '${HoldTracker.thresholdKg.toStringAsFixed(0)} kg for at least '
-            '5 s.',
-          ),
+          Text('Pull more than ${formatKg(_minBenchmarkKg)} for at least 5 s.'),
         const SizedBox(height: 8),
         Row(
           children: [

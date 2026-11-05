@@ -545,7 +545,7 @@ void main() {
     expect(find.text('Reps: 6'), findsOneWidget);
   });
 
-  for (final (bestKg, saves) in [(0.0, false), (2.0, false), (2.1, true)]) {
+  for (final (bestKg, saves) in [(0.0, false), (3.0, false), (3.1, true)]) {
     testWidgets('${saves ? 'saves' : 'rejects'} a $bestKg kg pull', (
       tester,
     ) async {
@@ -571,7 +571,7 @@ void main() {
       final save = find.widgetWithText(OutlinedButton, 'Save Benchmark');
       expect(tester.widget<OutlinedButton>(save).onPressed != null, saves);
       expect(
-        find.text('Pull more than 2 kg for at least 5 s.'),
+        find.text('Pull more than 3.0 kg for at least 5 s.'),
         saves ? findsNothing : findsOne,
       );
     });
@@ -702,6 +702,11 @@ void main() {
     await tester.tap(save);
     await tester.pump();
     expect(find.text('Enter the weight held, in kg.'), findsOneWidget);
+    // Too light for even the Power target to start a hang.
+    await tester.enterText(weight, '0.5');
+    await tester.tap(save);
+    await tester.pump();
+    expect(find.textContaining('A workout needs more than 3.0 kg'), findsOne);
 
     // 30 kg for 10 s is a 32.92 kg 5 s max.
     await tester.enterText(weight, '30');
