@@ -198,6 +198,17 @@ void main() {
     ]);
     final saved = (await container.read(trainingLogProvider.future)).workouts;
     expect(saved, hasLength(1));
+
+    // Leaving before the save is stored keeps the next workout unsaved.
+    workout.reset();
+    await workout.start(plan.copyWith(reps: 2));
+    for (var i = 0; i < 4; i++) {
+      workout.skip();
+    }
+    final save = workout.save(perceivedExertion: 5, notes: '');
+    workout.reset();
+    await save;
+    expect(container.read(workoutProvider).saved, isFalse);
   });
 
   testWidgets('records the best 5 s of a benchmark pull', (tester) async {

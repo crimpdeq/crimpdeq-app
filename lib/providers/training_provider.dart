@@ -417,6 +417,7 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   }) async {
     if (state.saved || _saving) return;
     _saving = true;
+    final workout = state;
     try {
       final plan = state.plan!;
       final forceKg = state.meanForceKg;
@@ -441,7 +442,8 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
               notes: notes,
             ),
           );
-      state = state.copyWith(saved: true);
+      // Leaving the results meanwhile starts over with another workout.
+      if (identical(state, workout)) state = state.copyWith(saved: true);
     } finally {
       _saving = false;
     }
