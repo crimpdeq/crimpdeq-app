@@ -45,17 +45,6 @@ class _AddBenchmark extends ConsumerStatefulWidget {
 class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
   final _weightKg = TextEditingController();
   final _heldSeconds = TextEditingController(text: '5');
-  String? _tool;
-  Hand? _hand;
-
-  @override
-  void initState() {
-    super.initState();
-    // The latest benchmark's tool and hand, the likeliest next ones.
-    final latest = ref.read(trainingLogProvider).value?.benchmarks.lastOrNull;
-    _tool = latest?.tool;
-    _hand = latest?.hand;
-  }
 
   @override
   void dispose() {
@@ -64,13 +53,13 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
     super.dispose();
   }
 
-  Future<void> _save(double forceKg) async {
+  Future<void> _save(String tool, Hand hand, double forceKg) async {
     final messenger = ScaffoldMessenger.of(context);
     final tabs = DefaultTabController.maybeOf(context);
     final benchmark = Benchmark(
       date: DateTime.now(),
-      tool: _tool!,
-      hand: _hand!,
+      tool: tool,
+      hand: hand,
       forceKg: forceKg,
     );
     await ref.read(trainingLogProvider.notifier).addBenchmark(benchmark);
@@ -93,7 +82,7 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
       );
   }
 
-  Future<void> _saveHold() async {
+  Future<void> _saveHold(String tool, Hand hand) async {
     double? parse(TextEditingController field) =>
         double.tryParse(field.text.trim().replaceAll(',', '.'));
     final weightKg = parse(_weightKg);
@@ -114,7 +103,7 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
       );
       return;
     }
-    await _save(benchmarkKg);
+    await _save(tool, hand, benchmarkKg);
     _weightKg.clear();
     _heldSeconds.text = '5';
   }
@@ -134,7 +123,13 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
     final workoutRunning = ref.watch(
       workoutProvider.select((state) => state.isRunning),
     );
-    final selected = _tool != null && _hand != null;
+    // By default the latest benchmark's tool and hand, the likeliest next
+    // ones.
+    final selection = ref.watch(benchmarkSelectionProvider);
+    final latest = ref.watch(trainingLogProvider).value?.benchmarks.lastOrNull;
+    final tool = selection.tool ?? latest?.tool;
+    final hand = selection.hand ?? latest?.hand;
+    final selector = ref.read(benchmarkSelectionProvider.notifier);
     final bestKg = recording.bestKg;
     final pulled = bestKg != null && bestKg > _minBenchmarkKg;
     final isConnected = watchConnected(ref);
@@ -151,10 +146,10 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
         const SizedBox(height: 12),
         ToolAndHand(
           tools: trainingTools,
-          tool: _tool,
-          onToolChanged: (tool) => setState(() => _tool = tool),
-          hand: _hand,
-          onHandChanged: (hand) => setState(() => _hand = hand),
+          tool: tool,
+          onToolChanged: selector.selectTool,
+          hand: hand,
+          onHandChanged: selector.selectHand,
         ),
         const SizedBox(height: 16),
         Text('Measure with the Crimpdeq', style: textTheme.titleSmall),
@@ -197,10 +192,14 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
             const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton(
-                onPressed: recording.recording || !pulled || !selected
+                onPressed:
+                    recording.recording ||
+                        !pulled ||
+                        tool == null ||
+                        hand == null
                     ? null
                     : () async {
-                        await _save(bestKg);
+                        await _save(tool, hand, bestKg);
                         recorder.clear();
                       },
                 child: const Text('Save Benchmark'),
@@ -243,7 +242,9 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
         ),
         const SizedBox(height: 8),
         OutlinedButton(
-          onPressed: selected ? _saveHold : null,
+          onPressed: tool == null || hand == null
+              ? null
+              : () => _saveHold(tool, hand),
           child: const Text('Save Hold'),
         ),
       ],

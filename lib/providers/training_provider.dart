@@ -115,6 +115,25 @@ Future<({bool measuring, bool started})> _ensureMeasuring(Ref ref) async {
   return (measuring: measuring, started: measuring);
 }
 
+/// The benchmark form's tool and hand, kept while switching parts, so a
+/// recorded pull saves under the ones it was recorded with. Null follows the
+/// latest benchmark.
+typedef BenchmarkSelection = ({String? tool, Hand? hand});
+
+final benchmarkSelectionProvider =
+    NotifierProvider<BenchmarkSelectionNotifier, BenchmarkSelection>(
+      BenchmarkSelectionNotifier.new,
+    );
+
+class BenchmarkSelectionNotifier extends Notifier<BenchmarkSelection> {
+  @override
+  BenchmarkSelection build() => (tool: null, hand: null);
+
+  void selectTool(String? tool) => state = (tool: tool, hand: state.hand);
+
+  void selectHand(Hand? hand) => state = (tool: state.tool, hand: hand);
+}
+
 typedef BenchmarkRecording = ({
   bool recording,
   double elapsedSeconds,

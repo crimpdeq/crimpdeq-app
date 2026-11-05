@@ -603,6 +603,48 @@ void main() {
     expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
   });
 
+  testWidgets('keeps the benchmark tool and hand across the parts', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      part: 'Training',
+    );
+    Future<void> openBenchmarks() async {
+      await tester.tap(find.text('Benchmarks'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> select(Type dropdown, String option) async {
+      await tester.tap(find.byType(dropdown).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(option).last);
+      await tester.pumpAndSettle();
+    }
+
+    await openBenchmarks();
+    await select(DropdownButton<String>, 'Spark');
+    await select(DropdownButton<Hand>, 'Left');
+
+    // A pull recorded here saves under them after a visit to Debugging.
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Debugging'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Training'));
+    await tester.pumpAndSettle();
+    await openBenchmarks();
+    final tool = tester.widget<DropdownButton<String>>(
+      find.byType(DropdownButton<String>).first,
+    );
+    final hand = tester.widget<DropdownButton<Hand>>(
+      find.byType(DropdownButton<Hand>).first,
+    );
+    expect((tool.value, hand.value), ('Spark', Hand.left));
+  });
+
   testWidgets('drops an edited plan when the default tool or hand moves', (
     tester,
   ) async {
