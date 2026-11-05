@@ -182,7 +182,8 @@ int _energySystemsTarget(EnergySystems systems, int rep, num firstHang) {
   final ratio =
       asymptote +
       (secondRep / firstHang - asymptote) * pow(decay, rep - 2).toDouble();
-  return (firstHang * ratio).round();
+  // A first hang ended early would leave nothing to hold.
+  return max(1, (firstHang * ratio).round());
 }
 
 /// Lowest force on the ideal force curve, held for the endurance first hang.

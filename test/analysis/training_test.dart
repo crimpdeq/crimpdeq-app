@@ -73,6 +73,17 @@ void main() {
         ),
         [193, 112, 111, 110],
       );
+      // A first hang ended at once still leaves a second for each rep.
+      expect(
+        repTargetSeconds(
+          CurveSection.power,
+          reps: 6,
+          firstHangSeconds: 40,
+          firstHangActualSeconds: 0.2,
+          energySystems: CurveSection.power.energySystems,
+        ),
+        [40, 1, 1, 1, 1, 1],
+      );
     });
 
     test('bounds each energy system by the previous one', () {
