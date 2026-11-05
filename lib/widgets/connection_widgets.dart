@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../analysis/battery.dart';
 import '../models/progressor_models.dart';
+import '../providers/progressor_provider.dart';
 import '../theme.dart';
 
 String _volts(int millivolts) => '${(millivolts / 1000).toStringAsFixed(2)} V';
@@ -195,9 +197,44 @@ Color? _batteryColor(int percent) => percent <= 15
     ? Colors.orangeAccent.shade200
     : null;
 
-/// Scan button, settings shortcut and the devices found.
+/// Scan button, settings shortcut and the devices found, centered on the
+/// screen.
 class ConnectPanel extends StatelessWidget {
   const ConnectPanel({
+    super.key,
+    required this.connection,
+    required this.onStartScanning,
+    required this.onConnect,
+  });
+
+  final DeviceConnection connection;
+  final VoidCallback onStartScanning;
+  final ValueChanged<DiscoveredDevice> onConnect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 56),
+            child: ConnectControls(
+              connection: connection,
+              onStartScanning: onStartScanning,
+              onConnect: onConnect,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Scan button, settings shortcut and the devices found.
+class ConnectControls extends StatelessWidget {
+  const ConnectControls({
     super.key,
     required this.connection,
     required this.onStartScanning,
@@ -216,49 +253,62 @@ class ConnectPanel extends StatelessWidget {
         !connection.isConnecting &&
         connection.device == null;
 
-    return Align(
-      alignment: Alignment.topCenter,
-      child: SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: Padding(
-            padding: const EdgeInsets.only(top: 56),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (canScan) ...[
-                  FilledButton.icon(
-                    onPressed: onStartScanning,
-                    icon: const Icon(Icons.search, size: 24),
-                    label: const Text('Scan'),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(280, 56),
-                      textStyle: const TextStyle(
-                        fontFamily: interFont,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                if (connection.needsSettings && !kIsWeb) ...[
-                  const OutlinedButton(
-                    onPressed: openAppSettings,
-                    child: Text('Open App Settings'),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                DiscoveredDevicesCard(
-                  connection: connection,
-                  onConnect: onConnect,
-                ),
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (canScan) ...[
+          FilledButton.icon(
+            onPressed: onStartScanning,
+            icon: const Icon(Icons.search, size: 24),
+            label: const Text('Scan'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(280, 56),
+              textStyle: const TextStyle(
+                fontFamily: interFont,
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+              ),
             ),
           ),
-        ),
-      ),
+          const SizedBox(height: 16),
+        ],
+        if (connection.needsSettings && !kIsWeb) ...[
+          const OutlinedButton(
+            onPressed: openAppSettings,
+            child: Text('Open App Settings'),
+          ),
+          const SizedBox(height: 16),
+        ],
+        DiscoveredDevicesCard(connection: connection, onConnect: onConnect),
+      ],
     );
+  }
+}
+
+/// Scans for devices and connects to the selected one: centered on the
+/// screen, or [inline] within a page.
+class ConnectView extends ConsumerWidget {
+  const ConnectView({super.key, this.inline = false});
+
+  final bool inline;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(progressorProvider.notifier);
+    final connection = ref.watch(
+      progressorProvider.select((state) => state.connection),
+    );
+    return inline
+        ? ConnectControls(
+            connection: connection,
+            onStartScanning: notifier.startScanning,
+            onConnect: notifier.connect,
+          )
+        : ConnectPanel(
+            connection: connection,
+            onStartScanning: notifier.startScanning,
+            onConnect: notifier.connect,
+          );
   }
 }
 

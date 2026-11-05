@@ -10,6 +10,13 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
 - Measurement reset, tare and selectable sample rate
 - Battery voltage and estimated state of charge, with a low battery warning
 - Data visualization with charts
+- Training, following [OpenGrips](https://opengrips.xyz) with the Crimpdeq as the weight:
+  - Benchmarks: 5-second-max pulls or held weights, with personal bests
+  - Workout: suggested workout types with their target and force curve graphs, the energy-system
+    configuration, and a timer whose hangs follow the measured force, with sound cues and the
+    screen kept on
+  - History: workouts on the force curve with their per-rep results, stored on the device
+- Debugging: calibration and measurements
 - Compatible with Tindeq Progressor API
 - Cross-platform support (Android, macOS, Windows, Linux, Web)
 
@@ -95,12 +102,13 @@ lib/
 ├── app.dart           # MaterialApp
 ├── theme.dart         # Light and dark themes, bundled fonts
 ├── protocol/          # Progressor BLE protocol: frames, messages, commands
-├── analysis/          # Force stats and RFD, steady load, calibration check, battery
+├── analysis/          # Force stats and RFD, steady load, calibration check, battery, OpenGrips
+│                      # force curve and hang timing
 ├── constants/         # App constants
 ├── models/            # State models
 ├── providers/         # State management (Riverpod)
-├── screens/           # Main screen and app bar
-└── widgets/           # Connection, measurement, calibration and chart widgets
+├── screens/           # Main screen, app bar, and the Training and Debugging parts
+└── widgets/           # Connection, measurement, calibration, training and chart widgets
 test/                  # Unit and widget tests
 ```
 
@@ -110,6 +118,9 @@ test/                  # Unit and widget tests
 - `flutter_riverpod`: State management
 - `fl_chart`: Data visualization
 - `permission_handler`: Opening the app settings
+- `shared_preferences`: Storing the training benchmarks and workouts
+- `audioplayers`: Workout sound cues (needs GStreamer to build for Linux)
+- `wakelock_plus`: Keeping the screen on during a workout
 - `freezed`: Code generation for immutable classes
 
 The Inter and Space Grotesk fonts are bundled in `assets/fonts/` (SIL Open Font License), so the
@@ -123,6 +134,15 @@ CI runs these on every pull request:
 dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test
+```
+
+`integration_test/board_test.dart` runs the app against a device in range: it connects, measures,
+records a benchmark, and runs workouts, including tares, a disconnect and the 1000 SPS sample rate,
+which it restores. The macOS build migrates the project files in `macos/`; do not commit them. It expects the simulated pulls of the
+[firmware](https://github.com/crimpdeq/crimpdeq-firmware) built with `--features esp-rust-board`:
+
+```bash
+flutter test integration_test/board_test.dart -d macos --dart-define=DEVICE_NAME=Progressor_7125
 ```
 
 #### Update App Icon
