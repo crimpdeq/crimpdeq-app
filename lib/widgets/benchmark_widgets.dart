@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../analysis/hold_tracker.dart';
 import '../analysis/opengrips_curve.dart';
 import '../models/training_models.dart';
 import '../providers/progressor_provider.dart';
@@ -123,6 +124,8 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
     );
     final selected = _tool != null && _hand != null;
     final bestKg = recording.bestKg;
+    // A force the hangs cannot count, such as no pull at all, is no benchmark.
+    final pulled = bestKg != null && bestKg > HoldTracker.thresholdKg;
     final isConnected = watchConnected(ref);
 
     return Column(
@@ -158,10 +161,12 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
           'Elapsed: ${recording.elapsedSeconds.toStringAsFixed(1)} s · '
           'Best 5 s: ${bestKg == null ? '—' : formatKg(bestKg)}',
         ),
-        if (!recording.recording &&
-            recording.elapsedSeconds > 0 &&
-            bestKg == null)
-          const Text('Pull for at least 5 s.'),
+        if (!recording.recording && recording.elapsedSeconds > 0 && !pulled)
+          Text(
+            'Pull more than '
+            '${HoldTracker.thresholdKg.toStringAsFixed(0)} kg for at least '
+            '5 s.',
+          ),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -185,7 +190,7 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
             const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton(
-                onPressed: recording.recording || bestKg == null || !selected
+                onPressed: recording.recording || !pulled || !selected
                     ? null
                     : () async {
                         await _save(bestKg);

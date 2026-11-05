@@ -11,6 +11,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -43,6 +44,17 @@ class _FakeProgressor extends ProgressorNotifier {
   Future<void> disconnect() async => calls.add('disconnect');
 }
 
+/// A finished benchmark pull.
+class _Recorded extends BenchmarkRecorder {
+  _Recorded(this.bestKg);
+
+  final double bestKg;
+
+  @override
+  BenchmarkRecording build() =>
+      (recording: false, elapsedSeconds: 6, bestKg: bestKg);
+}
+
 const _deviceId = '00:11:22:33:44:55';
 
 final _connected = DeviceConnection(
@@ -62,11 +74,12 @@ Future<_FakeProgressor> _pumpScreen(
   WidgetTester tester,
   ProgressorState state, {
   String part = 'Debugging',
+  List<Override> overrides = const [],
 }) async {
   final fake = _FakeProgressor(state);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [progressorProvider.overrideWith(() => fake)],
+      overrides: [progressorProvider.overrideWith(() => fake), ...overrides],
       child: MaterialApp(theme: buildDarkTheme(), home: const CrimpdeqScreen()),
     ),
   );
@@ -531,6 +544,38 @@ void main() {
     expect(find.text('Force: 20.0 kg'), findsOneWidget);
     expect(find.text('Reps: 6'), findsOneWidget);
   });
+
+  for (final (bestKg, saves) in [(0.0, false), (2.0, false), (2.1, true)]) {
+    testWidgets('${saves ? 'saves' : 'rejects'} a $bestKg kg pull', (
+      tester,
+    ) async {
+      await _pumpScreen(
+        tester,
+        ProgressorState(connection: _connected),
+        part: 'Training',
+        overrides: [
+          benchmarkRecorderProvider.overrideWith(() => _Recorded(bestKg)),
+        ],
+      );
+      await tester.tap(find.text('Benchmarks'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButton<String>).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Photon').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButton<Hand>).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Right').last);
+      await tester.pumpAndSettle();
+
+      final save = find.widgetWithText(OutlinedButton, 'Save Benchmark');
+      expect(tester.widget<OutlinedButton>(save).onPressed != null, saves);
+      expect(
+        find.text('Pull more than 2 kg for at least 5 s.'),
+        saves ? findsNothing : findsOne,
+      );
+    });
+  }
 
   testWidgets('drops an edited plan when the default tool or hand moves', (
     tester,
