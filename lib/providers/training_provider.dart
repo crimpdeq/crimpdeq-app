@@ -127,6 +127,9 @@ final benchmarkRecorderProvider =
 class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
   StreamSubscription<List<WeightMeasurement>>? _samples;
   bool _startedMeasurement = false;
+  // Recording starts after the measurement does: a second tap meanwhile
+  // would subscribe twice.
+  bool _starting = false;
 
   @override
   BenchmarkRecording build() {
@@ -155,24 +158,29 @@ class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
   }
 
   Future<void> start() async {
-    if (state.recording) return;
-    final (:measuring, :started) = await _ensureMeasuring(ref);
-    if (!measuring) return;
-    _startedMeasurement = started;
-    final fiveSecondMax = FiveSecondMax();
-    state = (recording: true, elapsedSeconds: 0, bestKg: null);
-    _samples = ref.read(progressorProvider.notifier).sampleBatches.listen((
-      samples,
-    ) {
-      samples.forEach(fiveSecondMax.add);
-      // Publish at the displayed resolution, a tenth of a second.
-      final next = (
-        recording: true,
-        elapsedSeconds: (fiveSecondMax.elapsedUs ~/ 100000) / 10,
-        bestKg: fiveSecondMax.bestKg,
-      );
-      if (next != state) state = next;
-    });
+    if (state.recording || _starting) return;
+    _starting = true;
+    try {
+      final (:measuring, :started) = await _ensureMeasuring(ref);
+      if (!measuring) return;
+      _startedMeasurement = started;
+      final fiveSecondMax = FiveSecondMax();
+      state = (recording: true, elapsedSeconds: 0, bestKg: null);
+      _samples = ref.read(progressorProvider.notifier).sampleBatches.listen((
+        samples,
+      ) {
+        samples.forEach(fiveSecondMax.add);
+        // Publish at the displayed resolution, a tenth of a second.
+        final next = (
+          recording: true,
+          elapsedSeconds: (fiveSecondMax.elapsedUs ~/ 100000) / 10,
+          bestKg: fiveSecondMax.bestKg,
+        );
+        if (next != state) state = next;
+      });
+    } finally {
+      _starting = false;
+    }
   }
 
   Future<void> stop() async {
@@ -207,6 +215,9 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   StreamSubscription<List<WeightMeasurement>>? _samples;
   HoldTracker? _hold;
   bool _startedMeasurement = false;
+  // The workout runs after the measurement starts: a second tap meanwhile
+  // would subscribe twice.
+  bool _starting = false;
   // Samples of the current rep since the last trace point.
   int? _traceStartUs;
   int? _traceLastUs;
@@ -257,18 +268,23 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   }
 
   Future<void> start(WorkoutPlan plan) async {
-    if (state.isRunning) return;
-    // Loaded before the first cue, which reads it.
-    await ref.read(soundsMutedProvider.future);
-    final (:measuring, :started) = await _ensureMeasuring(ref);
-    if (!measuring) return;
-    _startedMeasurement = started;
-    _samples = ref
-        .read(progressorProvider.notifier)
-        .sampleBatches
-        .listen(addSamples);
-    state = WorkoutState(plan: plan);
-    _rest(WorkoutPhase.preRest, plan.preRestSeconds);
+    if (state.isRunning || _starting) return;
+    _starting = true;
+    try {
+      // Loaded before the first cue, which reads it.
+      await ref.read(soundsMutedProvider.future);
+      final (:measuring, :started) = await _ensureMeasuring(ref);
+      if (!measuring) return;
+      _startedMeasurement = started;
+      _samples = ref
+          .read(progressorProvider.notifier)
+          .sampleBatches
+          .listen(addSamples);
+      state = WorkoutState(plan: plan);
+      _rest(WorkoutPhase.preRest, plan.preRestSeconds);
+    } finally {
+      _starting = false;
+    }
   }
 
   /// Times the current hang with the samples and traces its force.

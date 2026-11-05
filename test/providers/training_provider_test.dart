@@ -318,6 +318,30 @@ void main() {
     expect(container.read(progressorProvider).measurement.isMeasuring, isFalse);
   });
 
+  testWidgets('starts a workout and a pull once for a second tap', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final device =
+        container.read(progressorProvider.notifier) as _MeasuringProgressor;
+    final workout = container.read(workoutProvider.notifier);
+    final recorder = container.read(benchmarkRecorderProvider.notifier);
+
+    // A tap while the measurement starts must not subscribe again, or the
+    // stop leaves a subscription behind.
+    device.setMeasuring(false);
+    await Future.wait([workout.start(plan), workout.start(plan)]);
+    await workout.stop();
+    expect(device.samples.hasListener, isFalse);
+
+    device.setMeasuring(false);
+    await Future.wait([recorder.start(), recorder.start()]);
+    await recorder.stop();
+    expect(device.samples.hasListener, isFalse);
+  });
+
   for (final (name, loadedSeconds, waits) in [
     ('waits for a load left on through the rest to drop', 4.0, true),
     ('starts with a pull begun in the last seconds of rest', 2.0, false),
