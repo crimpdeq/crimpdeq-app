@@ -596,10 +596,13 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (workout.disconnected) ...[
+        if (workout.endedEarly case final end?) ...[
           Text(
-            'The Crimpdeq disconnected after rep ${actual.length} of '
-            '${workout.plan!.reps}. You can still save the reps done.',
+            'The Crimpdeq ${switch (end) {
+              WorkoutEnd.disconnected => 'disconnected',
+              WorkoutEnd.measurementFailed => 'stopped measuring',
+            }} after rep ${actual.length} of ${workout.plan!.reps}. You can '
+            'still save the reps done.',
             style: Theme.of(context).textTheme.bodyMedium
                 ?.copyWith(color: Theme.of(context).colorScheme.error),
           ),

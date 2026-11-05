@@ -26,10 +26,17 @@ class _MeasuringProgressor extends ProgressorNotifier {
 
   int starts = 0;
 
+  /// Like a failed write: marked measuring, then not.
+  bool failStarts = false;
+
   @override
   Future<void> startMeasurement() async {
     starts++;
     setMeasuring(true);
+    if (failStarts) {
+      await Future<void>.value();
+      setMeasuring(false);
+    }
   }
 
   @override
@@ -252,7 +259,7 @@ void main() {
 
     device.drop();
     expect(state().phase, WorkoutPhase.done);
-    expect(state().disconnected, isTrue);
+    expect(state().endedEarly, WorkoutEnd.disconnected);
     expect(state().actualSeconds, [closeTo(4.9, 1e-9)]);
     // The rest timer stopped with it.
     await tester.pump(const Duration(seconds: 10));
@@ -296,6 +303,40 @@ void main() {
     await container.read(workoutProvider.notifier).stop();
     // Stopping the workout does not restart the measurement.
     expect(device.starts, 1);
+  });
+
+  testWidgets('ends a workout and a pull when measuring cannot restart', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final device =
+        container.read(progressorProvider.notifier) as _MeasuringProgressor;
+    final workout = container.read(workoutProvider.notifier);
+    final recorder = container.read(benchmarkRecorderProvider.notifier);
+    WorkoutState state() => container.read(workoutProvider);
+
+    await workout.start(plan);
+    device.link();
+    workout.skip();
+    workout.addSamples([..._pull(12, 5, 0), ..._pull(0, 1.1, 5000)]);
+    device.failStarts = true;
+    device.setMeasuring(false);
+    await tester.pump();
+    // One restart, not one per failure, then the reps done stay to save.
+    expect(device.starts, 1);
+    expect(state().phase, WorkoutPhase.done);
+    expect(state().endedEarly, WorkoutEnd.measurementFailed);
+
+    device.failStarts = false;
+    await recorder.start();
+    expect(device.starts, 2);
+    device.failStarts = true;
+    device.setMeasuring(false);
+    await tester.pump();
+    expect(device.starts, 3);
+    expect(container.read(benchmarkRecorderProvider).recording, isFalse);
   });
 
   testWidgets('cues the rests and hangs and keeps the screen on', (

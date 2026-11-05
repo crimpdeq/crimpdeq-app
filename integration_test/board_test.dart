@@ -264,7 +264,7 @@ void main() {
       () => workout().phase == WorkoutPhase.done,
       'the workout to end on the disconnect',
     );
-    expect(workout().disconnected, isTrue);
+    expect(workout().endedEarly, WorkoutEnd.disconnected);
     expect(find.textContaining('disconnected after rep 1'), findsOne);
     await tap(find.widgetWithText(OutlinedButton, 'Start New Workout'));
     await tester.pumpAndSettle();

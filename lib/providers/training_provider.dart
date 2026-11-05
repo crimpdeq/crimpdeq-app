@@ -152,6 +152,8 @@ class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
   // Recording starts after the measurement does: a second tap meanwhile
   // would subscribe twice.
   bool _starting = false;
+  // A failed restart sets the measurement off again, which would restart it.
+  bool _restarting = false;
 
   @override
   BenchmarkRecording build() {
@@ -171,12 +173,27 @@ class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
           stop();
         } else if (!device.isMeasuring) {
           // Stopped elsewhere, such as in the Measurements tab.
-          _startedMeasurement = true;
-          ref.read(progressorProvider.notifier).startMeasurement();
+          _restartMeasurement();
         }
       },
     );
     return (recording: false, elapsedSeconds: 0, bestKg: null);
+  }
+
+  /// Ends the pull when the measurement does not start again, instead of
+  /// retrying on every failure.
+  Future<void> _restartMeasurement() async {
+    if (_restarting) return;
+    _restarting = true;
+    _startedMeasurement = true;
+    await ref.read(progressorProvider.notifier).startMeasurement();
+    _restarting = false;
+    if (!state.recording ||
+        ref.read(progressorProvider).measurement.isMeasuring) {
+      return;
+    }
+    _startedMeasurement = false;
+    await stop();
   }
 
   Future<void> start() async {
@@ -240,6 +257,8 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   // The workout runs after the measurement starts: a second tap meanwhile
   // would subscribe twice.
   bool _starting = false;
+  // A failed restart sets the measurement off again, which would restart it.
+  bool _restarting = false;
   // The workout is saved once stored: a second tap meanwhile would store it
   // twice.
   bool _saving = false;
@@ -280,16 +299,30 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
       (_, device) {
         if (!state.isRunning) return;
         if (!device.isConnected) {
-          _endEarly();
+          _endEarly(WorkoutEnd.disconnected);
         } else if (!device.isMeasuring) {
           // Stopped elsewhere, such as in the Measurements tab: the hangs need
           // the samples, so measure again until the workout ends.
-          _startedMeasurement = true;
-          ref.read(progressorProvider.notifier).startMeasurement();
+          _restartMeasurement();
         }
       },
     );
     return const WorkoutState();
+  }
+
+  /// Ends the workout when the measurement does not start again, instead of
+  /// retrying on every failure.
+  Future<void> _restartMeasurement() async {
+    if (_restarting) return;
+    _restarting = true;
+    _startedMeasurement = true;
+    await ref.read(progressorProvider.notifier).startMeasurement();
+    _restarting = false;
+    if (!state.isRunning ||
+        ref.read(progressorProvider).measurement.isMeasuring) {
+      return;
+    }
+    _endEarly(WorkoutEnd.measurementFailed);
   }
 
   Future<void> start(WorkoutPlan plan) async {
@@ -417,15 +450,15 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     await _release();
   }
 
-  /// Ends the workout when the device disconnects, with the reps done so far
+  /// Ends the workout without the device's samples, with the reps done so far
   /// to save, or abandons it before the first rep.
-  void _endEarly() {
+  void _endEarly(WorkoutEnd reason) {
     _cancel();
-    // The measurement ended with the connection.
+    // The measurement ended with the connection, or did not start again.
     _startedMeasurement = false;
     state = state.actualSeconds.isEmpty
         ? const WorkoutState()
-        : state.copyWith(phase: WorkoutPhase.done, disconnected: true);
+        : state.copyWith(phase: WorkoutPhase.done, endedEarly: reason);
   }
 
   /// Saves the finished workout. The first target becomes the one the ideal

@@ -230,6 +230,9 @@ sealed class WorkoutSetup with _$WorkoutSetup {
 
 enum WorkoutPhase { idle, preRest, hang, rest, done }
 
+/// Why a workout ended before its last rep.
+enum WorkoutEnd { disconnected, measurementFailed }
+
 @freezed
 sealed class WorkoutState with _$WorkoutState {
   const WorkoutState._();
@@ -259,8 +262,8 @@ sealed class WorkoutState with _$WorkoutState {
     @Default([]) List<double?> repForcesKg,
     @Default(false) bool saved,
 
-    /// The device disconnected before the last rep.
-    @Default(false) bool disconnected,
+    /// Set when the workout ended before its last rep.
+    WorkoutEnd? endedEarly,
   }) = _WorkoutState;
 
   bool get isRunning =>
