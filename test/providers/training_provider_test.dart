@@ -155,6 +155,31 @@ void main() {
     expect(workouts.single.toJson(), saved.single.toJson());
   });
 
+  testWidgets('stores every one of overlapping log updates', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final log = container.read(trainingLogProvider.notifier);
+    Benchmark benchmark(double forceKg) => Benchmark(
+      date: DateTime(2026, 10, 26),
+      tool: 'Photon',
+      hand: Hand.right,
+      forceKg: forceKg,
+    );
+
+    await Future.wait([
+      log.addBenchmark(benchmark(30)),
+      log.addBenchmark(benchmark(31)),
+    ]);
+    final reloaded = ProviderContainer();
+    addTearDown(reloaded.dispose);
+    for (final container in [container, reloaded]) {
+      final benchmarks = (await container.read(trainingLogProvider.future))
+          .benchmarks;
+      expect([for (final entry in benchmarks) entry.forceKg], [30, 31]);
+    }
+  });
+
   testWidgets('records the best 5 s of a benchmark pull', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final container = _measuring();

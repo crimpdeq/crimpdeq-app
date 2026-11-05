@@ -40,42 +40,45 @@ class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
     );
   }
 
-  Future<void> addBenchmark(Benchmark benchmark) async {
-    final log = await future;
-    await _save(benchmarks: [...log.benchmarks, benchmark]);
-  }
+  Future<void> addBenchmark(Benchmark benchmark) => _update(
+    (log) =>
+        (benchmarks: [...log.benchmarks, benchmark], workouts: log.workouts),
+  );
 
-  Future<void> deleteBenchmark(Benchmark benchmark) async {
-    final log = await future;
-    await _save(benchmarks: [...log.benchmarks]..remove(benchmark));
-  }
+  Future<void> deleteBenchmark(Benchmark benchmark) => _update(
+    (log) => (
+      benchmarks: [...log.benchmarks]..remove(benchmark),
+      workouts: log.workouts,
+    ),
+  );
 
-  Future<void> addWorkout(WorkoutRecord workout) async {
-    final log = await future;
-    await _save(workouts: [...log.workouts, workout]);
-  }
+  Future<void> addWorkout(WorkoutRecord workout) => _update(
+    (log) => (benchmarks: log.benchmarks, workouts: [...log.workouts, workout]),
+  );
 
-  Future<void> deleteWorkout(WorkoutRecord workout) async {
-    final log = await future;
-    await _save(workouts: [...log.workouts]..remove(workout));
-  }
+  Future<void> deleteWorkout(WorkoutRecord workout) => _update(
+    (log) => (
+      benchmarks: log.benchmarks,
+      workouts: [...log.workouts]..remove(workout),
+    ),
+  );
 
-  Future<void> _save({
-    List<Benchmark>? benchmarks,
-    List<WorkoutRecord>? workouts,
-  }) async {
-    final log = await future;
-    final prefs = await SharedPreferences.getInstance();
-    if (benchmarks != null) {
-      await prefs.setString(_benchmarksKey, jsonEncode(benchmarks));
-    }
-    if (workouts != null) {
-      await prefs.setString(_workoutsKey, jsonEncode(workouts));
-    }
-    state = AsyncData((
-      benchmarks: benchmarks ?? log.benchmarks,
-      workouts: workouts ?? log.workouts,
-    ));
+  // The last update, so the next one reads the log after it is stored.
+  Future<void> _updated = Future.value();
+
+  /// Applies [change] to the log and stores it, after the pending updates, so
+  /// overlapping updates cannot read the same log and drop each other.
+  Future<void> _update(TrainingLog Function(TrainingLog log) change) {
+    final update = _updated.then((_) async {
+      final log = change(await future);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_benchmarksKey, jsonEncode(log.benchmarks));
+      await prefs.setString(_workoutsKey, jsonEncode(log.workouts));
+      state = AsyncData(log);
+    });
+    // A failed update fails its caller, not the later updates.
+    _updated = update.catchError((_) {});
+    return update;
   }
 }
 
