@@ -575,6 +575,33 @@ void main() {
     expect(find.text('Reps: 17'), findsNothing);
   });
 
+  testWidgets('falls back to a tool with benchmarks left', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks':
+          '[{"date":"2026-10-25T10:00:00.000","tool":"Spark",'
+          '"hand":"right","forceKg":30},$_benchmark]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      part: 'Training',
+    );
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CrimpdeqScreen)),
+    );
+    container.read(workoutSetupProvider.notifier).selectTool('Spark');
+    await tester.pump();
+
+    final log = await container.read(trainingLogProvider.future);
+    await container
+        .read(trainingLogProvider.notifier)
+        .deleteBenchmark(log.benchmarks.first);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Photon'), findsOneWidget);
+  });
+
   testWidgets('saves a held weight as a benchmark and opens its workout', (
     tester,
   ) async {

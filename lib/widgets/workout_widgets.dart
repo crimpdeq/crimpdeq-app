@@ -66,8 +66,9 @@ class _WorkoutSetup extends ConsumerWidget {
     }
 
     // The latest benchmark by default, so a new benchmark unlocks workouts.
+    // Deleting the last benchmark of the selected tool removes it.
     final latest = log.benchmarks.last;
-    final tool = setup.tool ?? latest.tool;
+    final tool = tools.contains(setup.tool) ? setup.tool! : latest.tool;
     final hand = setup.hand ?? latest.hand;
     final benchmark = bestBenchmark(log.benchmarks, tool, hand);
     final children = <Widget>[
