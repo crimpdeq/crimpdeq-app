@@ -577,6 +577,32 @@ void main() {
     });
   }
 
+  testWidgets('blocks a workout whose target cannot start a hang', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks':
+          '[{"date":"2026-10-26T10:00:00.000","tool":"Photon",'
+          '"hand":"right","forceKg":6}]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      part: 'Training',
+    );
+    await tester.pumpAndSettle();
+    final start = find.widgetWithText(FilledButton, 'Start Workout');
+
+    // The Endurance target of a 6 kg benchmark is 1.36 kg.
+    expect(find.textContaining('target is too light'), findsOneWidget);
+    expect(tester.widget<FilledButton>(start).onPressed, isNull);
+
+    await tester.tap(find.text('Power (0)'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('target is too light'), findsNothing);
+    expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+  });
+
   testWidgets('drops an edited plan when the default tool or hand moves', (
     tester,
   ) async {

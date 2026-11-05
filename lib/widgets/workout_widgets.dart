@@ -130,6 +130,8 @@ class _WorkoutSetup extends ConsumerWidget {
         if (CurveSection.of(point.forceKg, benchmark.forceKg) == section)
           workout,
     ];
+    // A hang only counts above the threshold, which a light target is not.
+    final hangsCount = plan.targetForceKg > HoldTracker.thresholdKg;
     final benchmarkRecording = ref.watch(
       benchmarkRecorderProvider.select((recording) => recording.recording),
     );
@@ -202,6 +204,16 @@ class _WorkoutSetup extends ConsumerWidget {
           'force you actually pull is what the workout records.',
           style: textTheme.bodySmall,
         ),
+        if (!hangsCount) ...[
+          const SizedBox(height: 8),
+          Text(
+            'The ${formatKg(plan.targetForceKg)} target is too light to '
+            'start a hang. Choose a heavier workout type.',
+            style: textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.error,
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         Row(
           children: [
@@ -209,7 +221,8 @@ class _WorkoutSetup extends ConsumerWidget {
             const SizedBox(width: 8),
             Expanded(
               child: FilledButton.icon(
-                onPressed: benchmarkRecording || !watchConnected(ref)
+                onPressed:
+                    benchmarkRecording || !hangsCount || !watchConnected(ref)
                     ? null
                     : () => ref.read(workoutProvider.notifier).start(plan),
                 icon: const Icon(Icons.play_arrow),
