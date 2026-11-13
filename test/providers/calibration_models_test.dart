@@ -160,6 +160,14 @@ void main() {
     expect(calibration(container).details!.model, CalibrationModel.quadratic);
     expect(calibration(container).changingModel, isFalse);
 
+    // A change mid-measurement would mix two curves in one window.
+    await notifier.startMeasurement();
+    await expectLater(
+      () => notifier.selectCalibrationModel(CalibrationModel.linear),
+      throwsStateError,
+    );
+    await notifier.stopMeasurement();
+
     final rejected = await notifier.selectCalibrationModel(
       CalibrationModel.piecewise,
     );

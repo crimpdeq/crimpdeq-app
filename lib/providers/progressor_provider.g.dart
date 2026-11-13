@@ -42,7 +42,7 @@ final class ProgressorNotifierProvider
 }
 
 String _$progressorNotifierHash() =>
-    r'117626d6b7882bf4fa68a900b94d36df5bb7ca5b';
+    r'793dd860ca044d3a2fd1a892c44761f5b3636de3';
 
 abstract class _$ProgressorNotifier extends $Notifier<ProgressorState> {
   ProgressorState build();

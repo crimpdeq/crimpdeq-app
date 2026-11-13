@@ -1022,10 +1022,15 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   /// Asks the device to fit [model] to its points and use it. The device keeps
   /// the calibration in use when the model does not fit, so the result, not
   /// the request, tells which model is active. Null when the device did not
-  /// answer.
+  /// answer. Not while measuring, which would mix two curves in one window.
   Future<CalibrationCommandResult?> selectCalibrationModel(
     CalibrationModel model,
-  ) => _changeCalibration(ControlOpCode.setCalibrationModel, [model.code]);
+  ) {
+    if (state.measurement.isMeasuring) {
+      throw StateError('Stop the measurement to change the model');
+    }
+    return _changeCalibration(ControlOpCode.setCalibrationModel, [model.code]);
+  }
 
   /// Takes the unloaded reading as the zero of the calibration curve, which
   /// follows the drift of the unloaded baseline. Unlike a tare, it is

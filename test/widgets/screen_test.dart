@@ -516,6 +516,26 @@ void main() {
     expect(tester.getRect(selector).right, lessThanOrEqualTo(360));
   });
 
+  testWidgets('keeps the model while measuring', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: _calibrationWith(_details()),
+        measurement: const MeasurementState(isMeasuring: true),
+      ),
+    );
+
+    final selector = tester.widget<SegmentedButton<CalibrationModel>>(
+      find.byType(SegmentedButton<CalibrationModel>),
+    );
+    expect(selector.onSelectionChanged, isNull);
+    expect(
+      find.text('Stop the measurement to change the model.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('offers only the linear model on older firmware', (tester) async {
     await _pumpScreen(
       tester,

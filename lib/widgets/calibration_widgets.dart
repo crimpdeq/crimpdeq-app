@@ -19,6 +19,9 @@ class CalibrationTab extends ConsumerWidget {
     final calibration = ref.watch(
       progressorProvider.select((state) => state.calibration),
     );
+    final measuring = ref.watch(
+      progressorProvider.select((state) => state.measurement.isMeasuring),
+    );
     final notifier = ref.read(progressorProvider.notifier);
     final factor = calibration.factor;
     final details = calibration.details;
@@ -43,6 +46,7 @@ class CalibrationTab extends ConsumerWidget {
             supportsModels: calibration.supportsModels,
             details: details,
             busy: busy,
+            measuring: measuring,
             changingModel: calibration.changingModel,
             onSelectModel: (model) => _selectModel(context, notifier, model),
             onSetZero: () => _setZero(context, notifier),
@@ -143,6 +147,7 @@ class CalibrationModelCard extends StatelessWidget {
     required this.supportsModels,
     required this.details,
     required this.busy,
+    required this.measuring,
     required this.changingModel,
     required this.onSelectModel,
     required this.onSetZero,
@@ -151,6 +156,10 @@ class CalibrationModelCard extends StatelessWidget {
   final bool? supportsModels;
   final CalibrationDetails? details;
   final bool busy;
+
+  /// A model change mid-measurement would mix two curves in one window, as a
+  /// sample rate change would mix rates.
+  final bool measuring;
   final bool changingModel;
   final ValueChanged<CalibrationModel> onSelectModel;
   final VoidCallback onSetZero;
@@ -185,7 +194,7 @@ class CalibrationModelCard extends StatelessWidget {
               ],
               selected: {active},
               showSelectedIcon: false,
-              onSelectionChanged: busy || details == null
+              onSelectionChanged: busy || measuring || details == null
                   ? null
                   : (selection) {
                       if (selection.single != active) {
@@ -196,6 +205,12 @@ class CalibrationModelCard extends StatelessWidget {
             if (changingModel) ...[
               const SizedBox(height: 8),
               const LinearProgressIndicator(),
+            ] else if (measuring && details != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Stop the measurement to change the model.',
+                style: textTheme.bodySmall,
+              ),
             ],
             const SizedBox(height: 12),
             for (final model in CalibrationModel.values)
