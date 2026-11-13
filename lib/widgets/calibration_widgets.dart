@@ -34,21 +34,14 @@ class CalibrationTab extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            details == null || details.model == CalibrationModel.linear
-                ? 'Current Calibration Factor: '
-                      '${factor == null ? 'Not available' : factor.toStringAsFixed(6)}'
-                : 'Current Calibration: ${details.model.label}',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 16),
           CalibrationModelCard(
             supportsModels: calibration.supportsModels,
             details: details,
+            factor: factor,
             busy: busy,
             measuring: measuring,
             changingModel: calibration.changingModel,
-            onSelectModel: (model) => _selectModel(context, notifier, model),
+            onSelectModel: (model) => _selectModel(context, ref, model),
             onSetZero: () => _setZero(context, notifier),
           ),
           const SizedBox(height: 16),
@@ -85,22 +78,25 @@ class CalibrationTab extends ConsumerWidget {
 
 Future<void> _selectModel(
   BuildContext context,
-  ProgressorNotifier notifier,
+  WidgetRef ref,
   CalibrationModel model,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
-  final result = await notifier.selectCalibrationModel(model);
+  final result = await ref
+      .read(progressorProvider.notifier)
+      .selectCalibrationModel(model);
+  final inUse = ref.read(progressorProvider).calibration.details?.model;
   messenger.showSnackBar(
     SnackBar(
       content: Text(switch (result) {
         null =>
-          'The device did not confirm the change, so the calibration in use '
-              'is unknown. Use Get Calibration to read it.',
+          'The device did not answer. Tap Get Calibration to see which model '
+              'it uses.',
         (disposition: CalibrationDisposition.applied, error: _, opCode: _) =>
-          'The device fit the ${model.label.toLowerCase()} model and uses it.',
+          'The device now uses ${model.label}.',
         (:final error, disposition: _, opCode: _) =>
-          'The device keeps the calibration in use. '
-              '${error?.message ?? ''}',
+          'Could not use ${model.label}. ${error?.message ?? ''}'
+              '${inUse == null ? '' : ' The device keeps ${inUse.label}.'}',
       }),
     ),
   );
@@ -108,44 +104,119 @@ Future<void> _selectModel(
 
 Future<void> _setZero(BuildContext context, ProgressorNotifier notifier) async {
   final messenger = ScaffoldMessenger.of(context);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Set unloaded zero?'),
+      content: const Text(
+        'Remove everything from the Crimpdeq that was not attached for the '
+        '0 kg calibration point, such as plates or a hangboard.\n\n'
+        'The device takes the current reading as 0 kg and moves the '
+        'calibration curve with it. This corrects drift of the zero since '
+        'you calibrated, so the curve bends at the right load.\n\n'
+        'To zero a hangboard or sling that stays attached, use Tare instead.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Set Zero'),
+        ),
+      ],
+    ),
+  );
+  if (!(confirmed ?? false)) return;
+
   final result = await notifier.setZero();
   messenger.showSnackBar(
     SnackBar(
       content: Text(switch (result) {
-        null => 'The device did not confirm the zero.',
+        null => 'The device did not answer, so the zero may not be set.',
         (disposition: CalibrationDisposition.applied, error: _, opCode: _) =>
-          'Zero set: the curve now starts at the unloaded reading.',
+          'Zero set.',
         (:final error, disposition: _, opCode: _) =>
-          'The zero was not set. ${error?.message ?? ''}',
+          'Zero not set. ${error?.message ?? ''}',
       }),
     ),
   );
 }
 
+/// Short label for the model selector, which fits a phone.
+String _shortLabel(CalibrationModel model) =>
+    model == CalibrationModel.piecewise ? 'Piecewise' : model.label;
+
 /// Plain description of each model, with the data it needs.
 const _modelDescriptions = {
   CalibrationModel.linear: (
-    'A straight line: the same sensitivity at every load.',
-    'Needs 2 points at different loads; a third shows how well it fits.',
+    'A straight line: the same sensitivity at every load. The default.',
+    '2 different loads. Add a third to check the fit.',
   ),
   CalibrationModel.quadratic: (
     'A smooth curve, for a sensitivity that changes gradually with the load.',
-    'Needs 4 different loads, with one in the middle half of the range.',
+    '4 different loads, one of them in the middle half of the range.',
   ),
   CalibrationModel.piecewise: (
     'Two straight lines joined at a break the device finds, for a '
         'sensitivity that changes around one load.',
-    'Needs 6 different loads, with 3 on each side of the break.',
+    '6 different loads, 3 on each side of the break.',
   ),
 };
 
-/// Model selection, the calibrated range and the unloaded zero. The device fits
-/// the selected model; the card shows the model it reports in use.
+Future<void> _showModelHelp(BuildContext context) {
+  final textTheme = Theme.of(context).textTheme;
+  return showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Calibration models'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final model in CalibrationModel.values) ...[
+              Text(model.label, style: textTheme.titleSmall),
+              const SizedBox(height: 2),
+              Text(_modelDescriptions[model]!.$1),
+              Text(
+                'Needs ${_modelDescriptions[model]!.$2}',
+                style: textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+            ],
+            const Text(
+              'The device fits the model to the stored points, so switching '
+              'needs no new points. Start with Linear, and switch only when '
+              'its residuals follow a curve instead of scattering. Check the '
+              'result with weights that are not calibration points.\n\n'
+              'Readings outside the calibrated range, from the lightest to '
+              'the heaviest point, continue straight with the slope at the '
+              'nearest end, so they are less certain.',
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Model selection, the calibrated range and the unloaded zero. The selected
+/// model is the one the device reports in use; a selection waits for the
+/// device to fit it.
 class CalibrationModelCard extends StatelessWidget {
   const CalibrationModelCard({
     super.key,
     required this.supportsModels,
     required this.details,
+    required this.factor,
     required this.busy,
     required this.measuring,
     required this.changingModel,
@@ -155,6 +226,9 @@ class CalibrationModelCard extends StatelessWidget {
 
   final bool? supportsModels;
   final CalibrationDetails? details;
+
+  /// Linear factor in g per count, null for a nonlinear calibration.
+  final double? factor;
   final bool busy;
 
   /// A model or zero change mid-measurement would mix two calibrations in one
@@ -167,117 +241,190 @@ class CalibrationModelCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final errorColor = Theme.of(context).colorScheme.error;
     final details = this.details;
+    final factor = this.factor;
     final active = details?.model ?? CalibrationModel.linear;
     final supported =
         details?.info.supportedModels ?? const {CalibrationModel.linear};
     final range = details?.loadRangeKg;
     final pending = details?.info.pending;
+    final canChange = !busy && !measuring && details != null;
+    final hint = switch (supportsModels) {
+      false =>
+        'This firmware has only the linear model. Update it to use the '
+            'others.',
+      null => 'Reading the calibration from the device...',
+      true when changingModel => 'Waiting for the device to fit the model...',
+      true when measuring =>
+        'Stop the measurement to change the model or the zero.',
+      true => null,
+    };
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Calibration Model', style: textTheme.titleMedium),
-            const SizedBox(height: 12),
-            SegmentedButton<CalibrationModel>(
-              segments: [
-                for (final model in CalibrationModel.values)
-                  ButtonSegment(
-                    value: model,
-                    label: Text(model.label),
-                    enabled: supported.contains(model),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Calibration Model',
+                    style: textTheme.titleMedium,
                   ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.info_outline),
+                  tooltip: 'About the calibration models',
+                  onPressed: () => _showModelHelp(context),
+                ),
               ],
-              selected: {active},
-              showSelectedIcon: false,
-              onSelectionChanged: busy || measuring || details == null
-                  ? null
-                  : (selection) {
-                      if (selection.single != active) {
-                        onSelectModel(selection.single);
-                      }
-                    },
             ),
-            if (changingModel) ...[
-              const SizedBox(height: 8),
-              const LinearProgressIndicator(),
-            ] else if (measuring && details != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Stop the measurement to change the model or the zero.',
-                style: textTheme.bodySmall,
-              ),
-            ],
-            const SizedBox(height: 12),
-            for (final model in CalibrationModel.values)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: '${model.label}: ',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      TextSpan(
-                        text:
-                            '${_modelDescriptions[model]!.$1} '
-                            '${_modelDescriptions[model]!.$2}',
-                      ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 4),
+                  SegmentedButton<CalibrationModel>(
+                    segments: [
+                      for (final model in CalibrationModel.values)
+                        ButtonSegment(
+                          value: model,
+                          label: Text(_shortLabel(model)),
+                          tooltip: _modelDescriptions[model]!.$1,
+                          enabled: supported.contains(model),
+                        ),
                     ],
+                    selected: {active},
+                    showSelectedIcon: false,
+                    onSelectionChanged: canChange
+                        ? (selection) {
+                            if (selection.single != active) {
+                              onSelectModel(selection.single);
+                            }
+                          }
+                        : null,
                   ),
-                  style: textTheme.bodySmall,
-                ),
+                  if (changingModel) ...[
+                    const SizedBox(height: 8),
+                    const LinearProgressIndicator(),
+                  ],
+                  if (hint != null) ...[
+                    const SizedBox(height: 8),
+                    Text(hint, style: textTheme.bodySmall),
+                  ],
+                  if (pending != null) ...[
+                    const SizedBox(height: 12),
+                    _PendingBanner(pending: pending, inUse: active),
+                  ],
+                  const SizedBox(height: 8),
+                  if (factor != null && active == CalibrationModel.linear)
+                    _DetailRow(
+                      label: 'Factor',
+                      value: '${factor.toStringAsFixed(6)} g/count',
+                    ),
+                  if (details != null)
+                    _DetailRow(
+                      label: 'Calibrated range',
+                      value: range == null
+                          ? 'Unknown (default calibration)'
+                          : '${range.min.toStringAsFixed(2)} – '
+                                '${range.max.toStringAsFixed(2)} kg',
+                    ),
+                  // A linear reading is the same with any zero, so the zero
+                  // only matters for the nonlinear models.
+                  if (details?.curve != null &&
+                      active != CalibrationModel.linear) ...[
+                    const SizedBox(height: 8),
+                    Tooltip(
+                      message:
+                          'With nothing attached, corrects drift of the zero',
+                      child: OutlinedButton.icon(
+                        onPressed: canChange ? onSetZero : null,
+                        icon: const Icon(Icons.anchor),
+                        label: const Text('Set Unloaded Zero'),
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            const SizedBox(height: 6),
-            if (supportsModels == false)
-              Text(
-                'This firmware has only the linear model. Update it to use '
-                'the quadratic and piecewise models.',
-                style: textTheme.bodyMedium,
-              )
-            else if (details == null)
-              Text(
-                'Reading the calibration from the device...',
-                style: textTheme.bodyMedium,
-              )
-            else ...[
-              Text(
-                'In use: ${active.label}. '
-                '${range == null ? 'Calibrated range unknown: this is the default calibration or one from earlier firmware.' : 'Calibrated range ${range.min.toStringAsFixed(2)} to ${range.max.toStringAsFixed(2)} kg. The device extends readings outside it with the slope at the nearest end, so they are less certain.'}',
-                style: textTheme.bodyMedium,
-              ),
-              if (pending != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  'The stored points are not applied: ${pending.message} The '
-                  'device keeps measuring with the previous '
-                  '${active.label.toLowerCase()} calibration.',
-                  style: textTheme.bodyMedium?.copyWith(color: errorColor),
-                ),
-              ],
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: busy || measuring || details.curve == null
-                    ? null
-                    : onSetZero,
-                icon: const Icon(Icons.exposure_zero),
-                label: const Text('Set Unloaded Zero'),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'With nothing attached, re-anchors the curve at the current '
-                'unloaded reading, to follow drift of the zero. To subtract '
-                'an attached load, such as a hangboard, tare instead.',
-                style: textTheme.bodySmall,
-              ),
-            ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: textTheme.bodyMedium)),
+          Text(
+            value,
+            style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Points the device stores but cannot fit yet.
+class _PendingBanner extends StatelessWidget {
+  const _PendingBanner({required this.pending, required this.inUse});
+
+  final CalibrationError pending;
+  final CalibrationModel inUse;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber, color: colorScheme.onErrorContainer),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(
+                    text: 'Points not applied yet. ',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  TextSpan(
+                    text:
+                        '${pending.message} The device keeps measuring with '
+                        'the previous ${inUse.label} calibration.',
+                  ),
+                ],
+              ),
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onErrorContainer,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -625,20 +772,17 @@ class CalibrationCheckCard extends StatelessWidget {
                         'The line fits two weights by construction.'
                   : 'Calibration-fit residuals: max '
                         '${verified.maxAbsKg.toStringAsFixed(3)} kg '
-                        '(${(heaviestKg == 0 ? 0 : verified.maxAbsKg / heaviestKg * 100).toStringAsFixed(2)}% '
-                        'of the heaviest weight) · RMS '
-                        '${verified.rmsKg.toStringAsFixed(3)} kg',
+                        '(${(heaviestKg == 0 ? 0 : verified.maxAbsKg / heaviestKg * 100).toStringAsFixed(2)}%) · '
+                        'RMS ${verified.rmsKg.toStringAsFixed(3)} kg',
               style: textTheme.bodyMedium,
             ),
             if (verified != null)
               Text(
                 pending
                     ? 'Against the calibration in use, which was not fit from '
-                          'these points. Residuals show how well the curve '
-                          'follows the points, not the accuracy at other loads.'
-                    : 'They show how well the curve follows these points, not '
-                          'the accuracy at other loads: check that with weights '
-                          'that are not calibration points.',
+                          'these points. Not the accuracy at other loads.'
+                    : 'How well the curve fits these points, not the accuracy '
+                          'at other loads.',
                 style: textTheme.bodySmall,
               ),
             const SizedBox(height: 12),
@@ -861,10 +1005,22 @@ class _CalibrationTable extends StatelessWidget {
         columns: [
           const DataColumn(label: Text('#')),
           const DataColumn(label: Text('Raw'), numeric: true),
-          const DataColumn(label: Text('Known (kg)'), numeric: true),
+          const DataColumn(
+            label: Text('Known'),
+            numeric: true,
+            tooltip: 'Known weight, kg',
+          ),
           if (residuals != null) ...const [
-            DataColumn(label: Text('Fitted (kg)'), numeric: true),
-            DataColumn(label: Text('Residual (kg)'), numeric: true),
+            DataColumn(
+              label: Text('Fitted'),
+              numeric: true,
+              tooltip: 'Load the calibration gives the point, kg',
+            ),
+            DataColumn(
+              label: Text('Residual'),
+              numeric: true,
+              tooltip: 'Fitted minus known, kg',
+            ),
           ],
           const DataColumn(label: SizedBox.shrink()),
         ],

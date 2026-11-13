@@ -407,7 +407,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Current Calibration Factor: 1.000000'), findsOneWidget);
+    expect(find.text('1.000000 g/count'), findsOneWidget);
     expect(
       find.textContaining('Calibration-fit residuals: max 0.300 kg (1.50%'),
       findsOneWidget,
@@ -426,15 +426,20 @@ void main() {
       ),
     );
 
-    expect(find.text('Current Calibration: Quadratic'), findsOneWidget);
     expect(
-      find.textContaining('Calibrated range 0.00 to 75.00 kg'),
-      findsOneWidget,
+      tester
+          .widget<SegmentedButton<CalibrationModel>>(
+            find.byType(SegmentedButton<CalibrationModel>),
+          )
+          .selected,
+      {CalibrationModel.quadratic},
     );
+    expect(find.text('0.00 – 75.00 kg'), findsOneWidget);
+    // A nonlinear curve has no single factor.
+    expect(find.text('Factor'), findsNothing);
     expect(
-      find.textContaining(
-        'Calibration-fit residuals: max 0.100 kg (0.13% of the heaviest '
-        'weight) · RMS 0.071 kg',
+      find.text(
+        'Calibration-fit residuals: max 0.100 kg (0.13%) · RMS 0.071 kg',
       ),
       findsOneWidget,
     );
@@ -464,32 +469,68 @@ void main() {
       tester.widget<SegmentedButton<CalibrationModel>>(segments).selected,
       {CalibrationModel.linear},
     );
-    for (final model in CalibrationModel.values) {
+    for (final label in ['Linear', 'Quadratic', 'Piecewise']) {
       expect(
-        find.descendant(of: segments, matching: find.text(model.label)),
+        find.descendant(of: segments, matching: find.text(label)),
         findsOneWidget,
       );
     }
+    expect(find.text('0.100000 g/count'), findsOneWidget);
+    // The descriptions are one tap away, not on the card.
+    expect(find.textContaining('Needs 6 different loads'), findsNothing);
+    await tester.tap(find.byTooltip('About the calibration models'));
+    await tester.pumpAndSettle();
     expect(find.textContaining('Needs 6 different loads'), findsOneWidget);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    // A linear reading is the same with any zero.
+    expect(find.text('Set Unloaded Zero'), findsNothing);
 
-    await tester.tap(find.text('Piecewise linear'));
+    await tester.tap(find.text('Piecewise'));
     await tester.pumpAndSettle();
     expect(fake.calls, ['select piecewise']);
     // The device keeps the linear model, and the selector shows it.
     expect(
-      find.textContaining('The device keeps the calibration in use.'),
+      find.text(
+        'Could not use Piecewise linear. ${CalibrationError.notEnoughLoadLevels.message} '
+        'The device keeps Linear.',
+      ),
       findsOneWidget,
     );
     expect(
       tester.widget<SegmentedButton<CalibrationModel>>(segments).selected,
       {CalibrationModel.linear},
     );
+  });
 
+  testWidgets('sets the unloaded zero only after confirmation', (tester) async {
+    final fake = await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: _calibrationWith(_details()),
+      ),
+    );
     final zero = find.widgetWithText(OutlinedButton, 'Set Unloaded Zero');
     await tester.ensureVisible(zero);
+
     await tester.tap(zero);
     await tester.pumpAndSettle();
-    expect(fake.calls.last, 'zero');
+    expect(find.text('Set unloaded zero?'), findsOneWidget);
+    expect(find.textContaining('use Tare instead'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+    expect(fake.calls, isEmpty);
+
+    await tester.tap(zero);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Set Zero'));
+    await tester.pumpAndSettle();
+    expect(fake.calls, ['zero']);
+    expect(
+      find.text('The device did not answer, so the zero may not be set.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('fits the calibration model card on a 360 dp phone', (
@@ -578,12 +619,12 @@ void main() {
 
     expect(
       find.textContaining(
-        'The stored points are not applied: The model needs more points.',
+        'Points not applied yet. The model needs more points.',
       ),
       findsOneWidget,
     );
     expect(
-      find.textContaining('previous piecewise linear calibration'),
+      find.textContaining('previous Piecewise linear calibration'),
       findsOneWidget,
     );
     expect(
