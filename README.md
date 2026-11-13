@@ -5,7 +5,10 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
 ## Features
 
 - Bluetooth Low Energy (BLE) device scanning and connection
-- Calibration support, with a check of each point's error against the device calibration
+- Calibration support, with a check of each point's calibration-fit residual against the device calibration
+- Selectable linear, quadratic or two-segment piecewise linear calibration, fitted by the firmware
+  (see [Calibration models](#calibration-models)), with the calibrated range and readings outside
+  it flagged
 - Real-time weight measurement with min, peak force and peak rate of force development (RFD)
 - Measurement reset, tare and selectable sample rate
 - Battery voltage and estimated state of charge, with a low battery warning
@@ -19,6 +22,30 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
 - Debugging: calibration and measurements
 - Compatible with Tindeq Progressor API
 - Cross-platform support (Android, macOS, Windows, Linux, Web)
+
+## Calibration models
+
+The firmware fits and applies the calibration; the app selects the model, waits for the device to
+confirm it, and shows what the device reports: the model in use, the calibrated range, each point's
+fitted load and residual, and the RMS and largest residual. Residuals show how well the curve
+follows the calibration points, not the accuracy at other loads.
+
+| Model            | Use                                      | Needs                                        |
+| ---------------- | ---------------------------------------- | -------------------------------------------- |
+| Linear           | Same sensitivity at every load (default) | 2 loads; a third checks the fit              |
+| Quadratic        | Sensitivity that changes gradually       | 4 loads, one in the middle half of the range |
+| Piecewise linear | Sensitivity that changes around one load | 6 loads, 3 on each side of the break         |
+
+Points that the selected model cannot fit yet are stored on the device, which keeps the previous
+calibration and reports why. **Tare** subtracts an attached load; **Set Unloaded Zero** re-anchors
+the curve at the unloaded reading to follow drift, and the device rejects it when a load is
+attached. Readings whose absolute load, the reading plus the load at the tare, lies outside the
+calibrated range are flagged as extrapolated in the Measurements tab.
+
+The app reads the calibration from the device on each connection. Firmware without calibration
+models does not answer the details request, so the app falls back to the linear factor and offers
+only the linear model. The BLE commands are documented in the firmware's
+[`calibration/README.md`](https://github.com/crimpdeq/crimpdeq-firmware/blob/main/calibration/README.md).
 
 ## Released Apps
 

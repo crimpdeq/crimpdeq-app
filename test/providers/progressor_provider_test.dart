@@ -188,7 +188,7 @@ void main() {
     await expectLater(notifier.addCalibrationPoint(10), throwsStateError);
 
     notifier.startWrite.complete(false);
-    expect(await first, CalibrationPointResult.sendFailed);
+    expect((await first).result, CalibrationPointResult.sendFailed);
     expect(
       container.read(progressorProvider).calibration.waitingForSteadyLoad,
       isFalse,

@@ -1,9 +1,12 @@
+import 'dart:math';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../analysis/calibration_check.dart';
+import '../analysis/calibration_curve.dart';
 import '../models/progressor_models.dart';
 import '../protocol/progressor_protocol.dart';
 import '../providers/progressor_provider.dart';
@@ -16,29 +19,42 @@ class CalibrationTab extends ConsumerWidget {
     final calibration = ref.watch(
       progressorProvider.select((state) => state.calibration),
     );
+    final measuring = ref.watch(
+      progressorProvider.select((state) => state.measurement.isMeasuring),
+    );
     final notifier = ref.read(progressorProvider.notifier);
     final factor = calibration.factor;
-    final busy = calibration.waitingForSteadyLoad || calibration.removingPoint;
+    final details = calibration.details;
+    final busy =
+        calibration.waitingForSteadyLoad ||
+        calibration.removingPoint ||
+        calibration.changingModel;
 
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Current Calibration Factor: '
-            '${factor == null ? 'Not available' : factor.toStringAsFixed(6)}',
-            style: Theme.of(context).textTheme.titleMedium,
+          CalibrationModelCard(
+            supportsModels: calibration.supportsModels,
+            details: details,
+            factor: factor,
+            busy: busy,
+            measuring: measuring,
+            changingModel: calibration.changingModel,
+            onSelectModel: (model) => _selectModel(context, ref, model),
+            onSetZero: () => _setZero(context, notifier),
           ),
           const SizedBox(height: 16),
           if (calibration.points.isNotEmpty) ...[
             CalibrationCheckCard(
               points: calibration.points,
               factor: factor,
+              details: details,
               onRemovePoint: busy
                   ? null
                   : (index) => _removeCalibrationPoint(
                       context,
-                      notifier,
+                      ref,
                       index,
                       calibration.points[index],
                     ),
@@ -48,7 +64,8 @@ class CalibrationTab extends ConsumerWidget {
           CalibrationCard(
             pointCount: calibration.points.length,
             waitingForSteadyLoad: calibration.waitingForSteadyLoad,
-            removingPoint: calibration.removingPoint,
+            removingPoint:
+                calibration.removingPoint || calibration.changingModel,
             onAddCalibrationPoint: notifier.addCalibrationPoint,
             onGetCalibration: notifier.getCalibration,
             onDefaultCalibration: notifier.defaultCalibration,
@@ -59,12 +76,367 @@ class CalibrationTab extends ConsumerWidget {
   }
 }
 
+Future<void> _selectModel(
+  BuildContext context,
+  WidgetRef ref,
+  CalibrationModel model,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final result = await ref
+      .read(progressorProvider.notifier)
+      .selectCalibrationModel(model);
+  final inUse = ref.read(progressorProvider).calibration.details?.model;
+  messenger.showSnackBar(
+    SnackBar(
+      content: Text(switch (result) {
+        null =>
+          'The device did not answer. Tap Get Calibration to see which model '
+              'it uses.',
+        (disposition: CalibrationDisposition.applied, error: _, opCode: _) =>
+          'The device now uses ${model.label}.',
+        (:final error, disposition: _, opCode: _) =>
+          'Could not use ${model.label}. ${error?.message ?? ''}'
+              '${inUse == null ? '' : ' The device keeps ${inUse.label}.'}',
+      }),
+    ),
+  );
+}
+
+Future<void> _setZero(BuildContext context, ProgressorNotifier notifier) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Set unloaded zero?'),
+      content: const Text(
+        'Remove everything from the Crimpdeq that was not attached for the '
+        '0 kg calibration point, such as plates or a hangboard.\n\n'
+        'The device takes the current reading as 0 kg and moves the '
+        'calibration curve with it. This corrects drift of the zero since '
+        'you calibrated, so the curve bends at the right load.\n\n'
+        'To zero a hangboard or sling that stays attached, use Tare instead.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Set Zero'),
+        ),
+      ],
+    ),
+  );
+  if (!(confirmed ?? false)) return;
+
+  final result = await notifier.setZero();
+  messenger.showSnackBar(
+    SnackBar(
+      content: Text(switch (result) {
+        null => 'The device did not answer, so the zero may not be set.',
+        (disposition: CalibrationDisposition.applied, error: _, opCode: _) =>
+          'Zero set.',
+        (:final error, disposition: _, opCode: _) =>
+          'Zero not set. ${error?.message ?? ''}',
+      }),
+    ),
+  );
+}
+
+/// Short label for the model selector, which fits a phone.
+String _shortLabel(CalibrationModel model) =>
+    model == CalibrationModel.piecewise ? 'Piecewise' : model.label;
+
+/// Plain description of each model, with the data it needs.
+const _modelDescriptions = {
+  CalibrationModel.linear: (
+    'A straight line: the same sensitivity at every load. The default.',
+    '2 different loads. Add a third to check the fit.',
+  ),
+  CalibrationModel.quadratic: (
+    'A smooth curve, for a sensitivity that changes gradually with the load.',
+    '4 different loads, one of them in the middle half of the range.',
+  ),
+  CalibrationModel.piecewise: (
+    'Two straight lines joined at a break the device finds, for a '
+        'sensitivity that changes around one load.',
+    '6 different loads, 3 on each side of the break.',
+  ),
+};
+
+Future<void> _showModelHelp(BuildContext context) {
+  final textTheme = Theme.of(context).textTheme;
+  return showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Calibration models'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final model in CalibrationModel.values) ...[
+              Text(model.label, style: textTheme.titleSmall),
+              const SizedBox(height: 2),
+              Text(_modelDescriptions[model]!.$1),
+              Text(
+                'Needs ${_modelDescriptions[model]!.$2}',
+                style: textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+            ],
+            const Text(
+              'The device fits the model to the stored points, so switching '
+              'needs no new points. Start with Linear, and switch only when '
+              'its residuals follow a curve instead of scattering. Check the '
+              'result with weights that are not calibration points.\n\n'
+              'Readings outside the calibrated range, from the lightest to '
+              'the heaviest point, continue straight with the slope at the '
+              'nearest end, so they are less certain.',
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Model selection, the calibrated range and the unloaded zero. The selected
+/// model is the one the device reports in use; a selection waits for the
+/// device to fit it.
+class CalibrationModelCard extends StatelessWidget {
+  const CalibrationModelCard({
+    super.key,
+    required this.supportsModels,
+    required this.details,
+    required this.factor,
+    required this.busy,
+    required this.measuring,
+    required this.changingModel,
+    required this.onSelectModel,
+    required this.onSetZero,
+  });
+
+  final bool? supportsModels;
+  final CalibrationDetails? details;
+
+  /// Linear factor in g per count, null for a nonlinear calibration.
+  final double? factor;
+  final bool busy;
+
+  /// A model or zero change mid-measurement would mix two calibrations in one
+  /// window, as a sample rate change would mix rates.
+  final bool measuring;
+  final bool changingModel;
+  final ValueChanged<CalibrationModel> onSelectModel;
+  final VoidCallback onSetZero;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final details = this.details;
+    final factor = this.factor;
+    final active = details?.model ?? CalibrationModel.linear;
+    final supported =
+        details?.info.supportedModels ?? const {CalibrationModel.linear};
+    final range = details?.loadRangeKg;
+    final pending = details?.info.pending;
+    final canChange = !busy && !measuring && details != null;
+    final hint = switch (supportsModels) {
+      false =>
+        'This firmware has only the linear model. Update it to use the '
+            'others.',
+      null => 'Reading the calibration from the device...',
+      true when changingModel => 'Waiting for the device to fit the model...',
+      true when measuring =>
+        'Stop the measurement to change the model or the zero.',
+      true => null,
+    };
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Calibration Model',
+                    style: textTheme.titleMedium,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.info_outline),
+                  tooltip: 'About the calibration models',
+                  onPressed: () => _showModelHelp(context),
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 4),
+                  SegmentedButton<CalibrationModel>(
+                    segments: [
+                      for (final model in CalibrationModel.values)
+                        ButtonSegment(
+                          value: model,
+                          label: Text(_shortLabel(model)),
+                          tooltip: _modelDescriptions[model]!.$1,
+                          enabled: supported.contains(model),
+                        ),
+                    ],
+                    selected: {active},
+                    showSelectedIcon: false,
+                    onSelectionChanged: canChange
+                        ? (selection) {
+                            if (selection.single != active) {
+                              onSelectModel(selection.single);
+                            }
+                          }
+                        : null,
+                  ),
+                  if (changingModel) ...[
+                    const SizedBox(height: 8),
+                    const LinearProgressIndicator(),
+                  ],
+                  if (hint != null) ...[
+                    const SizedBox(height: 8),
+                    Text(hint, style: textTheme.bodySmall),
+                  ],
+                  if (pending != null) ...[
+                    const SizedBox(height: 12),
+                    _PendingBanner(pending: pending, inUse: active),
+                  ],
+                  const SizedBox(height: 8),
+                  if (factor != null && active == CalibrationModel.linear)
+                    _DetailRow(
+                      label: 'Factor',
+                      value: '${factor.toStringAsFixed(6)} g/count',
+                    ),
+                  if (details != null)
+                    _DetailRow(
+                      label: 'Calibrated range',
+                      value: range == null
+                          ? 'Unknown (default calibration)'
+                          : '${range.min.toStringAsFixed(2)} – '
+                                '${range.max.toStringAsFixed(2)} kg',
+                    ),
+                  // A linear reading is the same with any zero, so the zero
+                  // only matters for the nonlinear models.
+                  if (details?.curve != null &&
+                      active != CalibrationModel.linear) ...[
+                    const SizedBox(height: 8),
+                    Tooltip(
+                      message:
+                          'With nothing attached, corrects drift of the zero',
+                      child: OutlinedButton.icon(
+                        onPressed: canChange ? onSetZero : null,
+                        icon: const Icon(Icons.anchor),
+                        label: const Text('Set Unloaded Zero'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: textTheme.bodyMedium)),
+          Text(
+            value,
+            style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Points the device stores but cannot fit yet.
+class _PendingBanner extends StatelessWidget {
+  const _PendingBanner({required this.pending, required this.inUse});
+
+  final CalibrationError pending;
+  final CalibrationModel inUse;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber, color: colorScheme.onErrorContainer),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(
+                    text: 'Points not applied yet. ',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  TextSpan(
+                    text:
+                        '${pending.message} The device keeps measuring with '
+                        'the previous ${inUse.label} calibration.',
+                  ),
+                ],
+              ),
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onErrorContainer,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 Future<void> _removeCalibrationPoint(
   BuildContext context,
-  ProgressorNotifier notifier,
+  WidgetRef ref,
   int index,
   CalibrationPoint point,
 ) async {
+  final notifier = ref.read(progressorProvider.notifier);
   final messenger = ScaffoldMessenger.of(context);
   final label = 'point ${index + 1} (${point.weightKg.toStringAsFixed(3)} kg)';
   final confirmed = await showDialog<bool>(
@@ -90,9 +462,18 @@ Future<void> _removeCalibrationPoint(
   if (!(confirmed ?? false)) return;
 
   final result = await notifier.removeCalibrationPoint(index);
+  final pending = ref
+      .read(progressorProvider)
+      .calibration
+      .details
+      ?.info
+      .pending;
   messenger.showSnackBar(
     SnackBar(
       content: Text(switch (result) {
+        CalibrationPointRemoval.removed when pending != null =>
+          'Removed $label. The remaining points cannot be applied yet: '
+              '${pending.message} The device keeps the previous calibration.',
         CalibrationPointRemoval.removed => 'Removed $label.',
         CalibrationPointRemoval.rejected =>
           'The device kept $label. The remaining points may not give a '
@@ -123,7 +504,7 @@ class CalibrationCard extends StatefulWidget {
   final int pointCount;
   final bool waitingForSteadyLoad;
   final bool removingPoint;
-  final Future<CalibrationPointResult> Function(double weightKg)
+  final Future<CalibrationPointOutcome> Function(double weightKg)
   onAddCalibrationPoint;
   final VoidCallback onGetCalibration;
   final VoidCallback onDefaultCalibration;
@@ -154,9 +535,15 @@ class _CalibrationCardState extends State<CalibrationCard> {
     }
 
     final firstPoint = widget.pointCount == 0;
-    final result = await widget.onAddCalibrationPoint(weight);
+    final (:result, :error) = await widget.onAddCalibrationPoint(weight);
     if (!mounted) return;
-    if (result == CalibrationPointResult.added) _controller.clear();
+    if (const [
+      CalibrationPointResult.added,
+      CalibrationPointResult.applied,
+      CalibrationPointResult.pending,
+    ].contains(result)) {
+      _controller.clear();
+    }
     final kg = '${weight.toStringAsFixed(2)} kg';
     messenger.showSnackBar(
       SnackBar(
@@ -166,6 +553,15 @@ class _CalibrationCardState extends State<CalibrationCard> {
           CalibrationPointResult.added =>
             'Point ($kg) sent. The device keeps it only if the calibration '
                 'is plausible.',
+          CalibrationPointResult.applied =>
+            'Point ($kg) added. The device fit the points and uses the new '
+                'calibration.',
+          CalibrationPointResult.pending =>
+            'Point ($kg) stored, but not applied yet: '
+                '${error?.message ?? ''} The device keeps the previous '
+                'calibration.',
+          CalibrationPointResult.rejected =>
+            'The device discarded the point ($kg): ${error?.message ?? ''}',
           CalibrationPointResult.notSteady =>
             'The load did not hold steady, so the point was not added.',
           CalibrationPointResult.readingUnchanged =>
@@ -191,7 +587,7 @@ class _CalibrationCardState extends State<CalibrationCard> {
       builder: (context) => AlertDialog(
         title: const Text('Reset calibration?'),
         content: const Text(
-          'This restores the default calibration factor and deletes every '
+          'This restores the default linear calibration and deletes every '
           'calibration point stored on the device.',
         ),
         actions: [
@@ -288,18 +684,63 @@ String _formatCompactAxis(double value) {
   return '${thousands.toStringAsFixed(thousands.abs() >= 100 ? 0 : 1)}k';
 }
 
-/// Calibration points against the line the device applies, with the error of
-/// each point.
+/// Calibration-fit residuals: the loads the device curve gives the points,
+/// against their known weights.
+typedef _Residuals = ({
+  List<double?> fittedKg,
+  double maxAbsKg,
+  double rmsKg,
+
+  /// Whether the residuals can show a bad fit: a fit has more points than
+  /// parameters.
+  bool verifiesFit,
+});
+
+_Residuals? _residuals(
+  List<CalibrationPoint> points,
+  double? factor,
+  CalibrationDetails? details,
+) {
+  if (details != null) {
+    final (rms, maxAbs) = (details.fit.rmsKg, details.fit.maxAbsKg);
+    if (details.curve == null || rms == null || maxAbs == null) return null;
+    final weights = details.points.map((point) => point.weightKg).toSet();
+    return (
+      fittedKg: [for (final point in details.points) point.fittedKg],
+      maxAbsKg: maxAbs,
+      rmsKg: rms,
+      // Nonlinear fits need a load level more than their parameters.
+      verifiesFit:
+          details.model != CalibrationModel.linear || weights.length >= 3,
+    );
+  }
+  final check = factor == null ? null : CalibrationCheck.of(points, factor);
+  if (check == null) return null;
+  return (
+    fittedKg: [for (final residual in check.residuals) residual.fittedKg],
+    maxAbsKg: check.maxErrorKg,
+    rmsKg: check.rmsErrorKg,
+    verifiesFit: check.verifiesFit,
+  );
+}
+
+/// Calibration points against the curve the device applies, with the
+/// calibration-fit residual of each point.
 class CalibrationCheckCard extends StatelessWidget {
   const CalibrationCheckCard({
     super.key,
     required this.points,
     required this.factor,
+    this.details,
     required this.onRemovePoint,
   });
 
   final List<CalibrationPoint> points;
   final double? factor;
+
+  /// Reported by firmware with calibration models; otherwise the residuals
+  /// are of the linear factor.
+  final CalibrationDetails? details;
 
   /// Null while the calibration is busy.
   final void Function(int index)? onRemovePoint;
@@ -307,9 +748,13 @@ class CalibrationCheckCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final factor = this.factor;
-    final check = factor == null ? null : CalibrationCheck.of(points, factor);
-    final verifiedCheck = check != null && check.verifiesFit ? check : null;
+    final details = this.details;
+    final residuals = _residuals(points, factor, details);
+    final verified = residuals != null && residuals.verifiesFit
+        ? residuals
+        : null;
+    final heaviestKg = points.map((point) => point.weightKg).reduce(max);
+    final pending = details?.info.pending != null;
 
     return Card(
       child: Padding(
@@ -320,27 +765,40 @@ class CalibrationCheckCard extends StatelessWidget {
             Text('Calibration Check', style: textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(
-              check == null
+              residuals == null
                   ? 'Add another point to calibrate.'
-                  : verifiedCheck == null
+                  : verified == null
                   ? 'Add a point at a third weight to check the calibration. '
                         'The line fits two weights by construction.'
-                  : 'Max error ${check.maxErrorKg.toStringAsFixed(3)} kg '
-                        '(${check.maxErrorPercentOfSpan.toStringAsFixed(2)}% '
-                        'of the heaviest weight) · RMS '
-                        '${check.rmsErrorKg.toStringAsFixed(3)} kg',
+                  : 'Calibration-fit residuals: max '
+                        '${verified.maxAbsKg.toStringAsFixed(3)} kg '
+                        '(${(heaviestKg == 0 ? 0 : verified.maxAbsKg / heaviestKg * 100).toStringAsFixed(2)}%) · '
+                        'RMS ${verified.rmsKg.toStringAsFixed(3)} kg',
               style: textTheme.bodyMedium,
             ),
+            if (verified != null)
+              Text(
+                pending
+                    ? 'Against the calibration in use, which was not fit from '
+                          'these points. Not the accuracy at other loads.'
+                    : 'How well the curve fits these points, not the accuracy '
+                          'at other loads.',
+                style: textTheme.bodySmall,
+              ),
             const SizedBox(height: 12),
             LayoutBuilder(
               builder: (context, constraints) {
                 final chart = SizedBox(
                   height: 240,
-                  child: _CalibrationChart(points: points, check: check),
+                  child: _CalibrationChart(
+                    points: points,
+                    fittedKg: residuals?.fittedKg,
+                    curve: details?.curve,
+                  ),
                 );
                 final table = _CalibrationTable(
                   points: points,
-                  check: verifiedCheck,
+                  residuals: verified,
                   onRemovePoint: onRemovePoint,
                 );
                 if (constraints.maxWidth < 900) {
@@ -367,10 +825,22 @@ class CalibrationCheckCard extends StatelessWidget {
 }
 
 class _CalibrationChart extends StatelessWidget {
-  const _CalibrationChart({required this.points, required this.check});
+  const _CalibrationChart({
+    required this.points,
+    required this.fittedKg,
+    required this.curve,
+  });
 
   final List<CalibrationPoint> points;
-  final CalibrationCheck? check;
+
+  /// Load of each point on the device curve, null without a calibration.
+  final List<double?>? fittedKg;
+
+  /// Device curve, drawn across the points; without it, the fitted loads are
+  /// joined, which draws a line exactly.
+  final CalibrationCurve? curve;
+
+  static const _curveSamples = 60;
 
   @override
   Widget build(BuildContext context) {
@@ -379,11 +849,19 @@ class _CalibrationChart extends StatelessWidget {
     final pointSpots = [
       for (final point in points) FlSpot(point.raw, point.weightKg),
     ];
-    // Every fitted value lies on the device line.
-    final lineSpots = [
-      for (final residual in check?.residuals ?? const <CalibrationResidual>[])
-        FlSpot(residual.point.raw, residual.fittedKg),
-    ]..sort((a, b) => a.x.compareTo(b.x));
+    final curve = this.curve;
+    final rawLow = points.map((point) => point.raw).reduce(min);
+    final rawHigh = points.map((point) => point.raw).reduce(max);
+    double sampleRaw(int i) => rawLow + (rawHigh - rawLow) * i / _curveSamples;
+    final lineSpots = curve != null && rawHigh > rawLow
+        ? [
+            for (var i = 0; i <= _curveSamples; i++)
+              FlSpot(sampleRaw(i), curve.kg(sampleRaw(i))),
+          ]
+        : ([
+            for (final (index, fitted) in (fittedKg ?? const []).indexed)
+              if (fitted != null) FlSpot(points[index].raw, fitted),
+          ]..sort((a, b) => a.x.compareTo(b.x)));
     final xs = pointSpots.map((spot) => spot.x);
     final ys = [...pointSpots, ...lineSpots].map((spot) => spot.y);
     (double, double) padded(Iterable<double> values, double minPadding) {
@@ -498,19 +976,24 @@ class _CalibrationChart extends StatelessWidget {
 class _CalibrationTable extends StatelessWidget {
   const _CalibrationTable({
     required this.points,
-    required this.check,
+    required this.residuals,
     required this.onRemovePoint,
   });
 
   final List<CalibrationPoint> points;
-  final CalibrationCheck? check;
+  final _Residuals? residuals;
   final void Function(int index)? onRemovePoint;
 
   @override
   Widget build(BuildContext context) {
-    final check = this.check;
+    final residuals = this.residuals;
     final onRemovePoint = this.onRemovePoint;
-    final worstErrorKg = check?.maxErrorKg;
+    double? residualKg(int index) {
+      final fitted = residuals?.fittedKg.elementAtOrNull(index);
+      return fitted == null ? null : fitted - points[index].weightKg;
+    }
+
+    final worstKg = residuals?.maxAbsKg;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
@@ -522,10 +1005,22 @@ class _CalibrationTable extends StatelessWidget {
         columns: [
           const DataColumn(label: Text('#')),
           const DataColumn(label: Text('Raw'), numeric: true),
-          const DataColumn(label: Text('Known (kg)'), numeric: true),
-          if (check != null) ...const [
-            DataColumn(label: Text('Fitted (kg)'), numeric: true),
-            DataColumn(label: Text('Error (kg)'), numeric: true),
+          const DataColumn(
+            label: Text('Known'),
+            numeric: true,
+            tooltip: 'Known weight, kg',
+          ),
+          if (residuals != null) ...const [
+            DataColumn(
+              label: Text('Fitted'),
+              numeric: true,
+              tooltip: 'Load the calibration gives the point, kg',
+            ),
+            DataColumn(
+              label: Text('Residual'),
+              numeric: true,
+              tooltip: 'Fitted minus known, kg',
+            ),
           ],
           const DataColumn(label: SizedBox.shrink()),
         ],
@@ -536,15 +1031,23 @@ class _CalibrationTable extends StatelessWidget {
                 DataCell(Text('${index + 1}')),
                 DataCell(Text(point.raw.toStringAsFixed(0))),
                 DataCell(Text(point.weightKg.toStringAsFixed(3))),
-                if (check != null) ...[
+                if (residuals != null) ...[
                   DataCell(
-                    Text(check.residuals[index].fittedKg.toStringAsFixed(3)),
+                    Text(
+                      residuals.fittedKg
+                              .elementAtOrNull(index)
+                              ?.toStringAsFixed(3) ??
+                          '—',
+                    ),
                   ),
                   DataCell(
                     Text(
-                      check.residuals[index].errorKg.toStringAsFixed(3),
+                      residualKg(index)?.toStringAsFixed(3) ?? '—',
                       style:
-                          check.residuals[index].errorKg.abs() == worstErrorKg
+                          worstKg != null &&
+                              ((residualKg(index)?.abs() ?? 0) - worstKg)
+                                      .abs() <
+                                  5e-4
                           ? TextStyle(
                               color: Theme.of(context).colorScheme.error,
                               fontWeight: FontWeight.w700,

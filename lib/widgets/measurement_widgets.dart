@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../analysis/calibration_curve.dart';
 import '../analysis/force_stats.dart';
 import '../constants/progressor_constants.dart';
 import '../models/progressor_models.dart';
@@ -23,6 +24,9 @@ class MeasurementTab extends ConsumerWidget {
     final sampleRate = ref.watch(
       progressorProvider.select((state) => state.deviceInfo.sampleRate),
     );
+    final calibration = ref.watch(
+      progressorProvider.select((state) => state.calibration.details),
+    );
     final notifier = ref.read(progressorProvider.notifier);
 
     return SingleChildScrollView(
@@ -38,7 +42,10 @@ class MeasurementTab extends ConsumerWidget {
           const SizedBox(height: 16),
           _ResponsivePair(
             breakpoint: 900,
-            first: ForceSummaryCard(measurement: measurement),
+            first: ForceSummaryCard(
+              measurement: measurement,
+              calibration: calibration,
+            ),
             second: PerformanceCard(
               performance: performance,
               sampleRate: sampleRate,
@@ -180,9 +187,17 @@ class MeasurementControls extends StatelessWidget {
 
 /// Current force and the summary of the window since start, tare or reset.
 class ForceSummaryCard extends StatelessWidget {
-  const ForceSummaryCard({super.key, required this.measurement});
+  const ForceSummaryCard({
+    super.key,
+    required this.measurement,
+    this.calibration,
+  });
 
   final MeasurementState measurement;
+
+  /// Calibration the device reports, to flag readings outside its calibrated
+  /// range.
+  final CalibrationDetails? calibration;
 
   @override
   Widget build(BuildContext context) {
@@ -191,6 +206,16 @@ class ForceSummaryCard extends StatelessWidget {
     String kg(double? value) =>
         value == null ? '—' : '${value.toStringAsFixed(2)} kg';
     final peakRfd = measurement.peakRfdKgPerS;
+    final range = calibration?.loadRangeKg;
+    final outside = [
+      for (final (label, value) in [
+        ('current reading', measurement.currentKg),
+        ('peak', measurement.peakKg),
+        ('minimum', measurement.minKg),
+      ])
+        if (value != null && (calibration?.isOutsideRange(value) ?? false))
+          label,
+    ];
 
     return Card(
       child: Padding(
@@ -241,6 +266,16 @@ class ForceSummaryCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (range != null && outside.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Outside the calibrated range '
+                '(${range.min.toStringAsFixed(1)} to '
+                '${range.max.toStringAsFixed(1)} kg): ${outside.join(', ')}. '
+                'The device extrapolated these readings.',
+                style: textTheme.bodyMedium?.copyWith(color: colorScheme.error),
+              ),
+            ],
             const SizedBox(height: 8),
             Text(
               'Elapsed: ${(measurement.elapsedUs / Duration.microsecondsPerSecond).toStringAsFixed(1)} s · '

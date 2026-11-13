@@ -129,7 +129,7 @@ void main() {
     // Debugging: the measurement reaches the simulated peaks.
     await tap(find.widgetWithText(NavigationDestination, 'Debugging'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Current Calibration Factor: '), findsOne);
+    expect(find.text('Calibration Model'), findsOne);
     await tap(find.text('Measurements'));
     await tester.pumpAndSettle();
     await tap(find.widgetWithText(ElevatedButton, 'Start'));
