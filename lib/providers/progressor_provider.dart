@@ -787,6 +787,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     if (!await _send(ControlOpCode.tareScale)) return;
     // The load at the tare places the readings in the calibrated range.
     if (state.calibration.supportsModels ?? false) {
+      _forgetTareLoad();
       unawaited(
         _requestCalibrationDetails(ControlOpCode.getCalibrationDetails),
       );
@@ -922,6 +923,17 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     };
   }
 
+  /// Marks the load at the tare unknown until the details report it again, so a
+  /// lost answer cannot leave readings checked against an old tare.
+  void _forgetTareLoad() {
+    final details = state.calibration.details;
+    if (details != null) {
+      state = state.copyWith.calibration(
+        details: details.withUnknownTareLoad(),
+      );
+    }
+  }
+
   void _checkCalibrationIdle() {
     final calibration = state.calibration;
     if (calibration.waitingForSteadyLoad ||
@@ -1051,6 +1063,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   ]) async {
     _checkCalibrationIdle();
     final connectionId = _connectionId;
+    // A zero moves the tare, and a model changes the load at it.
+    _forgetTareLoad();
     state = state.copyWith.calibration(changingModel: true);
     try {
       return _resultOf(

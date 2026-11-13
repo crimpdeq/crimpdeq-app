@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:crimpdeq/analysis/calibration_curve.dart';
 import 'package:crimpdeq/models/progressor_models.dart';
 import 'package:crimpdeq/protocol/progressor_protocol.dart';
 import 'package:crimpdeq/providers/progressor_provider.dart';
@@ -269,6 +270,37 @@ void main() {
     ble.unanswered.clear();
     await notifier.getCalibration();
     expect(calibration(container).points, hasLength(4));
+    await dispose(tester, container);
+  });
+
+  testWidgets('forgets the load at the tare until the device reports it', (
+    tester,
+  ) async {
+    var tareLoadKg = 0.0;
+    ble.calibrationDetails = (_) => calibrationDetailFrames(
+      loadMaxKg: 100,
+      tareLoadKg: tareLoadKg,
+      points: _points,
+    );
+    final container = await connect(tester);
+    final notifier = container.read(progressorProvider.notifier);
+    CalibrationDetails details() => calibration(container).details!;
+    expect(details().isOutsideRange(90), isFalse);
+
+    // Tared under a 20 kg attachment, but the details are lost.
+    ble.unanswered.add(ControlOpCode.getCalibrationDetails);
+    unawaited(notifier.tareScale());
+    await tester.pump();
+    expect(details().tare.tareLoadKg, isNull);
+    expect(details().isOutsideRange(90), isNull);
+    await tester.pump(const Duration(seconds: 6));
+    expect(details().isOutsideRange(90), isNull);
+
+    // The next read restores it: 90 kg on top of 20 kg is past 100 kg.
+    ble.unanswered.clear();
+    tareLoadKg = 20;
+    await notifier.getCalibration();
+    expect(details().isOutsideRange(90), isTrue);
     await dispose(tester, container);
   });
 

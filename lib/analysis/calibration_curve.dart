@@ -83,6 +83,17 @@ class CalibrationDetails {
 
   CalibrationModel get model => info.model;
 
+  /// These details with the load at the tare unknown, for a command that
+  /// changes it, until the device reports it again.
+  CalibrationDetails withUnknownTareLoad() => CalibrationDetails(
+    info: info,
+    coefficients: coefficients,
+    coordinates: coordinates,
+    fit: fit,
+    tare: CalibrationTare(null, tare.zeroShift),
+    points: points,
+  );
+
   /// Factor of a linear calibration, null for a nonlinear one.
   double? get linearFactor =>
       model == CalibrationModel.linear ? coefficients[0] : null;
