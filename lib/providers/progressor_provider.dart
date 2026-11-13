@@ -955,6 +955,26 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         return CalibrationPointRemoval.disconnected;
       }
       if (!removed) return CalibrationPointRemoval.rejected;
+      // The removal shifted the indexes of the later points, and firmware
+      // with calibration models reports the new points only in the details,
+      // so the lock holds until they arrive.
+      if (state.calibration.supportsModels ?? false) {
+        final details = await _requestCalibrationDetails(
+          ControlOpCode.getCalibrationDetails,
+        );
+        if (connectionId != _connectionId) {
+          return CalibrationPointRemoval.disconnected;
+        }
+        // Without them, the points shown no longer match the device, so drop
+        // them until the next read.
+        if (details == null) {
+          state = state.copyWith.calibration(
+            details: null,
+            factor: null,
+            points: const [],
+          );
+        }
+      }
     } on TimeoutException {
       _removalUnanswered = true;
       return CalibrationPointRemoval.unsupported;
@@ -968,10 +988,6 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
     // The previous reading may belong to the removed point.
     _lastPointReading = null;
-    // Whether the remaining points are applied.
-    if (state.calibration.supportsModels ?? false) {
-      await _requestCalibrationDetails(ControlOpCode.getCalibrationDetails);
-    }
     return CalibrationPointRemoval.removed;
   }
 

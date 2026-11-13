@@ -229,6 +229,41 @@ void main() {
     await dispose(tester, container);
   });
 
+  testWidgets('holds removals until the device reports the new points', (
+    tester,
+  ) async {
+    ble.calibrationDetails = (_) => calibrationDetailFrames(
+      model: CalibrationModel.quadratic,
+      points: _points,
+    );
+    final container = await connect(tester);
+    final notifier = container.read(progressorProvider.notifier);
+
+    // The details after the removal do not arrive.
+    ble.unanswered.add(ControlOpCode.getCalibrationDetails);
+    CalibrationPointRemoval? result;
+    unawaited(notifier.removeCalibrationPoint(1).then((r) => result = r));
+    await tester.pump();
+    ble.notify([9, 1, 1]);
+    await tester.pump();
+    expect(result, isNull);
+    expect(calibration(container).removingPoint, isTrue);
+    await expectLater(notifier.removeCalibrationPoint(1), throwsStateError);
+
+    await tester.pump(const Duration(seconds: 6));
+    expect(result, CalibrationPointRemoval.removed);
+    expect(calibration(container).removingPoint, isFalse);
+    // The stale points, whose indexes shifted on the device, are gone.
+    expect(calibration(container).points, isEmpty);
+    expect(calibration(container).details, isNull);
+
+    // A read restores them.
+    ble.unanswered.clear();
+    await notifier.getCalibration();
+    expect(calibration(container).points, hasLength(4));
+    await dispose(tester, container);
+  });
+
   testWidgets('ignores details with a lost notification', (tester) async {
     ble.calibrationDetails = (_) => calibrationDetailFrames(
       model: CalibrationModel.quadratic,
