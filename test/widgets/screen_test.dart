@@ -516,7 +516,7 @@ void main() {
     expect(tester.getRect(selector).right, lessThanOrEqualTo(360));
   });
 
-  testWidgets('keeps the model while measuring', (tester) async {
+  testWidgets('keeps the model and zero while measuring', (tester) async {
     await _pumpScreen(
       tester,
       ProgressorState(
@@ -531,9 +531,12 @@ void main() {
     );
     expect(selector.onSelectionChanged, isNull);
     expect(
-      find.text('Stop the measurement to change the model.'),
+      find.text('Stop the measurement to change the model or the zero.'),
       findsOneWidget,
     );
+    final zero = find.widgetWithText(OutlinedButton, 'Set Unloaded Zero');
+    await tester.ensureVisible(zero);
+    expect(tester.widget<OutlinedButton>(zero).onPressed, isNull);
   });
 
   testWidgets('offers only the linear model on older firmware', (tester) async {

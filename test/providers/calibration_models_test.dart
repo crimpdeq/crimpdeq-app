@@ -167,6 +167,7 @@ void main() {
       () => notifier.selectCalibrationModel(CalibrationModel.linear),
       throwsStateError,
     );
+    await expectLater(notifier.setZero, throwsStateError);
     await notifier.stopMeasurement();
 
     final rejected = await notifier.selectCalibrationModel(

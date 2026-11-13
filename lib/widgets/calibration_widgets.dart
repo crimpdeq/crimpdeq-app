@@ -157,8 +157,8 @@ class CalibrationModelCard extends StatelessWidget {
   final CalibrationDetails? details;
   final bool busy;
 
-  /// A model change mid-measurement would mix two curves in one window, as a
-  /// sample rate change would mix rates.
+  /// A model or zero change mid-measurement would mix two calibrations in one
+  /// window, as a sample rate change would mix rates.
   final bool measuring;
   final bool changingModel;
   final ValueChanged<CalibrationModel> onSelectModel;
@@ -208,7 +208,7 @@ class CalibrationModelCard extends StatelessWidget {
             ] else if (measuring && details != null) ...[
               const SizedBox(height: 8),
               Text(
-                'Stop the measurement to change the model.',
+                'Stop the measurement to change the model or the zero.',
                 style: textTheme.bodySmall,
               ),
             ],
@@ -262,7 +262,9 @@ class CalibrationModelCard extends StatelessWidget {
               ],
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: busy || details.curve == null ? null : onSetZero,
+                onPressed: busy || measuring || details.curve == null
+                    ? null
+                    : onSetZero,
                 icon: const Icon(Icons.exposure_zero),
                 label: const Text('Set Unloaded Zero'),
               ),

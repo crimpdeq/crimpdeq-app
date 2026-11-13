@@ -1047,14 +1047,15 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   /// Takes the unloaded reading as the zero of the calibration curve, which
   /// follows the drift of the unloaded baseline. Unlike a tare, it is
   /// rejected when a load is attached. Null when the device did not answer.
+  /// Not while measuring: the zero moves the readings, so one window would
+  /// mix two zeros, also when its answer is lost.
   Future<CalibrationCommandResult?> setZero() async {
-    final result = await _changeCalibration(ControlOpCode.setZero);
-    if (result?.disposition == CalibrationDisposition.applied) {
-      // The zero moves the readings, like a tare.
-      _lastPointReading = null;
-      resetMeasurement();
+    if (state.measurement.isMeasuring) {
+      throw StateError('Stop the measurement to set the zero');
     }
-    return result;
+    // The zero may move the readings even when its answer is lost.
+    _lastPointReading = null;
+    return _changeCalibration(ControlOpCode.setZero);
   }
 
   Future<CalibrationCommandResult?> _changeCalibration(
