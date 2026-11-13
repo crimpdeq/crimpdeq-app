@@ -8,6 +8,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../analysis/calibration_check.dart';
+import '../analysis/calibration_curve.dart';
 import '../analysis/force_stats.dart';
 import '../analysis/steady_load.dart';
 import '../analysis/timestamp_unwrapper.dart';
@@ -18,7 +19,19 @@ import '../protocol/progressor_protocol.dart';
 part 'progressor_provider.g.dart';
 
 enum CalibrationPointResult {
+  /// Sent to firmware that does not confirm points, or whose confirmation did
+  /// not arrive.
   added,
+
+  /// The device fit the points and uses the new calibration.
+  applied,
+
+  /// The device stored the point, but keeps the previous calibration until the
+  /// points can be fit.
+  pending,
+
+  /// The device discarded the point.
+  rejected,
   notSteady,
   readingUnchanged,
   noMeasurements,
@@ -26,6 +39,13 @@ enum CalibrationPointResult {
   sendFailed,
   disconnected,
 }
+
+/// Result of adding a point, with the reason the device gave for a pending or
+/// rejected point.
+typedef CalibrationPointOutcome = ({
+  CalibrationPointResult result,
+  CalibrationError? error,
+});
 
 enum CalibrationPointRemoval {
   removed,
@@ -41,6 +61,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   static const _commandResponseTimeout = Duration(seconds: 2);
   // The removal answer follows the new factor and up to 19 points.
   static const _removalResponseTimeout = Duration(seconds: 5);
+  // The details follow the queued load cell commands, such as a 1.25 s
+  // calibration point, and take up to 26 notifications.
+  static const _calibrationDetailsTimeout = Duration(seconds: 5);
   static const _batteryPollInterval = Duration(minutes: 1);
   // The firmware sends the samples taken before a tare, then pauses 200 ms to
   // tare. Clearing after that keeps those samples out of the new window.
@@ -93,6 +116,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   // Set once the device leaves a removal unanswered, so a late answer cannot be
   // taken for the next removal on this connection.
   bool _removalUnanswered = false;
+  var _calibrationDetails = CalibrationDetailsReader();
+  // Requests answered by the calibration details, in order.
+  final _calibrationDetailsRequests = Queue<Completer<CalibrationDetails?>>();
 
   @override
   ProgressorState build() {
@@ -350,6 +376,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _pointRemoved?.complete(false);
     _pointRemoved = null;
     _removalUnanswered = false;
+    for (final request in _calibrationDetailsRequests) {
+      request.complete(null);
+    }
+    _calibrationDetailsRequests.clear();
+    _calibrationDetails = CalibrationDetailsReader();
     _lastPointReading = null;
     _frameReader = FrameReader();
     _resetMeasurementRuntime();
@@ -418,13 +449,23 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         _commandResponses.removeFirst().complete(payload);
       case LowPowerWarning():
         state = state.copyWith.deviceInfo(lowBattery: true);
+      // The details describe the calibration fully, so the linear-only
+      // messages that firmware with calibration models also sends are ignored.
+      case CalibrationFactor() || CalibrationPointMessage()
+          when state.calibration.supportsModels ?? false:
+        return;
       case CalibrationFactor(:final factor):
         // The stored points follow the factor.
-        state = state.copyWith.calibration(factor: factor, points: const []);
+        state = state.copyWith.calibration(
+          factor: factor.isFinite ? factor : null,
+          points: const [],
+        );
       case CalibrationPointMessage(:final raw, :final weightKg):
         state = state.copyWith.calibration(
           points: [...state.calibration.points, (raw: raw, weightKg: weightKg)],
         );
+      case CalibrationDetail():
+        _onCalibrationDetail(message);
       case CalibrationPointRemoved(:final removed):
         final pointRemoved = _pointRemoved;
         if (pointRemoved == null) {
@@ -440,6 +481,31 @@ class ProgressorNotifier extends _$ProgressorNotifier {
           batteryPercent: percent,
           batteryCharging: charging,
         );
+    }
+  }
+
+  void _onCalibrationDetail(CalibrationDetail detail) {
+    if (state.calibration.supportsModels != true) {
+      state = state.copyWith.calibration(supportsModels: true);
+    }
+    final details = _calibrationDetails.add(detail);
+    if (details != null) {
+      state = state.copyWith.calibration(
+        details: details,
+        factor: details.linearFactor,
+        points: [
+          for (final point in details.points)
+            (raw: point.raw, weightKg: point.weightKg),
+        ],
+      );
+    }
+    // Each request gets one answer, complete or not.
+    if (detail is CalibrationDetailsEnd) {
+      if (_calibrationDetailsRequests.isEmpty) {
+        _log('Ignoring unrequested calibration details');
+        return;
+      }
+      _calibrationDetailsRequests.removeFirst().complete(details);
     }
   }
 
@@ -617,6 +683,37 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
   }
 
+  /// Sends a command answered by the calibration details. Returns null when the
+  /// request fails, the device does not answer, or a notification was lost.
+  Future<CalibrationDetails?> _requestCalibrationDetails(
+    ControlOpCode opCode, [
+    List<int> payload = const [],
+  ]) async {
+    final response = Completer<CalibrationDetails?>();
+    _calibrationDetailsRequests.add(response);
+    if (!await _send(opCode, payload)) {
+      _calibrationDetailsRequests.remove(response);
+      return null;
+    }
+    try {
+      return await response.future.timeout(_calibrationDetailsTimeout);
+    } on TimeoutException {
+      _calibrationDetailsRequests.remove(response);
+      _log('No calibration details after ${opCode.name}');
+      return null;
+    }
+  }
+
+  /// Result of [opCode] reported by the details, null when they report another
+  /// command.
+  static CalibrationCommandResult? _resultOf(
+    CalibrationDetails? details,
+    ControlOpCode opCode,
+  ) {
+    final last = details?.info.lastCommand;
+    return last != null && last.opCode == opCode.value ? last : null;
+  }
+
   Future<void> _readDeviceInfo() async {
     final connectionId = _connectionId;
     final version = await _request(ControlOpCode.getAppVersion);
@@ -628,11 +725,12 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
     await _readBattery();
     if (connectionId != _connectionId) return;
-    await getCalibration();
-    if (connectionId != _connectionId) return;
     await _send(ControlOpCode.getSampleRate);
     if (connectionId != _connectionId) return;
     _batteryTimer = Timer.periodic(_batteryPollInterval, (_) => _readBattery());
+    // Last, as firmware without calibration models leaves the first request
+    // unanswered.
+    await getCalibration();
   }
 
   Future<void> _readBattery() async {
@@ -687,6 +785,12 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   /// Tares on the device, which keeps measuring, and starts a new window.
   Future<void> tareScale() async {
     if (!await _send(ControlOpCode.tareScale)) return;
+    // The load at the tare places the readings in the calibrated range.
+    if (state.calibration.supportsModels ?? false) {
+      unawaited(
+        _requestCalibrationDetails(ControlOpCode.getCalibrationDetails),
+      );
+    }
     // The tare moves the readings.
     _lastPointReading = null;
     await Future<void>.delayed(_tareSettleDelay);
@@ -713,13 +817,10 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   /// Waits for the load to hold steady, then adds the calibration point. The
   /// firmware samples the point itself, after the steady check.
-  Future<CalibrationPointResult> addCalibrationPoint(double weightKg) async {
-    if (state.calibration.waitingForSteadyLoad ||
-        state.calibration.removingPoint) {
-      throw StateError('A calibration point is being added or removed');
-    }
+  Future<CalibrationPointOutcome> addCalibrationPoint(double weightKg) async {
+    _checkCalibrationIdle();
     if (state.calibration.points.length >= maxCalibrationPoints) {
-      return CalibrationPointResult.limitReached;
+      return (result: CalibrationPointResult.limitReached, error: null);
     }
 
     // Lock until the point is sent, so a second point or a reset cannot
@@ -734,13 +835,15 @@ class ProgressorNotifier extends _$ProgressorNotifier {
 
   /// Ends the measurement after the steady check, also one the user started:
   /// firmware before 2.1 stops streaming to sample the point.
-  Future<CalibrationPointResult> _addSteadyCalibrationPoint(
+  Future<CalibrationPointOutcome> _addSteadyCalibrationPoint(
     double weightKg,
   ) async {
+    CalibrationPointOutcome outcome(CalibrationPointResult result) =>
+        (result: result, error: null);
     if (!state.measurement.isMeasuring) {
       await startMeasurement();
       if (!state.measurement.isMeasuring) {
-        return CalibrationPointResult.sendFailed;
+        return outcome(CalibrationPointResult.sendFailed);
       }
     }
     final steadyLoad = _steadyLoad = SteadyLoadDetector();
@@ -753,18 +856,22 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     _steadyLoadReached = null;
 
     if (!state.connection.isConnected) {
-      return CalibrationPointResult.disconnected;
+      return outcome(CalibrationPointResult.disconnected);
     }
     await stopMeasurement();
     if (!steady) {
-      return steadyLoad.receivedSamples
-          ? CalibrationPointResult.notSteady
-          : CalibrationPointResult.noMeasurements;
+      return outcome(
+        steadyLoad.receivedSamples
+            ? CalibrationPointResult.notSteady
+            : CalibrationPointResult.noMeasurements,
+      );
     }
 
-    // The device reports kg = counts * factor / 1000. Without a factor yet,
-    // the readings cannot be compared.
-    final factor = state.calibration.factor;
+    // The device reports kg = counts * factor / 1000, and a nonlinear curve
+    // close to its average sensitivity. Without a factor yet, the readings
+    // cannot be compared.
+    final factor =
+        state.calibration.details?.gramsPerCount ?? state.calibration.factor;
     final counts = factor == null
         ? null
         : steadyLoad.steadyLoadKg! * 1000 / factor;
@@ -779,32 +886,56 @@ class ProgressorNotifier extends _$ProgressorNotifier {
           counts: counts,
           factor: factor,
         )) {
-      return CalibrationPointResult.readingUnchanged;
+      return outcome(CalibrationPointResult.readingUnchanged);
     }
 
     if (!await _send(
       ControlOpCode.addCalibrationPoint,
       encodeFloat32(weightKg),
     )) {
-      return CalibrationPointResult.sendFailed;
+      return outcome(CalibrationPointResult.sendFailed);
     }
     _lastPointReading = counts == null
         ? null
         : (weightKg: weightKg, counts: counts);
-    // The firmware reports the points only once two of them define a
-    // calibration, so read them back.
-    await getCalibration();
-    return CalibrationPointResult.added;
+    // Firmware without calibration models reports the points only once two of
+    // them define a calibration, so read them back.
+    if (!(state.calibration.supportsModels ?? false)) {
+      await getCalibration();
+      return outcome(CalibrationPointResult.added);
+    }
+    final result = _resultOf(
+      await _requestCalibrationDetails(ControlOpCode.getCalibrationDetails),
+      ControlOpCode.addCalibrationPoint,
+    );
+    return switch (result?.disposition) {
+      null => outcome(CalibrationPointResult.added),
+      CalibrationDisposition.applied => outcome(CalibrationPointResult.applied),
+      CalibrationDisposition.pending => (
+        result: CalibrationPointResult.pending,
+        error: result?.error,
+      ),
+      CalibrationDisposition.rejected => (
+        result: CalibrationPointResult.rejected,
+        error: result?.error,
+      ),
+    };
   }
 
-  /// Removes the point at [index] from the device, which refits the factor to
+  void _checkCalibrationIdle() {
+    final calibration = state.calibration;
+    if (calibration.waitingForSteadyLoad ||
+        calibration.removingPoint ||
+        calibration.changingModel) {
+      throw StateError('A calibration change is in progress');
+    }
+  }
+
+  /// Removes the point at [index] from the device, which refits the model to
   /// the remaining points and answers after sending the new calibration.
   /// Firmware without the command does not answer.
   Future<CalibrationPointRemoval> removeCalibrationPoint(int index) async {
-    if (state.calibration.waitingForSteadyLoad ||
-        state.calibration.removingPoint) {
-      throw StateError('A calibration point is being added or removed');
-    }
+    _checkCalibrationIdle();
     if (_removalUnanswered) return CalibrationPointRemoval.unsupported;
 
     final connectionId = _connectionId;
@@ -837,10 +968,32 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     }
     // The previous reading may belong to the removed point.
     _lastPointReading = null;
+    // Whether the remaining points are applied.
+    if (state.calibration.supportsModels ?? false) {
+      await _requestCalibrationDetails(ControlOpCode.getCalibrationDetails);
+    }
     return CalibrationPointRemoval.removed;
   }
 
-  Future<void> getCalibration() => _send(ControlOpCode.getCalibration);
+  /// Reads the calibration: the details from firmware with calibration models,
+  /// otherwise the linear factor and points. Firmware without the models does
+  /// not answer the details request.
+  Future<void> getCalibration() async {
+    if (state.calibration.supportsModels != false) {
+      final connectionId = _connectionId;
+      final details = await _requestCalibrationDetails(
+        ControlOpCode.getCalibrationDetails,
+      );
+      if (details != null || connectionId != _connectionId) return;
+      // A detail that arrived marks the models supported, also when a lost
+      // notification left the details incomplete.
+      if (state.calibration.supportsModels == null) {
+        state = state.copyWith.calibration(supportsModels: false);
+      }
+      if (state.calibration.supportsModels ?? false) return;
+    }
+    await _send(ControlOpCode.getCalibration);
+  }
 
   /// Reads the calibration back, because the firmware clears its points even
   /// when it fails to store the default factor and skips the notification.
@@ -848,6 +1001,46 @@ class ProgressorNotifier extends _$ProgressorNotifier {
     if (!await _send(ControlOpCode.defaultCalibration)) return;
     _lastPointReading = null;
     await getCalibration();
+  }
+
+  /// Asks the device to fit [model] to its points and use it. The device keeps
+  /// the calibration in use when the model does not fit, so the result, not
+  /// the request, tells which model is active. Null when the device did not
+  /// answer.
+  Future<CalibrationCommandResult?> selectCalibrationModel(
+    CalibrationModel model,
+  ) => _changeCalibration(ControlOpCode.setCalibrationModel, [model.code]);
+
+  /// Takes the unloaded reading as the zero of the calibration curve, which
+  /// follows the drift of the unloaded baseline. Unlike a tare, it is
+  /// rejected when a load is attached. Null when the device did not answer.
+  Future<CalibrationCommandResult?> setZero() async {
+    final result = await _changeCalibration(ControlOpCode.setZero);
+    if (result?.disposition == CalibrationDisposition.applied) {
+      // The zero moves the readings, like a tare.
+      _lastPointReading = null;
+      resetMeasurement();
+    }
+    return result;
+  }
+
+  Future<CalibrationCommandResult?> _changeCalibration(
+    ControlOpCode opCode, [
+    List<int> payload = const [],
+  ]) async {
+    _checkCalibrationIdle();
+    final connectionId = _connectionId;
+    state = state.copyWith.calibration(changingModel: true);
+    try {
+      return _resultOf(
+        await _requestCalibrationDetails(opCode, payload),
+        opCode,
+      );
+    } finally {
+      if (connectionId == _connectionId) {
+        state = state.copyWith.calibration(changingModel: false);
+      }
+    }
   }
 
   Future<void> setSampleRate(int samplesPerSecond) =>
