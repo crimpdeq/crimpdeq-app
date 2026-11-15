@@ -144,6 +144,115 @@ void main() {
       );
     });
 
+    group('calibration details', () {
+      // The info that the firmware wire test encodes.
+      test('decodes the info', () {
+        final info = decodeMessage((
+          code: calibrationDetailCode,
+          payload: _bytes([0, 1, 0x7, 2, 16, 1, 1, 0x7A, 2, 3]),
+        )) as CalibrationInfo;
+
+        expect(info.version, 1);
+        expect(info.supportedModels, CalibrationModel.values.toSet());
+        expect(info.model, CalibrationModel.piecewise);
+        expect(info.pointCount, 16);
+        expect(info.hasFit, isTrue);
+        expect(info.pending, CalibrationError.notEnoughPoints);
+        expect(info.lastCommand, (
+          opCode: 0x7A,
+          disposition: CalibrationDisposition.rejected,
+          error: CalibrationError.noMidRangeLevel,
+        ));
+
+        final idle = decodeMessage((
+          code: calibrationDetailCode,
+          payload: _bytes([0, 1, 0x1, 0, 0, 0, 0, 0, 0, 0]),
+        )) as CalibrationInfo;
+        expect(idle.supportedModels, {CalibrationModel.linear});
+        expect(idle.pending, isNull);
+        expect(idle.lastCommand, isNull);
+      });
+
+      test('decodes the curve, values and points', () {
+        final curve = decodeMessage((
+          code: calibrationDetailCode,
+          payload: _bytes([
+            1,
+            1,
+            ..._float32(-10),
+            ..._float32(100),
+            ..._float32(0),
+            ..._float32(0),
+          ]),
+        )) as CalibrationCurveDetail;
+        expect(curve.model, CalibrationModel.quadratic);
+        expect(curve.coefficients, [-10, 100, 0, 0]);
+
+        final fit = decodeMessage((
+          code: calibrationDetailCode,
+          payload: _bytes([
+            3,
+            ..._float32(double.nan),
+            ..._float32(0.25),
+            ..._float32(0),
+            ..._float32(90.5),
+          ]),
+        )) as CalibrationFitSummary;
+        expect(fit.rmsKg, isNull, reason: 'NaN is unknown');
+        expect(fit.maxAbsKg, 0.25);
+        expect(fit.loadMaxKg, 90.5);
+
+        final point = decodeMessage((
+          code: calibrationDetailCode,
+          payload: _bytes([
+            5,
+            14,
+            ..._float32(12000),
+            ..._float32(20),
+            ..._float32(20.125),
+          ]),
+        )) as CalibrationFittedPoint;
+        expect(
+          (point.index, point.raw, point.weightKg, point.fittedKg),
+          (14, 12000, 20, 20.125),
+        );
+        expect(
+          (decodeMessage((
+            code: calibrationDetailCode,
+            payload: _bytes([6, 16]),
+          )) as CalibrationDetailsEnd).pointCount,
+          16,
+        );
+      });
+
+      test('rejects malformed details', () {
+        for (final payload in [
+          // Truncated info, an unknown model, kind and error.
+          [0, 1, 7, 0, 0, 0, 0, 0, 0],
+          [0, 1, 7, 9, 0, 0, 0, 0, 0, 0],
+          [9, 0],
+          [0, 1, 7, 0, 0, 0, 99, 0, 0, 0],
+        ]) {
+          expect(
+            () => decodeMessage((
+              code: calibrationDetailCode,
+              payload: _bytes(payload),
+            )),
+            throwsFormatException,
+            reason: '$payload',
+          );
+        }
+        // Too long for any detail, so the reader drops the buffer.
+        expect(
+          () => decodeMessage((
+            code: calibrationDetailCode,
+            payload: _bytes(List.filled(19, 0)),
+          )),
+          throwsFormatException,
+        );
+      });
+    });
+
     test('keeps command responses raw', () {
       final message = decodeMessage((code: 0, payload: _bytes([0x48, 0x0D])));
 

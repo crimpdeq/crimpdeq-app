@@ -2,6 +2,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../analysis/calibration_curve.dart';
+
 part 'progressor_models.freezed.dart';
 
 @freezed
@@ -76,13 +78,25 @@ sealed class MeasurementState with _$MeasurementState {
 @freezed
 sealed class CalibrationState with _$CalibrationState {
   const factory CalibrationState({
+    /// Linear factor in g per count; null for a nonlinear calibration.
     double? factor,
     @Default([]) List<CalibrationPoint> points,
+
+    /// Whether the firmware has calibration models, null until known.
+    /// Firmware without them has only the linear model.
+    bool? supportsModels,
+
+    /// Calibration the firmware reports, null until read and for firmware
+    /// without calibration models.
+    CalibrationDetails? details,
     @Default(false) bool waitingForSteadyLoad,
 
     /// A removal shifts the indexes of the later points, so adding and
     /// removing points wait for it.
     @Default(false) bool removingPoint,
+
+    /// A model selection or zero update waits for the device.
+    @Default(false) bool changingModel,
   }) = _CalibrationState;
 }
 

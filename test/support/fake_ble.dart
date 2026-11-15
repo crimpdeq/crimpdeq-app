@@ -34,6 +34,11 @@ final class FakeBle extends FlutterBluePlusPlatform {
   /// Holds the writes in flight until it completes.
   Future<void>? writeDelay;
 
+  /// Firmware with calibration models: the detail notifications that answer
+  /// a details request, model selection or zero update. Null for firmware
+  /// without them, which leaves those requests unanswered.
+  List<List<int>> Function(List<int> write)? calibrationDetails;
+
   DiscoveredDevice get device => DiscoveredDevice(
     id: _remoteId.str,
     name: 'Progressor',
@@ -187,6 +192,16 @@ final class FakeBle extends FlutterBluePlusPlatform {
         .single;
     final reply = _reply(opCode);
     if (reply != null && !unanswered.contains(opCode)) notify(reply);
+    final details = calibrationDetails;
+    if (details != null &&
+        !unanswered.contains(opCode) &&
+        const [
+          ControlOpCode.getCalibrationDetails,
+          ControlOpCode.setCalibrationModel,
+          ControlOpCode.setZero,
+        ].contains(opCode)) {
+      details(request.value).forEach(notify);
+    }
     return true;
   }
 }

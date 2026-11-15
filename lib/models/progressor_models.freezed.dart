@@ -1134,9 +1134,15 @@ as List<WeightMeasurement>,
 /// @nodoc
 mixin _$CalibrationState {
 
- double? get factor; List<CalibrationPoint> get points; bool get waitingForSteadyLoad;/// A removal shifts the indexes of the later points, so adding and
+/// Linear factor in g per count; null for a nonlinear calibration.
+ double? get factor; List<CalibrationPoint> get points;/// Whether the firmware has calibration models, null until known.
+/// Firmware without them has only the linear model.
+ bool? get supportsModels;/// Calibration the firmware reports, null until read and for firmware
+/// without calibration models.
+ CalibrationDetails? get details; bool get waitingForSteadyLoad;/// A removal shifts the indexes of the later points, so adding and
 /// removing points wait for it.
- bool get removingPoint;
+ bool get removingPoint;/// A model selection or zero update waits for the device.
+ bool get changingModel;
 /// Create a copy of CalibrationState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1148,20 +1154,20 @@ $CalibrationStateCopyWith<CalibrationState> get copyWith => _$CalibrationStateCo
 @override
 bool operator ==(Object other) {
   final _this = this as CalibrationState;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is CalibrationState&&(identical(other.factor, _this.factor) || other.factor == _this.factor)&&const DeepCollectionEquality().equals(other.points, _this.points)&&(identical(other.waitingForSteadyLoad, _this.waitingForSteadyLoad) || other.waitingForSteadyLoad == _this.waitingForSteadyLoad)&&(identical(other.removingPoint, _this.removingPoint) || other.removingPoint == _this.removingPoint));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CalibrationState&&(identical(other.factor, _this.factor) || other.factor == _this.factor)&&const DeepCollectionEquality().equals(other.points, _this.points)&&(identical(other.supportsModels, _this.supportsModels) || other.supportsModels == _this.supportsModels)&&(identical(other.details, _this.details) || other.details == _this.details)&&(identical(other.waitingForSteadyLoad, _this.waitingForSteadyLoad) || other.waitingForSteadyLoad == _this.waitingForSteadyLoad)&&(identical(other.removingPoint, _this.removingPoint) || other.removingPoint == _this.removingPoint)&&(identical(other.changingModel, _this.changingModel) || other.changingModel == _this.changingModel));
 }
 
 
 @override
 int get hashCode {
   final _this = this as CalibrationState;
-  return Object.hash(runtimeType,_this.factor,const DeepCollectionEquality().hash(_this.points),_this.waitingForSteadyLoad,_this.removingPoint);
+  return Object.hash(runtimeType,_this.factor,const DeepCollectionEquality().hash(_this.points),_this.supportsModels,_this.details,_this.waitingForSteadyLoad,_this.removingPoint,_this.changingModel);
 }
 
 @override
 String toString() {
   final _this = this as CalibrationState;
-  return 'CalibrationState(factor: ${_this.factor}, points: ${_this.points}, waitingForSteadyLoad: ${_this.waitingForSteadyLoad}, removingPoint: ${_this.removingPoint})';
+  return 'CalibrationState(factor: ${_this.factor}, points: ${_this.points}, supportsModels: ${_this.supportsModels}, details: ${_this.details}, waitingForSteadyLoad: ${_this.waitingForSteadyLoad}, removingPoint: ${_this.removingPoint}, changingModel: ${_this.changingModel})';
 }
 
 
@@ -1172,7 +1178,7 @@ abstract mixin class $CalibrationStateCopyWith<$Res>  {
   factory $CalibrationStateCopyWith(CalibrationState value, $Res Function(CalibrationState) _then) = _$CalibrationStateCopyWithImpl;
 @useResult
 $Res call({
- double? factor, List<CalibrationPoint> points, bool waitingForSteadyLoad, bool removingPoint
+ double? factor, List<CalibrationPoint> points, bool? supportsModels, CalibrationDetails? details, bool waitingForSteadyLoad, bool removingPoint, bool changingModel
 });
 
 
@@ -1189,12 +1195,15 @@ class _$CalibrationStateCopyWithImpl<$Res>
 
 /// Create a copy of CalibrationState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? factor = freezed,Object? points = null,Object? waitingForSteadyLoad = null,Object? removingPoint = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? factor = freezed,Object? points = null,Object? supportsModels = freezed,Object? details = freezed,Object? waitingForSteadyLoad = null,Object? removingPoint = null,Object? changingModel = null,}) {
   return _then(CalibrationState(
 factor: freezed == factor ? _self.factor : factor // ignore: cast_nullable_to_non_nullable
 as double?,points: null == points ? _self.points : points // ignore: cast_nullable_to_non_nullable
-as List<CalibrationPoint>,waitingForSteadyLoad: null == waitingForSteadyLoad ? _self.waitingForSteadyLoad : waitingForSteadyLoad // ignore: cast_nullable_to_non_nullable
+as List<CalibrationPoint>,supportsModels: freezed == supportsModels ? _self.supportsModels : supportsModels // ignore: cast_nullable_to_non_nullable
+as bool?,details: freezed == details ? _self.details : details // ignore: cast_nullable_to_non_nullable
+as CalibrationDetails?,waitingForSteadyLoad: null == waitingForSteadyLoad ? _self.waitingForSteadyLoad : waitingForSteadyLoad // ignore: cast_nullable_to_non_nullable
 as bool,removingPoint: null == removingPoint ? _self.removingPoint : removingPoint // ignore: cast_nullable_to_non_nullable
+as bool,changingModel: null == changingModel ? _self.changingModel : changingModel // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
@@ -1277,10 +1286,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double? factor,  List<CalibrationPoint> points,  bool waitingForSteadyLoad,  bool removingPoint)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( double? factor,  List<CalibrationPoint> points,  bool? supportsModels,  CalibrationDetails? details,  bool waitingForSteadyLoad,  bool removingPoint,  bool changingModel)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _CalibrationState() when $default != null:
-return $default(_that.factor,_that.points,_that.waitingForSteadyLoad,_that.removingPoint);case _:
+return $default(_that.factor,_that.points,_that.supportsModels,_that.details,_that.waitingForSteadyLoad,_that.removingPoint,_that.changingModel);case _:
   return orElse();
 
 }
@@ -1298,10 +1307,10 @@ return $default(_that.factor,_that.points,_that.waitingForSteadyLoad,_that.remov
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double? factor,  List<CalibrationPoint> points,  bool waitingForSteadyLoad,  bool removingPoint)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( double? factor,  List<CalibrationPoint> points,  bool? supportsModels,  CalibrationDetails? details,  bool waitingForSteadyLoad,  bool removingPoint,  bool changingModel)  $default,) {final _that = this;
 switch (_that) {
 case _CalibrationState():
-return $default(_that.factor,_that.points,_that.waitingForSteadyLoad,_that.removingPoint);}
+return $default(_that.factor,_that.points,_that.supportsModels,_that.details,_that.waitingForSteadyLoad,_that.removingPoint,_that.changingModel);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -1315,10 +1324,10 @@ return $default(_that.factor,_that.points,_that.waitingForSteadyLoad,_that.remov
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double? factor,  List<CalibrationPoint> points,  bool waitingForSteadyLoad,  bool removingPoint)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( double? factor,  List<CalibrationPoint> points,  bool? supportsModels,  CalibrationDetails? details,  bool waitingForSteadyLoad,  bool removingPoint,  bool changingModel)?  $default,) {final _that = this;
 switch (_that) {
 case _CalibrationState() when $default != null:
-return $default(_that.factor,_that.points,_that.waitingForSteadyLoad,_that.removingPoint);case _:
+return $default(_that.factor,_that.points,_that.supportsModels,_that.details,_that.waitingForSteadyLoad,_that.removingPoint,_that.changingModel);case _:
   return null;
 
 }
@@ -1330,9 +1339,10 @@ return $default(_that.factor,_that.points,_that.waitingForSteadyLoad,_that.remov
 
 
 class _CalibrationState implements CalibrationState {
-  const _CalibrationState({this.factor,  List<CalibrationPoint> points = const [], this.waitingForSteadyLoad = false, this.removingPoint = false}): _points = points;
+  const _CalibrationState({this.factor,  List<CalibrationPoint> points = const [], this.supportsModels, this.details, this.waitingForSteadyLoad = false, this.removingPoint = false, this.changingModel = false}): _points = points;
   
 
+/// Linear factor in g per count; null for a nonlinear calibration.
 @override final  double? factor;
  final  List<CalibrationPoint> _points;
 @override@JsonKey() List<CalibrationPoint> get points {
@@ -1341,10 +1351,18 @@ class _CalibrationState implements CalibrationState {
   return EqualUnmodifiableListView(_points);
 }
 
+/// Whether the firmware has calibration models, null until known.
+/// Firmware without them has only the linear model.
+@override final  bool? supportsModels;
+/// Calibration the firmware reports, null until read and for firmware
+/// without calibration models.
+@override final  CalibrationDetails? details;
 @override@JsonKey() final  bool waitingForSteadyLoad;
 /// A removal shifts the indexes of the later points, so adding and
 /// removing points wait for it.
 @override@JsonKey() final  bool removingPoint;
+/// A model selection or zero update waits for the device.
+@override@JsonKey() final  bool changingModel;
 
 /// Create a copy of CalibrationState
 /// with the given fields replaced by the non-null parameter values.
@@ -1356,18 +1374,18 @@ _$CalibrationStateCopyWith<_CalibrationState> get copyWith => __$CalibrationStat
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _CalibrationState&&(identical(other.factor, factor) || other.factor == factor)&&const DeepCollectionEquality().equals(other.points, _points)&&(identical(other.waitingForSteadyLoad, waitingForSteadyLoad) || other.waitingForSteadyLoad == waitingForSteadyLoad)&&(identical(other.removingPoint, removingPoint) || other.removingPoint == removingPoint));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _CalibrationState&&(identical(other.factor, factor) || other.factor == factor)&&const DeepCollectionEquality().equals(other.points, _points)&&(identical(other.supportsModels, supportsModels) || other.supportsModels == supportsModels)&&(identical(other.details, details) || other.details == details)&&(identical(other.waitingForSteadyLoad, waitingForSteadyLoad) || other.waitingForSteadyLoad == waitingForSteadyLoad)&&(identical(other.removingPoint, removingPoint) || other.removingPoint == removingPoint)&&(identical(other.changingModel, changingModel) || other.changingModel == changingModel));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,factor,const DeepCollectionEquality().hash(_points),waitingForSteadyLoad,removingPoint);
+    return Object.hash(runtimeType,factor,const DeepCollectionEquality().hash(_points),supportsModels,details,waitingForSteadyLoad,removingPoint,changingModel);
 }
 
 @override
 String toString() {
-    return 'CalibrationState(factor: $factor, points: $points, waitingForSteadyLoad: $waitingForSteadyLoad, removingPoint: $removingPoint)';
+    return 'CalibrationState(factor: $factor, points: $points, supportsModels: $supportsModels, details: $details, waitingForSteadyLoad: $waitingForSteadyLoad, removingPoint: $removingPoint, changingModel: $changingModel)';
 }
 
 
@@ -1378,7 +1396,7 @@ abstract mixin class _$CalibrationStateCopyWith<$Res> implements $CalibrationSta
   factory _$CalibrationStateCopyWith(_CalibrationState value, $Res Function(_CalibrationState) _then) = __$CalibrationStateCopyWithImpl;
 @override @useResult
 $Res call({
- double? factor, List<CalibrationPoint> points, bool waitingForSteadyLoad, bool removingPoint
+ double? factor, List<CalibrationPoint> points, bool? supportsModels, CalibrationDetails? details, bool waitingForSteadyLoad, bool removingPoint, bool changingModel
 });
 
 
@@ -1395,12 +1413,15 @@ class __$CalibrationStateCopyWithImpl<$Res>
 
 /// Create a copy of CalibrationState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? factor = freezed,Object? points = null,Object? waitingForSteadyLoad = null,Object? removingPoint = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? factor = freezed,Object? points = null,Object? supportsModels = freezed,Object? details = freezed,Object? waitingForSteadyLoad = null,Object? removingPoint = null,Object? changingModel = null,}) {
   return _then(_CalibrationState(
 factor: freezed == factor ? _self.factor : factor // ignore: cast_nullable_to_non_nullable
 as double?,points: null == points ? _self._points : points // ignore: cast_nullable_to_non_nullable
-as List<CalibrationPoint>,waitingForSteadyLoad: null == waitingForSteadyLoad ? _self.waitingForSteadyLoad : waitingForSteadyLoad // ignore: cast_nullable_to_non_nullable
+as List<CalibrationPoint>,supportsModels: freezed == supportsModels ? _self.supportsModels : supportsModels // ignore: cast_nullable_to_non_nullable
+as bool?,details: freezed == details ? _self.details : details // ignore: cast_nullable_to_non_nullable
+as CalibrationDetails?,waitingForSteadyLoad: null == waitingForSteadyLoad ? _self.waitingForSteadyLoad : waitingForSteadyLoad // ignore: cast_nullable_to_non_nullable
 as bool,removingPoint: null == removingPoint ? _self.removingPoint : removingPoint // ignore: cast_nullable_to_non_nullable
+as bool,changingModel: null == changingModel ? _self.changingModel : changingModel // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }

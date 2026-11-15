@@ -1,3 +1,4 @@
+import 'package:crimpdeq/analysis/calibration_curve.dart';
 import 'package:crimpdeq/analysis/opengrips_curve.dart';
 import 'package:crimpdeq/models/progressor_models.dart';
 import 'package:crimpdeq/models/training_models.dart';
@@ -14,6 +15,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/calibration_details.dart';
 
 /// Serves a fixed state and records the commands instead of using Bluetooth.
 class _FakeProgressor extends ProgressorNotifier {
@@ -39,6 +42,24 @@ class _FakeProgressor extends ProgressorNotifier {
 
   @override
   Future<void> defaultCalibration() async => calls.add('defaultCalibration');
+
+  @override
+  Future<CalibrationCommandResult?> selectCalibrationModel(
+    CalibrationModel model,
+  ) async {
+    calls.add('select ${model.name}');
+    return (
+      opCode: ControlOpCode.setCalibrationModel.value,
+      disposition: CalibrationDisposition.rejected,
+      error: CalibrationError.notEnoughLoadLevels,
+    );
+  }
+
+  @override
+  Future<CalibrationCommandResult?> setZero() async {
+    calls.add('zero');
+    return null;
+  }
 
   @override
   Future<void> disconnect() async => calls.add('disconnect');
@@ -88,6 +109,49 @@ Future<_FakeProgressor> _pumpScreen(
   await tester.pump();
   return fake;
 }
+
+/// Details as the provider assembles them from the firmware notifications.
+CalibrationDetails _details({
+  CalibrationModel model = CalibrationModel.quadratic,
+  CalibrationError? pending,
+  List<({double raw, double weightKg, double fittedKg})> points = const [
+    (raw: 0, weightKg: 0, fittedKg: 0),
+    (raw: 250000, weightKg: 25, fittedKg: 25.1),
+    (raw: 500000, weightKg: 50, fittedKg: 49.9),
+    (raw: 750000, weightKg: 75, fittedKg: 75),
+  ],
+}) {
+  final reader = CalibrationDetailsReader();
+  CalibrationDetails? details;
+  for (final frame in calibrationDetailFrames(
+    model: model,
+    coefficients: model == CalibrationModel.linear
+        ? const [0.1, 0, 0, 0]
+        : const [1, 99, 0, 0],
+    scale: 750000,
+    loadMaxKg: 75,
+    rmsKg: 0.0707,
+    maxAbsKg: 0.1,
+    pending: pending,
+    points: points,
+  )) {
+    details = reader.add(
+      decodeMessage(parseFrame(frame)!) as CalibrationDetail,
+    );
+  }
+  return details!;
+}
+
+CalibrationState _calibrationWith(CalibrationDetails details) =>
+    CalibrationState(
+      supportsModels: true,
+      details: details,
+      factor: details.linearFactor,
+      points: [
+        for (final point in details.points)
+          (raw: point.raw, weightKg: point.weightKg),
+      ],
+    );
 
 const _benchmark =
     '{"date":"2026-10-26T10:00:00.000","tool":"Photon","hand":"right",'
@@ -343,9 +407,256 @@ void main() {
       ),
     );
 
-    expect(find.text('Current Calibration Factor: 1.000000'), findsOneWidget);
-    expect(find.textContaining('Max error 0.300 kg (1.50%'), findsOneWidget);
+    expect(find.text('1.000000 g/count'), findsOneWidget);
+    expect(
+      find.textContaining('Calibration-fit residuals: max 0.300 kg (1.50%'),
+      findsOneWidget,
+    );
     expect(find.text('-0.300'), findsOneWidget);
+  });
+
+  testWidgets('shows the calibration-fit residuals the device reports', (
+    tester,
+  ) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: _calibrationWith(_details()),
+      ),
+    );
+
+    expect(
+      tester
+          .widget<SegmentedButton<CalibrationModel>>(
+            find.byType(SegmentedButton<CalibrationModel>),
+          )
+          .selected,
+      {CalibrationModel.quadratic},
+    );
+    expect(find.text('0.00 – 75.00 kg'), findsOneWidget);
+    // A nonlinear curve has no single factor.
+    expect(find.text('Factor'), findsNothing);
+    expect(
+      find.text(
+        'Calibration-fit residuals: max 0.100 kg (0.13%) · RMS 0.071 kg',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('not the accuracy at other loads'),
+      findsOneWidget,
+    );
+    // Fitted loads and residuals of the device, not of a factor.
+    expect(find.text('25.100'), findsOneWidget);
+    expect(find.text('0.100'), findsOneWidget);
+    expect(find.text('-0.100'), findsOneWidget);
+  });
+
+  testWidgets('asks the device for a model and reports its answer', (
+    tester,
+  ) async {
+    final fake = await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: _calibrationWith(_details(model: CalibrationModel.linear)),
+      ),
+    );
+
+    final segments = find.byType(SegmentedButton<CalibrationModel>);
+    expect(
+      tester.widget<SegmentedButton<CalibrationModel>>(segments).selected,
+      {CalibrationModel.linear},
+    );
+    for (final label in ['Linear', 'Quadratic', 'Piecewise']) {
+      expect(
+        find.descendant(of: segments, matching: find.text(label)),
+        findsOneWidget,
+      );
+    }
+    expect(find.text('0.100000 g/count'), findsOneWidget);
+    // The descriptions are one tap away, not on the card.
+    expect(find.textContaining('Needs 6 different loads'), findsNothing);
+    await tester.tap(find.byTooltip('About the calibration models'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Needs 6 different loads'), findsOneWidget);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    // A linear reading is the same with any zero.
+    expect(find.text('Set Unloaded Zero'), findsNothing);
+
+    await tester.tap(find.text('Piecewise'));
+    await tester.pumpAndSettle();
+    expect(fake.calls, ['select piecewise']);
+    // The device keeps the linear model, and the selector shows it.
+    expect(
+      find.text(
+        'Could not use Piecewise linear. ${CalibrationError.notEnoughLoadLevels.message} '
+        'The device keeps Linear.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<SegmentedButton<CalibrationModel>>(segments).selected,
+      {CalibrationModel.linear},
+    );
+  });
+
+  testWidgets('sets the unloaded zero only after confirmation', (tester) async {
+    final fake = await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: _calibrationWith(_details()),
+      ),
+    );
+    final zero = find.widgetWithText(OutlinedButton, 'Set Unloaded Zero');
+    await tester.ensureVisible(zero);
+
+    await tester.tap(zero);
+    await tester.pumpAndSettle();
+    expect(find.text('Set unloaded zero?'), findsOneWidget);
+    expect(find.textContaining('use Tare instead'), findsOneWidget);
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+    expect(fake.calls, isEmpty);
+
+    await tester.tap(zero);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Set Zero'));
+    await tester.pumpAndSettle();
+    expect(fake.calls, ['zero']);
+    expect(
+      find.text('The device did not answer, so the zero may not be set.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('fits the calibration model card on a 360 dp phone', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: _calibrationWith(
+          _details(
+            model: CalibrationModel.piecewise,
+            pending: CalibrationError.insufficientSegmentSupport,
+          ),
+        ),
+      ),
+    );
+
+    // Rendering would fail on an overflow.
+    final selector = find.byType(SegmentedButton<CalibrationModel>);
+    expect(tester.getRect(selector).right, lessThanOrEqualTo(360));
+  });
+
+  testWidgets('keeps the model and zero while measuring', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: _calibrationWith(_details()),
+        measurement: const MeasurementState(isMeasuring: true),
+      ),
+    );
+
+    final selector = tester.widget<SegmentedButton<CalibrationModel>>(
+      find.byType(SegmentedButton<CalibrationModel>),
+    );
+    expect(selector.onSelectionChanged, isNull);
+    expect(
+      find.text('Stop the measurement to change the model or the zero.'),
+      findsOneWidget,
+    );
+    final zero = find.widgetWithText(OutlinedButton, 'Set Unloaded Zero');
+    await tester.ensureVisible(zero);
+    expect(tester.widget<OutlinedButton>(zero).onPressed, isNull);
+  });
+
+  testWidgets('offers only the linear model on older firmware', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: const CalibrationState(supportsModels: false, factor: 0.1),
+      ),
+    );
+
+    expect(
+      find.textContaining('This firmware has only the linear model'),
+      findsOneWidget,
+    );
+    final selector = tester.widget<SegmentedButton<CalibrationModel>>(
+      find.byType(SegmentedButton<CalibrationModel>),
+    );
+    expect(selector.onSelectionChanged, isNull);
+    expect(
+      [for (final segment in selector.segments) segment.enabled],
+      [true, false, false],
+    );
+  });
+
+  testWidgets('explains points that are not applied', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: _calibrationWith(
+          _details(
+            model: CalibrationModel.piecewise,
+            pending: CalibrationError.notEnoughPoints,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.textContaining(
+        'Points not applied yet. The model needs more points.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('previous Piecewise linear calibration'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('which was not fit from these points'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('flags readings outside the calibrated range', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        calibration: _calibrationWith(_details()),
+        measurement: const MeasurementState(
+          isMeasuring: true,
+          currentKg: 40,
+          minKg: 0,
+          peakKg: 80,
+        ),
+      ),
+    );
+    await tester.tap(find.text('Measurements'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Outside the calibrated range (0.0 to 75.0 kg): peak. The device '
+        'extrapolated these readings.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('asks for a second calibration point', (tester) async {
@@ -380,8 +691,8 @@ void main() {
       find.textContaining('Add a point at a third weight'),
       findsOneWidget,
     );
-    expect(find.textContaining('Max error'), findsNothing);
-    expect(find.text('Error (kg)'), findsNothing);
+    expect(find.textContaining('Calibration-fit residuals'), findsNothing);
+    expect(find.text('Residual (kg)'), findsNothing);
   });
 
   testWidgets('stops adding points at the device limit', (tester) async {

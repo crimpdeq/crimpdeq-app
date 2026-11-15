@@ -2,10 +2,12 @@ import 'dart:math';
 
 import 'package:crimpdeq/analysis/battery.dart';
 import 'package:crimpdeq/analysis/calibration_check.dart';
+import 'package:crimpdeq/analysis/calibration_curve.dart';
 import 'package:crimpdeq/analysis/force_stats.dart';
 import 'package:crimpdeq/analysis/steady_load.dart';
 import 'package:crimpdeq/analysis/timestamp_unwrapper.dart';
 import 'package:crimpdeq/models/progressor_models.dart';
+import 'package:crimpdeq/protocol/progressor_protocol.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 WeightMeasurement _sample(double weightKg, int timestampMs) =>
@@ -243,6 +245,103 @@ void main() {
         [for (final residual in check.residuals) residual.errorKg],
         [closeTo(-0.1, 1e-9), closeTo(0.2, 1e-9), closeTo(-0.1, 1e-9)],
       );
+    });
+  });
+
+  group('CalibrationCurve', () {
+    // The same curves and values as the firmware test
+    // `evaluates_the_curves_the_app_previews`.
+    test('evaluates like the firmware, extrapolating straight', () {
+      const linear = CalibrationCurve(
+        model: CalibrationModel.linear,
+        coefficients: [0.1, 0.5, 0, 0],
+        referenceRaw: 1000,
+        scale: 50000,
+        xMin: 0,
+        xMax: 1,
+      );
+      expect(linear.kg(21000), closeTo(2.5, 1e-9));
+      expect(linear.kg(-9000), closeTo(-0.5, 1e-9));
+
+      const quadratic = CalibrationCurve(
+        model: CalibrationModel.quadratic,
+        coefficients: [-10, 100, 0, 0],
+        referenceRaw: 0,
+        scale: 1e6,
+        xMin: 0,
+        xMax: 1,
+      );
+      expect(quadratic.kg(500000), closeTo(47.5, 1e-9));
+      // Straight with the end slopes, 80 and 100 kg per x, so it cannot turn
+      // back like the unrestricted quadratic.
+      expect(quadratic.kg(3e6), closeTo(250, 1e-9));
+      expect(quadratic.kg(-5e5), closeTo(-50, 1e-9));
+      expect(quadratic.kgAt(10), greaterThan(quadratic.kgAt(5)));
+
+      // Reversed wiring: the raw value falls with the load.
+      const piecewise = CalibrationCurve(
+        model: CalibrationModel.piecewise,
+        coefficients: [0.2, 90, 100, 0.5],
+        referenceRaw: -2000,
+        scale: -1e6,
+        xMin: 0,
+        xMax: 1,
+      );
+      expect(piecewise.kg(-252000), closeTo(22.7, 1e-9));
+      expect(piecewise.kg(-752000), closeTo(70.2, 1e-9));
+      expect(piecewise.kg(-2002000), closeTo(195.2, 1e-9));
+      expect(piecewise.kg(98000), closeTo(-8.8, 1e-9));
+      // Continuous at the breakpoint.
+      expect(
+        piecewise.kgAt(0.5 + 1e-9) - piecewise.kgAt(0.5 - 1e-9),
+        closeTo(0, 1e-6),
+      );
+      expect(piecewise.breakpointRaw, -502000);
+      expect(piecewise.rawRange, (-2000, -1002000));
+    });
+  });
+
+  group('CalibrationDetails', () {
+    CalibrationDetails details({double? tareLoadKg, bool hasFit = true}) =>
+        CalibrationDetails(
+          info: CalibrationInfo(
+            version: 1,
+            supportedModels: CalibrationModel.values.toSet(),
+            model: CalibrationModel.quadratic,
+            pointCount: 0,
+            hasFit: hasFit,
+            pending: null,
+            lastCommand: null,
+          ),
+          coefficients: const [-10, 100, 0, 0],
+          coordinates: CalibrationCoordinates(0, 1e6, 0, 0.9),
+          fit: CalibrationFitSummary(0.1, 0.2, 0, hasFit ? 81.9 : null),
+          tare: CalibrationTare(tareLoadKg, 0),
+          points: const [],
+        );
+
+    test('flags readings outside the calibrated range', () {
+      final unloaded = details(tareLoadKg: 0);
+      // Half a percent of the range, 0.41 kg, counts as inside.
+      expect(unloaded.isOutsideRange(-0.3), isFalse);
+      expect(unloaded.isOutsideRange(-0.5), isTrue);
+      expect(unloaded.isOutsideRange(82.2), isFalse);
+      expect(unloaded.isOutsideRange(82.5), isTrue);
+
+      // Tared under 30 kg, a 55 kg reading is 85 kg of load.
+      final preloaded = details(tareLoadKg: 30);
+      expect(preloaded.isOutsideRange(45), isFalse);
+      expect(preloaded.isOutsideRange(55), isTrue);
+      expect(preloaded.isOutsideRange(-31), isTrue);
+
+      expect(details().isOutsideRange(200), isNull);
+      expect(details(hasFit: false, tareLoadKg: 0).isOutsideRange(200), isNull);
+    });
+
+    test('has an average sensitivity for a nonlinear curve', () {
+      // 81.9 kg over 900000 counts.
+      expect(details().gramsPerCount, closeTo(0.091, 1e-9));
+      expect(details().linearFactor, isNull);
     });
   });
 
