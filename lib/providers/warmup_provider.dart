@@ -127,7 +127,8 @@ class WarmupNotifier extends Notifier<WarmupState> {
     final target = state.current.seconds;
     for (final sample in samples) {
       hold.add(sample);
-      _max?.add(sample);
+      // From the pull on: a load left on before it is not the pull.
+      if (hold.started) _max?.add(sample);
       if (hold.failed || hold.heldSeconds >= target) break;
     }
     if (hold.failed) {

@@ -647,6 +647,39 @@ void main() {
     ]);
   });
 
+  testWidgets('leaves a load left on out of the readiness maximum', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final warmup = container.read(warmupProvider.notifier);
+    WarmupState state() => container.read(warmupProvider);
+    final steps = readinessCheck([
+      for (final hand in Hand.values)
+        Benchmark(
+          date: DateTime(2026, 10, 26),
+          tool: 'Photon',
+          hand: hand,
+          forceKg: 30,
+        ),
+    ]);
+
+    // 40 kg left on through the end of the rest, and 5 s more after it.
+    await warmup.start(WarmupKind.readiness, steps);
+    warmup.addSamples(_pull(40, 4, 0));
+    await tester.pump(const Duration(seconds: readinessRestSeconds));
+    expect(state().phase, WorkoutPhase.hold);
+    expect(state().waitingForRelease, isTrue);
+    warmup.addSamples([
+      ..._pull(40, 5, 4000),
+      ..._pull(0, 0.5, 9000),
+      ..._pull(20, 7, 9500),
+    ]);
+    expect(state().bestKg, [20]);
+    await warmup.stop();
+  });
+
   testWidgets('keeps the readiness pulls done when the device disconnects', (
     tester,
   ) async {
