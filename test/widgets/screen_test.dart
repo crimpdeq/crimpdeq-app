@@ -99,6 +99,8 @@ class _FixedWorkout extends WorkoutNotifier {
 
   @override
   WorkoutState build() => initialState;
+
+  void set(WorkoutState workout) => state = workout;
 }
 
 /// Opens the training pages, or the device tools from the app bar menu.
@@ -1257,6 +1259,26 @@ void main() {
     expect(find.text('HANG'), findsOneWidget);
     expect(find.text('Rep 2 of 5'), findsOneWidget);
     expect(find.text('Pull more than 2 kg to start the timer'), findsOneWidget);
+  });
+
+  testWidgets('shows the workout that starts on another page', (tester) async {
+    final workout = _FixedWorkout(const WorkoutState());
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+      overrides: [workoutProvider.overrideWith(() => workout)],
+    );
+    // The start awaits the device, meanwhile the user opens another page.
+    await _openPage(tester, 'Benchmarks');
+    workout.set(WorkoutState(plan: strength, phase: WorkoutPhase.preRest));
+    await tester.pump();
+
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.text('GET READY'), findsOneWidget);
   });
 
   testWidgets('discards the results only after confirmation', (tester) async {
