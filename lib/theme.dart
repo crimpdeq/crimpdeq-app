@@ -228,6 +228,8 @@ ThemeData buildLightTheme() {
     ),
     scaffoldBackgroundColor: const Color(0xFFEFF5FB),
     canvasColor: const Color(0xFFEFF5FB),
+    // Otherwise the dark theme's white icons stay, invisible on white.
+    iconTheme: const IconThemeData(color: _lightText),
     dividerColor: _lightBorder,
     textTheme: _textTheme(
       ThemeData.light().textTheme,
