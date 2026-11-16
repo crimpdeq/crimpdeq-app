@@ -438,6 +438,10 @@ class _WarmupResults extends ConsumerWidget {
     final notifier = ref.read(warmupProvider.notifier);
     final kind = warmup.kind!;
     final readiness = kind == WarmupKind.readiness;
+    // Both would take the same samples.
+    final benchmarkRecording = ref.watch(
+      benchmarkRecorderProvider.select((recording) => recording.recording),
+    );
 
     return TitledCard(
       title: warmup.endedEarly != null
@@ -533,7 +537,8 @@ class _WarmupResults extends ConsumerWidget {
                 Expanded(
                   child: FilledButton.icon(
                     onPressed:
-                        watchConnected(ref) &&
+                        !benchmarkRecording &&
+                            watchConnected(ref) &&
                             missingBenchmarks(log.benchmarks, [
                               readinessTool,
                             ]).isEmpty

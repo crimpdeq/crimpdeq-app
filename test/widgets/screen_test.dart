@@ -68,15 +68,20 @@ class _FakeProgressor extends ProgressorNotifier {
   Future<void> disconnect() async => calls.add('disconnect');
 }
 
-/// A finished benchmark pull.
+/// A finished benchmark pull, or one still recording.
 class _Recorded extends BenchmarkRecorder {
-  _Recorded(this.bestKg);
+  _Recorded(this.bestKg, {this.recording = false});
 
   final double bestKg;
+  final bool recording;
 
   @override
-  BenchmarkRecording build() =>
-      (recording: false, elapsedSeconds: 6, bestKg: bestKg, trace: const []);
+  BenchmarkRecording build() => (
+    recording: recording,
+    elapsedSeconds: 6,
+    bestKg: bestKg,
+    trace: const [],
+  );
 }
 
 const _deviceId = '00:11:22:33:44:55';
@@ -1649,37 +1654,47 @@ void main() {
     expect(find.text('Spark · Left hand'), findsOne);
   });
 
-  testWidgets('offers a readiness check after a climbing warm-up', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({
-      'training.benchmarks': '[$_allBenchmarks]',
-    });
-    await _pumpScreen(
-      tester,
-      ProgressorState(connection: _connected),
-      deviceTools: false,
-      overrides: [
-        warmupProvider.overrideWith(
-          () => _FixedWarmup(
-            const WarmupState(
-              kind: WarmupKind.climbing,
-              steps: [warmupStep],
-              phase: WorkoutPhase.done,
-              bestKg: [null],
+  for (final recording in [false, true]) {
+    testWidgets(
+      '${recording ? 'blocks' : 'offers'} a readiness check after a climbing '
+      'warm-up${recording ? ' while a benchmark records' : ''}',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({
+          'training.benchmarks': '[$_allBenchmarks]',
+        });
+        await _pumpScreen(
+          tester,
+          ProgressorState(connection: _connected),
+          deviceTools: false,
+          overrides: [
+            benchmarkRecorderProvider.overrideWith(
+              () => _Recorded(20, recording: recording),
             ),
-          ),
-        ),
-      ],
-    );
+            warmupProvider.overrideWith(
+              () => _FixedWarmup(
+                const WarmupState(
+                  kind: WarmupKind.climbing,
+                  steps: [warmupStep],
+                  phase: WorkoutPhase.done,
+                  bestKg: [null],
+                ),
+              ),
+            ),
+          ],
+        );
 
-    expect(find.byType(NavigationBar), findsOne);
-    await _openPage(tester, 'Warm-up');
-    expect(find.text('Warm-up complete'), findsOne);
-    final check = find.widgetWithText(FilledButton, 'Readiness Check');
-    await tester.ensureVisible(check);
-    expect(tester.widget<FilledButton>(check).onPressed, isNotNull);
-  });
+        expect(find.byType(NavigationBar), findsOne);
+        await _openPage(tester, 'Warm-up');
+        expect(find.text('Warm-up complete'), findsOne);
+        final check = find.widgetWithText(FilledButton, 'Readiness Check');
+        await tester.ensureVisible(check);
+        expect(
+          tester.widget<FilledButton>(check).onPressed != null,
+          !recording,
+        );
+      },
+    );
+  }
 
   testWidgets('shows a readiness check result', (tester) async {
     await _pumpScreen(
