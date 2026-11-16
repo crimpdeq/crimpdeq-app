@@ -601,6 +601,60 @@ void main() {
     expect((await container.read(trainingLogProvider.future)).readiness, []);
   });
 
+  testWidgets('rests each hand between its own holds', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final feedback = _Feedback();
+    final container = _measuring(feedback);
+    addTearDown(container.dispose);
+    final warmup = container.read(warmupProvider.notifier);
+    WarmupState state() => container.read(warmupProvider);
+    WarmupStep step(Hand hand, int restSeconds) => (
+      tool: 'Photon',
+      hand: hand,
+      benchmarkKg: 20.0,
+      forceKg: 6.0,
+      seconds: 2,
+      restSeconds: restSeconds,
+    );
+
+    await warmup.start(WarmupKind.training, [
+      step(Hand.left, 0),
+      step(Hand.right, 0),
+      step(Hand.left, 15),
+    ]);
+    warmup.addSamples([..._pull(0, 0.5, 0), ..._pull(6, 2.5, 500)]);
+    // The right hand has rested since the start: its hold follows at once,
+    // and waits for the left pull, still on, to drop.
+    expect(state().phase, WorkoutPhase.hold);
+    expect(state().step, 1);
+    warmup.addSamples(_pull(6, 1, 3000));
+    expect(state().waitingForRelease, isTrue);
+    expect(state().holding, isFalse);
+
+    // The left hand rests 10 s of its 15 s through the right hold.
+    await tester.pump(const Duration(seconds: 10));
+    warmup.addSamples([..._pull(0, 0.5, 4000), ..._pull(6, 2.5, 4500)]);
+    expect(state().phase, WorkoutPhase.rest);
+    expect(state().step, 2);
+    expect(state().restRemainingSeconds, 5);
+    await tester.pump(const Duration(seconds: 4));
+    expect(state().restRemainingSeconds, 1);
+    await tester.pump(const Duration(seconds: 1));
+    expect(state().phase, WorkoutPhase.hold);
+    // Each hold's end cues the next, and the rest its own.
+    expect(feedback.events, [
+      'screen true',
+      'go',
+      'go',
+      'go',
+      'restWarning',
+      'countdown',
+      'countdown',
+      'go',
+    ]);
+    await warmup.stop();
+  });
+
   testWidgets('counts the rest down after a training warm-up', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final feedback = _Feedback();
@@ -664,12 +718,17 @@ void main() {
       ..._pull(15, 1, 500),
       ..._pull(18, 6, 1500),
     ]);
-    expect(state().phase, WorkoutPhase.rest);
     expect(state().bestKg, [18]);
 
-    // Under 5 s held, the right pull is not measured.
-    warmup.skip();
-    warmup.addSamples([..._pull(25, 3, 20000), ..._pull(0, 1.1, 23000)]);
+    // The right hand rests through the left rest and pull, so its pull
+    // follows at once. Under 5 s held, it is not measured.
+    expect(state().phase, WorkoutPhase.hold);
+    expect(state().step, 1);
+    warmup.addSamples([
+      ..._pull(0, 0.5, 20000),
+      ..._pull(25, 3, 20500),
+      ..._pull(0, 1.1, 23500),
+    ]);
     expect(state().phase, WorkoutPhase.done);
     expect(state().bestKg, [18, null]);
 

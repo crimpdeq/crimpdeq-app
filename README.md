@@ -17,7 +17,8 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
   navigation bar:
   - Warm-up: before climbing (Spark, then Photon) or before gripper training (a ramp on one
     tool, with a short 85% hold for heavy sessions), both hands alternating at fractions of the
-    benchmarks. Each hold ends at its target, never at failure, with the same timer and live
+    benchmarks. Each hand rests at least 15 s between its holds, usually during the other hand's
+    hold, so the next hold starts when you pull. Each hold ends at its target, never at failure, with the same timer and live
     graph as a workout and a warning when the force overshoots. A training warm-up ends with a
     2 min rest countdown before the workout. After a climbing warm-up, an optional readiness
     check pulls Photon as hard as possible with each hand; its best 5 s against the benchmark is

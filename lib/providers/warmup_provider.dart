@@ -21,7 +21,12 @@ final warmupProvider = NotifierProvider<WarmupNotifier, WarmupState>(
 class WarmupNotifier extends Notifier<WarmupState> {
   late WorkoutFeedback _feedback;
   bool _screenKeptOn = false;
+  // Counts each hand's rest through the warm-up.
+  Timer? _ticker;
+  // Counts the rest down after a training warm-up.
   Timer? _restTimer;
+  // Since each hand's previous hold, or the start.
+  final _restedSeconds = {for (final hand in Hand.values) hand: 0};
   StreamSubscription<List<WeightMeasurement>>? _samples;
   HoldTracker? _hold;
   FiveSecondMax? _max;
@@ -103,6 +108,8 @@ class WarmupNotifier extends Notifier<WarmupState> {
               .sampleBatches
               .listen(addSamples);
           state = WarmupState(kind: kind, steps: steps);
+          _restedSeconds.updateAll((_, _) => 0);
+          _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
           _next(0);
         },
       );
@@ -165,13 +172,13 @@ class WarmupNotifier extends Notifier<WarmupState> {
       case WorkoutPhase.hold:
         _endStep();
       case WorkoutPhase.rest:
-        _startHold();
+        _startHold(afterRest: true);
       case WorkoutPhase.idle || WorkoutPhase.done:
         return;
     }
   }
 
-  /// Pauses or resumes the rest countdown. Holds follow the force.
+  /// Pauses or resumes the rests. Holds follow the force.
   void togglePause() => state = state.copyWith(paused: !state.paused);
 
   /// Abandons the warm-up, without storing a readiness check.
@@ -187,44 +194,52 @@ class WarmupNotifier extends Notifier<WarmupState> {
     state = const WarmupState();
   }
 
-  /// Rests before step [index] if it has a rest, or holds at once.
+  /// The rest the current step's hand still needs.
+  int get _restLeft =>
+      state.current.restSeconds - _restedSeconds[state.current.hand]!;
+
+  /// Counts each hand's rest, and the current rest down to its hold.
+  void _tick() {
+    if (state.paused) return;
+    _restedSeconds.updateAll((_, seconds) => seconds + 1);
+    if (state.phase != WorkoutPhase.rest) return;
+    final remaining = _restLeft;
+    if (remaining <= 0) {
+      _startHold(afterRest: true);
+      return;
+    }
+    state = state.copyWith(restRemainingSeconds: remaining);
+    _restCue(remaining);
+  }
+
+  /// Rests before step [index] until its hand has rested enough, often
+  /// during the other hand's hold, then holds.
   void _next(int index) {
     _hold = null;
     _max = null;
     state = state.copyWith(step: index, paused: false);
-    final seconds = state.current.restSeconds;
-    if (seconds == 0) {
-      _startHold();
+    final remaining = _restLeft;
+    if (remaining <= 0) {
+      _startHold(afterRest: false);
       return;
     }
     _restLoad = RestLoad(thresholdKg: _thresholdKg);
     state = state.copyWith(
       phase: WorkoutPhase.rest,
-      restRemainingSeconds: seconds,
+      restRemainingSeconds: remaining,
     );
-    _restCue(seconds);
-    _restTimer?.cancel();
-    _restTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (state.paused) return;
-      if (state.restRemainingSeconds > 1) {
-        final remaining = state.restRemainingSeconds - 1;
-        state = state.copyWith(restRemainingSeconds: remaining);
-        _restCue(remaining);
-        return;
-      }
-      _startHold();
-    });
+    _restCue(remaining);
   }
 
   /// Starts the current step's hold, which waits for the pull however long
-  /// the rest was. Without a rest, it waits for any load already on to drop.
-  void _startHold() {
-    _restTimer?.cancel();
+  /// the rest was. Straight after the previous hold, whose pull may still be
+  /// on, or at the start, it waits for the load to drop first.
+  void _startHold({required bool afterRest}) {
     final leftOn = _restLoad?.leftOn ?? false;
     _restLoad = null;
     _hold = HoldTracker(
       thresholdKg: _thresholdKg,
-      waitForRelease: leftOn || state.current.restSeconds == 0,
+      waitForRelease: !afterRest || leftOn,
     );
     _max = state.current.forceKg == null ? FiveSecondMax() : null;
     state = state.copyWith(
@@ -234,7 +249,8 @@ class WarmupNotifier extends Notifier<WarmupState> {
       waitingForRelease: leftOn,
       heldSeconds: 0,
     );
-    _cue(WorkoutCue.go);
+    // Straight after a hold, its end cue starts this one.
+    if (afterRest || state.step == 0) _cue(WorkoutCue.go);
   }
 
   void _endStep() {
@@ -246,6 +262,7 @@ class WarmupNotifier extends Notifier<WarmupState> {
     state = state.copyWith(
       bestKg: [...state.bestKg, fullWindow ? _max?.bestKg : null],
     );
+    _restedSeconds[state.current.hand] = 0;
     if (state.step + 1 < state.steps.length) {
       _next(state.step + 1);
       return;
@@ -322,6 +339,8 @@ class WarmupNotifier extends Notifier<WarmupState> {
   }
 
   void _cancel() {
+    _ticker?.cancel();
+    _ticker = null;
     _restTimer?.cancel();
     _restTimer = null;
     _hold = null;

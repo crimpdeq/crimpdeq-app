@@ -26,7 +26,7 @@ void main() {
   test('ramps the tool to train, alternating the hands', () {
     expect(trainingWarmup(benchmarks, 'Photon', heavy: false).map(describe), [
       'Photon left 6.0 kg 20 s after 0 s',
-      'Photon right 9.0 kg 20 s after 15 s',
+      'Photon right 9.0 kg 20 s after 0 s',
       'Photon left 10.0 kg 12 s after 15 s',
       'Photon right 15.0 kg 12 s after 15 s',
       'Photon left 14.0 kg 6 s after 15 s',
@@ -38,29 +38,36 @@ void main() {
       'Spark left 34.0 kg 3 s after 15 s',
       'Spark right 42.5 kg 3 s after 15 s',
     ]);
-    expect(warmupSeconds(heavy), 7 * 15 + 2 * (20 + 12 + 6 + 3));
+    // Each hold 5 s after the previous one, except the last: the right hand
+    // rests 15 s from its hold, 101 s in.
+    expect(warmupSeconds(heavy), 101 + 15 + 3);
+    expect(warmupSeconds(heavy.take(6).toList()), 2 * (20 + 12 + 6) + 5 * 5);
   });
 
   test('warms Spark, then Photon, before climbing', () {
     expect(climbingWarmup(benchmarks).map(describe), [
       'Spark left 16.0 kg 20 s after 0 s',
-      'Spark right 20.0 kg 20 s after 15 s',
+      'Spark right 20.0 kg 20 s after 0 s',
       'Spark left 24.0 kg 10 s after 15 s',
       'Spark right 30.0 kg 10 s after 15 s',
-      'Photon left 8.0 kg 20 s after 30 s',
+      'Photon left 8.0 kg 20 s after 15 s',
       'Photon right 12.0 kg 20 s after 15 s',
       'Photon left 12.0 kg 10 s after 15 s',
       'Photon right 18.0 kg 10 s after 15 s',
       'Photon left 15.0 kg 5 s after 15 s',
       'Photon right 22.5 kg 5 s after 15 s',
     ]);
+    // 130 s of holds, 5 s apart: the other hand's holds cover the rests.
+    expect(warmupSeconds(climbingWarmup(benchmarks)), 130 + 9 * 5);
   });
 
   test('checks readiness with a maximal Photon pull per hand', () {
     expect(readinessCheck(benchmarks).map(describe), [
       'Photon left null kg 6 s after 180 s',
-      'Photon right null kg 6 s after 15 s',
+      'Photon right null kg 6 s after 0 s',
     ]);
+    // The right hand has rested through the left pull.
+    expect(warmupSeconds(readinessCheck(benchmarks)), 180 + 6 + 5 + 6);
     expect(readinessCheck(benchmarks).last.benchmarkKg, 30);
   });
 

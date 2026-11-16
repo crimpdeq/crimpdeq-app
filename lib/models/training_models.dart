@@ -279,8 +279,9 @@ enum WarmupKind {
   final String label;
 }
 
-/// One hold of a warm-up, after [restSeconds] of rest: [forceKg] for
-/// [seconds], or without a force, as hard as possible.
+/// One hold of a warm-up: [forceKg] for [seconds], or without a force, as
+/// hard as possible. Its hand rests [restSeconds] first, since its previous
+/// hold or the start of the warm-up.
 typedef WarmupStep = ({
   String tool,
   Hand hand,
@@ -301,11 +302,11 @@ sealed class WarmupState with _$WarmupState {
     @Default([]) List<WarmupStep> steps,
     @Default(WorkoutPhase.idle) WorkoutPhase phase,
 
-    /// Current step, or the next one during its rest. 0-based.
+    /// Current step, or the next one during its hand's rest. 0-based.
     @Default(0) int step,
 
-    /// The rest before the step, or once a training warm-up is done, before
-    /// the workout.
+    /// The rest of the step's hand, or once a training warm-up is done, the
+    /// rest before the workout.
     @Default(0) int restRemainingSeconds,
     @Default(false) bool paused,
     @Default(false) bool holding,

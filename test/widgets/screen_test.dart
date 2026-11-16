@@ -1514,9 +1514,9 @@ void main() {
     );
     await _openPage(tester, 'Warm-up');
 
-    // Before climbing: Spark, then Photon, 4:40 with the rests.
+    // Before climbing: Spark, then Photon, 2:55 with the hand changes.
     expect(find.text('10'), findsOne);
-    expect(find.text('04:40'), findsOne);
+    expect(find.text('02:55'), findsOne);
     expect(find.text('75%'), findsOne);
     expect(find.text('22.5 kg'), findsOne);
     final start = find.widgetWithText(FilledButton, 'Start Warm-up');
@@ -1604,6 +1604,22 @@ void main() {
     // 19 kg is more than 15% over the 16 kg target.
     expect(
       find.text('Ease off to 16.0 kg: a warm-up stays far from your max.'),
+      findsOne,
+    );
+
+    // Before the pull, the tool and hand to take.
+    warmup.set(
+      const WarmupState(
+        kind: WarmupKind.climbing,
+        steps: [warmupStep, warmupStep],
+        phase: WorkoutPhase.hold,
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.text(
+        'Take Spark. Left hand: pull more than 2.0 kg to start the timer',
+      ),
       findsOne,
     );
   });

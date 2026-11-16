@@ -47,9 +47,11 @@ class WarmupTab extends ConsumerWidget {
 
 const _howWarmupsWork =
     'Each hold is a fraction of your benchmark for that tool and hand, and '
-    'alternates the hands, so one rests while the other holds. The forces '
-    'climb while the holds shorten, and no hold goes near failure: it ends '
-    'at its target. Pull close to the target force.\n\n'
+    'alternates the hands, so one rests while the other holds. Each hand '
+    'rests at least 15 s between its holds: the next hold starts when you '
+    'pull, once its hand has rested. The forces climb while the holds '
+    'shorten, and no hold goes near failure: it ends at its target. Pull '
+    'close to the target force.\n\n'
     'Before climbing: Spark, the larger muscle, then Photon, the fingertips '
     'for small holds. Then rest 10 min, climb easy moves, rest 10 min more, '
     'and go for your hardest attempts.\n\n'
@@ -266,6 +268,10 @@ class _WarmupTimer extends ConsumerWidget {
     final double progress;
     final String instruction;
     String? warning;
+    final previous = warmup.step == 0 ? null : warmup.steps[warmup.step - 1];
+    final take = previous == null || previous.tool != step.tool
+        ? 'Take ${step.tool}. '
+        : '';
     if (holdPhase) {
       final remaining = step.seconds - warmup.heldSeconds;
       clock = formatClock(remaining.ceil());
@@ -273,8 +279,10 @@ class _WarmupTimer extends ConsumerWidget {
       instruction = warmup.holding
           ? 'Hold ${formatClock(step.seconds)} $force'
           : warmup.waitingForRelease
-          ? 'Release the Crimpdeq, then pull to start the timer'
-          : 'Pull more than ${formatKg(thresholdKg)} to start the timer';
+          ? '${take}Release the Crimpdeq, then pull with the '
+                '${step.hand.label.toLowerCase()} hand'
+          : '$take${step.hand.label} hand: pull more than '
+                '${formatKg(thresholdKg)} to start the timer';
       if (warmup.holding &&
           forceKg != null &&
           (currentKg ?? 0) > forceKg * _overshootRatio) {
@@ -283,12 +291,10 @@ class _WarmupTimer extends ConsumerWidget {
             'your max.';
       }
     } else {
-      final previous = warmup.steps.elementAtOrNull(warmup.step - 1);
       clock = formatClock(warmup.restRemainingSeconds);
       progress = 1 - warmup.restRemainingSeconds / step.restSeconds;
       instruction =
-          '${previous == null || previous.tool != step.tool ? 'Take ${step.tool}. ' : ''}'
-          'Next: ${step.hand.label} hand, ${formatClock(step.seconds)} '
+          '${take}Next: ${step.hand.label} hand, ${formatClock(step.seconds)} '
           '$force';
     }
 

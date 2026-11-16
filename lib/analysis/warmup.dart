@@ -7,11 +7,13 @@ import '../models/training_models.dart';
 /// validated ones.
 typedef _Level = ({double ratio, int seconds});
 
-/// Rest between the holds, enough to change hands.
+/// Rest of each hand between its holds, whichever the tool. The other hand's
+/// hold usually covers it.
 const warmupRestSeconds = 15;
 
-/// Rest to change tools.
-const toolChangeRestSeconds = 30;
+/// Time to change hands or tools, for the estimated total: each hold waits
+/// for the pull.
+const handChangeSeconds = 5;
 
 /// Before gripper training: a ramp on the tool to train.
 const _trainingRamp = <_Level>[
@@ -63,12 +65,13 @@ double _benchmarkKg(List<Benchmark> benchmarks, String tool, Hand hand) {
 
 double _round2(double value) => (value * 100).round() / 100;
 
-/// Each level with the left hand, then the right one.
+/// Each level with the left hand, then the right one. [first] is the start
+/// of the warm-up, which the hands have rested for.
 List<WarmupStep> _ramp(
   List<Benchmark> benchmarks,
   String tool,
   List<_Level> levels, {
-  required int firstRestSeconds,
+  required bool first,
 }) => [
   for (final (index, level) in levels.indexed)
     for (final hand in Hand.values)
@@ -78,9 +81,7 @@ List<WarmupStep> _ramp(
         benchmarkKg: _benchmarkKg(benchmarks, tool, hand),
         forceKg: _round2(_benchmarkKg(benchmarks, tool, hand) * level.ratio),
         seconds: level.seconds,
-        restSeconds: index == 0 && hand == Hand.left
-            ? firstRestSeconds
-            : warmupRestSeconds,
+        restSeconds: first && index == 0 ? 0 : warmupRestSeconds,
       ),
 ];
 
@@ -93,21 +94,17 @@ List<WarmupStep> trainingWarmup(
 }) => _ramp(benchmarks, tool, [
   ..._trainingRamp,
   if (heavy) _heavyLevel,
-], firstRestSeconds: 0);
+], first: true);
 
 /// Before climbing, with both tools.
 List<WarmupStep> climbingWarmup(List<Benchmark> benchmarks) => [
   for (final (index, MapEntry(key: tool, value: levels))
       in _climbingLevels.entries.indexed)
-    ..._ramp(
-      benchmarks,
-      tool,
-      levels,
-      firstRestSeconds: index == 0 ? 0 : toolChangeRestSeconds,
-    ),
+    ..._ramp(benchmarks, tool, levels, first: index == 0),
 ];
 
-/// A maximal pull with each hand, the first after a rest from the warm-up.
+/// A maximal pull with each hand after a rest from the warm-up: the second
+/// hand rests through the first hand's rest and pull, even a skipped rest.
 List<WarmupStep> readinessCheck(List<Benchmark> benchmarks) => [
   for (final hand in Hand.values)
     (
@@ -116,10 +113,20 @@ List<WarmupStep> readinessCheck(List<Benchmark> benchmarks) => [
       benchmarkKg: _benchmarkKg(benchmarks, readinessTool, hand),
       forceKg: null,
       seconds: readinessPullSeconds,
-      restSeconds: hand == Hand.left ? readinessRestSeconds : warmupRestSeconds,
+      restSeconds: hand == Hand.left ? readinessRestSeconds : 0,
     ),
 ];
 
-/// Total time of [steps], rests included.
-int warmupSeconds(List<WarmupStep> steps) =>
-    steps.fold(0, (total, step) => total + step.restSeconds + step.seconds);
+/// Estimated time of [steps], with [handChangeSeconds] between the holds and
+/// the rests that the other hand's holds do not cover.
+int warmupSeconds(List<WarmupStep> steps) {
+  var seconds = 0;
+  final restedFrom = {for (final hand in Hand.values) hand: 0};
+  for (final (index, step) in steps.indexed) {
+    final ready = restedFrom[step.hand]! + step.restSeconds;
+    final changed = index == 0 ? 0 : seconds + handChangeSeconds;
+    seconds = (changed > ready ? changed : ready) + step.seconds;
+    restedFrom[step.hand] = seconds;
+  }
+  return seconds;
+}
