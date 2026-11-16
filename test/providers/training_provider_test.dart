@@ -647,6 +647,69 @@ void main() {
     ]);
   });
 
+  testWidgets('gives way to a session started while waiting for the device', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final device =
+        container.read(progressorProvider.notifier) as _MeasuringProgressor;
+    final workout = container.read(workoutProvider.notifier);
+    final warmup = container.read(warmupProvider.notifier);
+    final recorder = container.read(benchmarkRecorderProvider.notifier);
+    final steps = trainingWarmup(
+      [
+        for (final hand in Hand.values)
+          Benchmark(
+            date: DateTime(2026, 10, 26),
+            tool: 'Photon',
+            hand: hand,
+            forceKg: 30,
+          ),
+      ],
+      'Photon',
+      heavy: false,
+    );
+
+    // Each starts before the other has the device: one runs.
+    device.link();
+    for (final workoutFirst in [true, false]) {
+      device.setMeasuring(false);
+      final starts = [
+        () => workout.start(plan),
+        () => warmup.start(WarmupKind.training, steps),
+      ];
+      await Future.wait([
+        for (final start in workoutFirst ? starts : starts.reversed) start(),
+      ]);
+      await tester.pump();
+      final workoutRunning = container.read(workoutProvider).isRunning;
+      expect(container.read(warmupProvider).isRunning, !workoutRunning);
+      // Measuring, whichever started the measurement, until the end.
+      expect(
+        container.read(progressorProvider).measurement.isMeasuring,
+        isTrue,
+      );
+      await recorder.start();
+      expect(container.read(benchmarkRecorderProvider).recording, isFalse);
+      await (workoutRunning ? workout.stop() : warmup.stop());
+      expect(
+        container.read(progressorProvider).measurement.isMeasuring,
+        isFalse,
+      );
+      expect(device.samples.hasListener, isFalse);
+    }
+
+    // A running warm-up keeps the workout and the pull from starting.
+    await warmup.start(WarmupKind.training, steps);
+    await workout.start(plan);
+    await recorder.start();
+    expect(container.read(workoutProvider).phase, WorkoutPhase.idle);
+    expect(container.read(benchmarkRecorderProvider).recording, isFalse);
+    await warmup.stop();
+  });
+
   testWidgets('leaves a load left on out of the readiness maximum', (
     tester,
   ) async {

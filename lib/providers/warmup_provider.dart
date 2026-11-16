@@ -89,17 +89,23 @@ class WarmupNotifier extends Notifier<WarmupState> {
       // Loaded before the first cue and hold, which read them.
       await ref.read(soundsMutedProvider.future);
       final thresholdKg = await ref.read(holdThresholdProvider.future);
-      final (:measuring, :started) = await ensureMeasuring(ref);
-      if (!measuring) return;
-      _startedMeasurement = started;
-      _thresholdKg = thresholdKg;
-      _trace = ForceTrace();
-      _samples = ref
-          .read(progressorProvider.notifier)
-          .sampleBatches
-          .listen(addSamples);
-      state = WarmupState(kind: kind, steps: steps);
-      _next(0);
+      await startSession(
+        ref,
+        otherRunning: () =>
+            ref.read(workoutProvider).isRunning ||
+            ref.read(benchmarkRecorderProvider).recording,
+        begin: (started) {
+          _startedMeasurement = started;
+          _thresholdKg = thresholdKg;
+          _trace = ForceTrace();
+          _samples = ref
+              .read(progressorProvider.notifier)
+              .sampleBatches
+              .listen(addSamples);
+          state = WarmupState(kind: kind, steps: steps);
+          _next(0);
+        },
+      );
     } finally {
       _starting = false;
     }

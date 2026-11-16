@@ -11,6 +11,7 @@ import '../analysis/opengrips_curve.dart';
 import '../models/progressor_models.dart';
 import '../models/training_models.dart';
 import 'progressor_provider.dart';
+import 'warmup_provider.dart';
 import 'workout_feedback_provider.dart';
 
 typedef TrainingLog = ({
@@ -155,15 +156,26 @@ class WorkoutSetupNotifier extends Notifier<WorkoutSetup> {
   void updatePlan(WorkoutPlan plan) => state = state.copyWith(plan: plan);
 }
 
-/// Starts measuring unless the device already is. Returns whether it measures
-/// and whether this call started it, so the caller stops it again.
-Future<({bool measuring, bool started})> ensureMeasuring(Ref ref) async {
-  if (ref.read(progressorProvider).measurement.isMeasuring) {
-    return (measuring: true, started: false);
+/// Measures for a workout, warm-up or benchmark pull, which take the same
+/// samples, then calls [begin] with whether this call started the
+/// measurement, so the session stops it again. Nothing begins when the
+/// device does not measure or [otherRunning] does, such as a workout started
+/// on another page while this start awaited the device: checked right
+/// before [begin], so no other start can come between them.
+Future<void> startSession(
+  Ref ref, {
+  required bool Function() otherRunning,
+  required void Function(bool started) begin,
+}) async {
+  final started = !ref.read(progressorProvider).measurement.isMeasuring;
+  if (started) await ref.read(progressorProvider.notifier).startMeasurement();
+  if (!ref.read(progressorProvider).measurement.isMeasuring) return;
+  if (!otherRunning()) {
+    begin(started);
+    return;
   }
-  await ref.read(progressorProvider.notifier).startMeasurement();
-  final measuring = ref.read(progressorProvider).measurement.isMeasuring;
-  return (measuring: measuring, started: measuring);
+  // The other session measures again once this stop reaches it.
+  if (started) await ref.read(progressorProvider.notifier).stopMeasurement();
 }
 
 /// The benchmark form's tool and hand, kept while switching parts, so a
@@ -261,31 +273,37 @@ class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
     if (state.recording || _starting) return;
     _starting = true;
     try {
-      final (:measuring, :started) = await ensureMeasuring(ref);
-      if (!measuring) return;
-      _startedMeasurement = started;
-      final fiveSecondMax = FiveSecondMax();
-      final trace = ForceTrace();
-      state = (
-        recording: true,
-        elapsedSeconds: 0,
-        bestKg: null,
-        trace: const [],
+      await startSession(
+        ref,
+        otherRunning: () =>
+            ref.read(workoutProvider).isRunning ||
+            ref.read(warmupProvider).isRunning,
+        begin: (started) {
+          _startedMeasurement = started;
+          final fiveSecondMax = FiveSecondMax();
+          final trace = ForceTrace();
+          state = (
+            recording: true,
+            elapsedSeconds: 0,
+            bestKg: null,
+            trace: const [],
+          );
+          _samples = ref.read(progressorProvider.notifier).sampleBatches.listen(
+            (samples) {
+              samples.forEach(fiveSecondMax.add);
+              trace.addAll(samples);
+              // Publish at the displayed resolution, a tenth of a second.
+              final next = (
+                recording: true,
+                elapsedSeconds: (fiveSecondMax.elapsedUs ~/ 100000) / 10,
+                bestKg: fiveSecondMax.bestKg,
+                trace: trace.points,
+              );
+              if (next != state) state = next;
+            },
+          );
+        },
       );
-      _samples = ref.read(progressorProvider.notifier).sampleBatches.listen((
-        samples,
-      ) {
-        samples.forEach(fiveSecondMax.add);
-        trace.addAll(samples);
-        // Publish at the displayed resolution, a tenth of a second.
-        final next = (
-          recording: true,
-          elapsedSeconds: (fiveSecondMax.elapsedUs ~/ 100000) / 10,
-          bestKg: fiveSecondMax.bestKg,
-          trace: trace.points,
-        );
-        if (next != state) state = next;
-      });
     } finally {
       _starting = false;
     }
@@ -391,18 +409,24 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
       // Loaded before the first cue and hold, which read them.
       await ref.read(soundsMutedProvider.future);
       final thresholdKg = await ref.read(holdThresholdProvider.future);
-      final (:measuring, :started) = await ensureMeasuring(ref);
-      if (!measuring) return;
-      _startedMeasurement = started;
-      _thresholdKg = thresholdKg;
-      _trace = ForceTrace();
-      _restLoad = null;
-      _samples = ref
-          .read(progressorProvider.notifier)
-          .sampleBatches
-          .listen(addSamples);
-      state = WorkoutState(plan: plan);
-      _startRep(1);
+      await startSession(
+        ref,
+        otherRunning: () =>
+            ref.read(warmupProvider).isRunning ||
+            ref.read(benchmarkRecorderProvider).recording,
+        begin: (started) {
+          _startedMeasurement = started;
+          _thresholdKg = thresholdKg;
+          _trace = ForceTrace();
+          _restLoad = null;
+          _samples = ref
+              .read(progressorProvider.notifier)
+              .sampleBatches
+              .listen(addSamples);
+          state = WorkoutState(plan: plan);
+          _startRep(1);
+        },
+      );
     } finally {
       _starting = false;
     }
