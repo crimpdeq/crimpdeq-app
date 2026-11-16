@@ -601,6 +601,43 @@ void main() {
     expect((await container.read(trainingLogProvider.future)).readiness, []);
   });
 
+  testWidgets('counts the rest down after a training warm-up', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final feedback = _Feedback();
+    final container = _measuring(feedback);
+    addTearDown(container.dispose);
+    final warmup = container.read(warmupProvider.notifier);
+    WarmupState state() => container.read(warmupProvider);
+    const step = (
+      tool: 'Photon',
+      hand: Hand.left,
+      benchmarkKg: 20.0,
+      forceKg: 6.0,
+      seconds: 2,
+      restSeconds: 0,
+    );
+
+    await warmup.start(WarmupKind.training, const [step]);
+    warmup.addSamples([..._pull(0, 0.5, 0), ..._pull(6, 3, 500)]);
+    expect(state().phase, WorkoutPhase.done);
+    expect(state().restRemainingSeconds, workoutRestSeconds);
+    feedback.events.clear();
+
+    // The rest cues, then the workout's.
+    await tester.pump(const Duration(seconds: workoutRestSeconds - 5));
+    expect(state().restRemainingSeconds, 5);
+    await tester.pump(const Duration(seconds: 10));
+    expect(state().restRemainingSeconds, 0);
+    expect(feedback.events, ['restWarning', 'countdown', 'countdown', 'go']);
+
+    // Leaving the results ends the countdown.
+    await warmup.start(WarmupKind.training, const [step]);
+    warmup.addSamples([..._pull(0, 0.5, 10000), ..._pull(6, 3, 10500)]);
+    warmup.reset();
+    await tester.pump(const Duration(seconds: 5));
+    expect(state().restRemainingSeconds, 0);
+  });
+
   testWidgets('stores the readiness pulls of at least 5 s', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final container = _measuring();

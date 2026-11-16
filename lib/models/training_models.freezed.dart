@@ -588,7 +588,9 @@ $WorkoutPlanCopyWith<$Res>? get plan {
 mixin _$WarmupState {
 
  WarmupKind? get kind; List<WarmupStep> get steps; WorkoutPhase get phase;/// Current step, or the next one during its rest. 0-based.
- int get step; int get restRemainingSeconds; bool get paused; bool get holding; bool get waitingForRelease; double get heldSeconds; List<FlSpot> get forceTrace;/// Best 5 s of each step done, null for a hold at a force or a maximal
+ int get step;/// The rest before the step, or once a training warm-up is done, before
+/// the workout.
+ int get restRemainingSeconds; bool get paused; bool get holding; bool get waitingForRelease; double get heldSeconds; List<FlSpot> get forceTrace;/// Best 5 s of each step done, null for a hold at a force or a maximal
 /// pull under 5 s.
  List<double?> get bestKg;/// The readiness check is stored in the training log.
  bool get saved; WorkoutEnd? get endedEarly;
@@ -808,6 +810,8 @@ class _WarmupState extends WarmupState {
 @override@JsonKey() final  WorkoutPhase phase;
 /// Current step, or the next one during its rest. 0-based.
 @override@JsonKey() final  int step;
+/// The rest before the step, or once a training warm-up is done, before
+/// the workout.
 @override@JsonKey() final  int restRemainingSeconds;
 @override@JsonKey() final  bool paused;
 @override@JsonKey() final  bool holding;

@@ -34,6 +34,9 @@ const _climbingLevels = <String, List<_Level>>{
   ],
 };
 
+/// Rest after a training warm-up, before the workout.
+const workoutRestSeconds = 120;
+
 /// A readiness check pulls Photon, the tool of small holds, as hard as
 /// possible after a rest from the warm-up, for a full 5 s window.
 const readinessTool = 'Photon';

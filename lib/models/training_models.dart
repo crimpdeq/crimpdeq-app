@@ -303,6 +303,9 @@ sealed class WarmupState with _$WarmupState {
 
     /// Current step, or the next one during its rest. 0-based.
     @Default(0) int step,
+
+    /// The rest before the step, or once a training warm-up is done, before
+    /// the workout.
     @Default(0) int restRemainingSeconds,
     @Default(false) bool paused,
     @Default(false) bool holding,

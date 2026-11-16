@@ -182,7 +182,10 @@ class WarmupNotifier extends Notifier<WarmupState> {
   }
 
   /// Returns to the setup after the results.
-  void reset() => state = const WarmupState();
+  void reset() {
+    _restTimer?.cancel();
+    state = const WarmupState();
+  }
 
   /// Rests before step [index] if it has a rest, or holds at once.
   void _next(int index) {
@@ -251,6 +254,23 @@ class WarmupNotifier extends Notifier<WarmupState> {
     state = state.copyWith(phase: WorkoutPhase.done);
     unawaited(_release());
     unawaited(_saveReadiness());
+    if (state.kind == WarmupKind.training) _restBeforeWorkout();
+  }
+
+  /// Counts the rest down after a training warm-up, with the rest cues, and
+  /// cues the workout once it is over.
+  void _restBeforeWorkout() {
+    state = state.copyWith(restRemainingSeconds: workoutRestSeconds);
+    _restTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      final remaining = state.restRemainingSeconds - 1;
+      state = state.copyWith(restRemainingSeconds: remaining);
+      if (remaining > 0) {
+        _restCue(remaining);
+        return;
+      }
+      timer.cancel();
+      _cue(WorkoutCue.go);
+    });
   }
 
   /// Ends the warm-up without the device's samples. A readiness check keeps

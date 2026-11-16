@@ -1696,6 +1696,38 @@ void main() {
     );
   }
 
+  for (final (remaining, message, clock) in [
+    (75, 'Rest before your workout', '01:15'),
+    (0, 'Rested: start your workout.', '00:00'),
+  ]) {
+    testWidgets('shows the rest before the workout at $clock', (tester) async {
+      await _pumpScreen(
+        tester,
+        ProgressorState(connection: _connected),
+        deviceTools: false,
+        overrides: [
+          warmupProvider.overrideWith(
+            () => _FixedWarmup(
+              WarmupState(
+                kind: WarmupKind.training,
+                steps: const [warmupStep],
+                phase: WorkoutPhase.done,
+                bestKg: const [null],
+                restRemainingSeconds: remaining,
+              ),
+            ),
+          ),
+        ],
+      );
+      await _openPage(tester, 'Warm-up');
+
+      expect(find.text('Warm-up complete'), findsOne);
+      expect(find.text(message), findsOne);
+      expect(find.text(clock), findsOne);
+      expect(find.text('Go to Workout'), findsOne);
+    });
+  }
+
   testWidgets('shows a readiness check result', (tester) async {
     await _pumpScreen(
       tester,

@@ -466,9 +466,28 @@ class _WarmupResults extends ConsumerWidget {
             const SizedBox(height: 8),
           ],
           switch (kind) {
-            WarmupKind.training => const Text(
-              'Rest 2 to 3 min, then start your workout.',
+            WarmupKind.training when warmup.endedEarly == null => Column(
+              children: [
+                Text(
+                  warmup.restRemainingSeconds > 0
+                      ? 'Rest before your workout'
+                      : 'Rested: start your workout.',
+                  style: textTheme.titleMedium,
+                ),
+                Text(
+                  formatClock(warmup.restRemainingSeconds),
+                  style: textTheme.displayMedium?.copyWith(
+                    fontFamily: interFont,
+                    fontWeight: FontWeight.w800,
+                    color: warmup.restRemainingSeconds > 0
+                        ? theme.colorScheme.primary
+                        : gainColor,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
             ),
+            WarmupKind.training => const Text('Rest, then start your workout.'),
             WarmupKind.climbing => const Text(
               'Rest 10 min, climb easy moves for 20 to 30 min, rest 10 min '
               'more, then go for your hardest attempts.\n\n'
