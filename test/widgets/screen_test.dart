@@ -74,7 +74,7 @@ class _Recorded extends BenchmarkRecorder {
 
   @override
   BenchmarkRecording build() =>
-      (recording: false, elapsedSeconds: 6, bestKg: bestKg);
+      (recording: false, elapsedSeconds: 6, bestKg: bestKg, trace: const []);
 }
 
 const _deviceId = '00:11:22:33:44:55';
@@ -921,7 +921,7 @@ void main() {
     });
   }
 
-  testWidgets('blocks a workout whose target cannot start a hang', (
+  testWidgets('blocks a workout whose target cannot start a hold', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -942,6 +942,15 @@ void main() {
     expect(tester.widget<FilledButton>(start).onPressed, isNull);
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'Power'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('target is too light'), findsNothing);
+    expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+
+    // A lower threshold lets the light target start a hold.
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Endurance'));
+    await ProviderScope.containerOf(tester.element(find.byType(CrimpdeqScreen)))
+        .read(holdThresholdProvider.notifier)
+        .set(1);
     await tester.pumpAndSettle();
     expect(find.textContaining('target is too light'), findsNothing);
     expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
@@ -1065,6 +1074,7 @@ void main() {
     await _select(tester, 'Spark');
     await _select(tester, 'Left');
     // Folded while a device is connected.
+    await tester.ensureVisible(find.text('Enter a held weight instead'));
     await tester.tap(find.text('Enter a held weight instead'));
     await tester.pumpAndSettle();
     final weight = find.widgetWithText(TextField, 'Weight held (kg)');
@@ -1074,7 +1084,7 @@ void main() {
     await tester.tap(save);
     await tester.pump();
     expect(find.text('Enter the weight held, in kg.'), findsOneWidget);
-    // Too light for even the Power target to start a hang.
+    // Too light for even the Power target to start a hold.
     await tester.enterText(weight, '0.5');
     await tester.tap(save);
     await tester.pump();
@@ -1246,6 +1256,7 @@ void main() {
     expect(_chipSelected(tester, 'Power'), isTrue);
 
     await _openPage(tester, 'Benchmarks');
+    await tester.ensureVisible(find.text('Enter a held weight instead'));
     await tester.tap(find.text('Enter a held weight instead'));
     await tester.pumpAndSettle();
     // The latest benchmark's tool and hand, so a hold saves at once.
@@ -1265,16 +1276,19 @@ void main() {
   );
 
   testWidgets('keeps the whole screen for a running workout', (tester) async {
-    await _pumpScreen(
+    final fake = await _pumpScreen(
       tester,
-      ProgressorState(connection: _connected),
+      ProgressorState(
+        connection: _connected,
+        measurement: const MeasurementState(isMeasuring: true, currentKg: 1.2),
+      ),
       deviceTools: false,
       overrides: [
         workoutProvider.overrideWith(
           () => _FixedWorkout(
             WorkoutState(
               plan: strength,
-              phase: WorkoutPhase.hang,
+              phase: WorkoutPhase.hold,
               rep: 2,
               actualSeconds: const [101],
             ),
@@ -1284,9 +1298,17 @@ void main() {
     );
 
     expect(find.byType(NavigationBar), findsNothing);
-    expect(find.text('HANG'), findsOneWidget);
+    expect(find.text('HOLD'), findsOneWidget);
     expect(find.text('Rep 2 of 5'), findsOneWidget);
-    expect(find.text('Pull more than 2 kg to start the timer'), findsOneWidget);
+    expect(
+      find.text('Pull more than 2.0 kg to start the timer'),
+      findsOneWidget,
+    );
+    // The graph shows the force and tares.
+    expect(find.text('1.2 kg'), findsOneWidget);
+    await tester.tap(find.text('Tare'));
+    await tester.pump();
+    expect(fake.calls, ['tare']);
   });
 
   testWidgets('shows the workout that starts on another page', (tester) async {
@@ -1302,11 +1324,11 @@ void main() {
     );
     // The start awaits the device, meanwhile the user opens another page.
     await _openPage(tester, 'Benchmarks');
-    workout.set(WorkoutState(plan: strength, phase: WorkoutPhase.preRest));
+    workout.set(WorkoutState(plan: strength, phase: WorkoutPhase.hold));
     await tester.pump();
 
     expect(find.byType(NavigationBar), findsNothing);
-    expect(find.text('GET READY'), findsOneWidget);
+    expect(find.text('HOLD'), findsOneWidget);
   });
 
   testWidgets('discards the results only after confirmation', (tester) async {

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../analysis/hold_tracker.dart';
 import '../analysis/opengrips_curve.dart';
 import '../models/training_models.dart';
 import '../providers/navigation_provider.dart';
@@ -40,16 +39,16 @@ class WorkoutTab extends ConsumerWidget {
   }
 }
 
-const _howWorkoutsWork =
+String _howWorkoutsWork(double thresholdKg) =>
     'The workout type is suggested from your history: first the type with '
-    'the fewest workouts, then the one whose first hangs fall furthest below '
+    'the fewest workouts, then the one whose first holds fall furthest below '
     'the ideal force curve.\n\n'
-    'Tare the Crimpdeq unloaded before you start. Each hang counts down from '
-    'its target while you pull more than '
-    '${HoldTracker.thresholdKg ~/ 1} kg, and ends a second after you let go. '
-    'Pull close to the target force: the force you actually pull is what the '
-    'workout records.\n\n'
-    'If the first hang misses its target by more than 3 s, the later targets '
+    'Tare the Crimpdeq unloaded before you start. Each hold waits for you, '
+    'even after its rest: it counts down from its target while you pull more '
+    'than ${formatKg(thresholdKg)}, and ends a second after you let go. '
+    'Change the threshold in Customize. Pull close to the target force: the '
+    'force you actually pull is what the workout records.\n\n'
+    'If the first hold misses its target by more than 3 s, the later targets '
     'scale with it.';
 
 /// Asks for the benchmark that sets a workout's targets.
@@ -108,6 +107,7 @@ class _WorkoutSetup extends ConsumerWidget {
     final tool = tools.contains(setup.tool) ? setup.tool! : latest.tool;
     final hand = setup.hand ?? latest.hand;
     final benchmark = bestBenchmark(log.benchmarks, tool, hand);
+    final thresholdKg = watchHoldThreshold(ref);
     final toolAndHand = ToolAndHand(
       tools: tools,
       tool: tool,
@@ -115,9 +115,9 @@ class _WorkoutSetup extends ConsumerWidget {
       onToolChanged: setupNotifier.selectTool,
       onHandChanged: setupNotifier.selectHand,
     );
-    const info = InfoButton(
+    final info = InfoButton(
       title: 'How workouts work',
-      content: _howWorkoutsWork,
+      content: _howWorkoutsWork(thresholdKg),
     );
     if (benchmark == null) {
       return TitledCard(
@@ -166,8 +166,8 @@ class _WorkoutSetup extends ConsumerWidget {
         if (CurveSection.of(point.forceKg, benchmark.forceKg) == section)
           workout,
     ];
-    // A hang only counts above the threshold, which a light target is not.
-    final hangsCount = plan.targetForceKg > HoldTracker.thresholdKg;
+    // A hold only counts above the threshold, which a light target is not.
+    final holdsCount = plan.targetForceKg > thresholdKg;
     final benchmarkRecording = ref.watch(
       benchmarkRecorderProvider.select((recording) => recording.recording),
     );
@@ -228,7 +228,7 @@ class _WorkoutSetup extends ConsumerWidget {
               StatRow([
                 StatTile(label: 'Force', value: formatKg(plan.targetForceKg)),
                 StatTile(
-                  label: 'First hang',
+                  label: 'First hold',
                   value: formatDuration(plan.firstHangSeconds),
                 ),
                 StatTile(label: 'Reps', value: '${plan.reps}'),
@@ -240,11 +240,12 @@ class _WorkoutSetup extends ConsumerWidget {
                 'of your ${formatKg(benchmark.forceKg)} benchmark.',
                 style: textTheme.bodySmall,
               ),
-              if (!hangsCount) ...[
+              if (!holdsCount) ...[
                 const SizedBox(height: 8),
                 Text(
                   'The ${formatKg(plan.targetForceKg)} target is too light to '
-                  'start a hang. Choose a heavier workout type.',
+                  'start a hold above ${formatKg(thresholdKg)}. Choose a '
+                  'heavier workout type or a lower threshold.',
                   style: textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.error,
                   ),
@@ -259,7 +260,7 @@ class _WorkoutSetup extends ConsumerWidget {
                     child: FilledButton.icon(
                       onPressed:
                           benchmarkRecording ||
-                              !hangsCount ||
+                              !holdsCount ||
                               !watchConnected(ref)
                           ? null
                           : () =>
@@ -275,8 +276,8 @@ class _WorkoutSetup extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Tare it unloaded first. Each hang starts when you pull more '
-                'than ${HoldTracker.thresholdKg ~/ 1} kg.',
+                'Tare it unloaded first. Each hold starts when you pull more '
+                'than ${formatKg(thresholdKg)}.',
                 style: textTheme.bodySmall,
                 textAlign: TextAlign.center,
               ),
@@ -322,7 +323,7 @@ class _WorkoutSetup extends ConsumerWidget {
                   '${formatDate(workout.date)} · '
                   '${formatKg(workout.forceKg!)} · '
                   '${formatDuration(workout.meanHangSeconds.round())} '
-                  'average hang',
+                  'average hold',
                   style: textTheme.bodySmall,
                 ),
             ],
@@ -352,6 +353,7 @@ class _PlanSettings extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final setupNotifier = ref.read(workoutSetupProvider.notifier);
     final update = setupNotifier.updatePlan;
+    final thresholdKg = watchHoldThreshold(ref);
     final energySystems = clampEnergySystems(
       plan.energySystems ?? section.energySystems,
     );
@@ -365,7 +367,7 @@ class _PlanSettings extends ConsumerWidget {
       subtitle: Text(
         edited
             ? 'Changed from the ${section.label} defaults'
-            : 'First hang, reps, rest and rep targets',
+            : 'First hold, reps, rest, threshold and rep targets',
         style: textTheme.bodySmall,
       ),
       tilePadding: EdgeInsets.zero,
@@ -374,7 +376,7 @@ class _PlanSettings extends ConsumerWidget {
       shape: const Border(),
       children: [
         _SliderRow(
-          label: 'First hang target: ${plan.firstHangSeconds} s',
+          label: 'First hold target: ${plan.firstHangSeconds} s',
           value: plan.firstHangSeconds.toDouble(),
           range: (min: 10, max: 300),
           step: 1,
@@ -396,6 +398,15 @@ class _PlanSettings extends ConsumerWidget {
           onChanged: (value) =>
               update(plan.copyWith(restSeconds: value.round())),
         ),
+        _SliderRow(
+          label:
+              'Hold threshold: ${formatKg(thresholdKg)} '
+              '(the timer runs while you pull more)',
+          value: thresholdKg,
+          range: (min: 0.5, max: 10),
+          step: 0.5,
+          onChanged: ref.read(holdThresholdProvider.notifier).set,
+        ),
         const SizedBox(height: 8),
         Text('Energy systems', style: textTheme.titleSmall),
         Text(
@@ -408,7 +419,7 @@ class _PlanSettings extends ConsumerWidget {
         _SliderRow(
           label:
               'Power: ${energySystems.power.toStringAsFixed(2)} '
-              '(rep 2 target as a fraction of the first hang)',
+              '(rep 2 target as a fraction of the first hold)',
           value: energySystems.power,
           range: power,
           step: 0.01,
@@ -520,95 +531,72 @@ class _WorkoutTimer extends ConsumerWidget {
     final currentKg = ref.watch(
       progressorProvider.select((state) => state.measurement.currentKg),
     );
+    final thresholdKg = watchHoldThreshold(ref);
     final notifier = ref.read(workoutProvider.notifier);
     final plan = workout.plan!;
     final targets = workout.targets;
-    final hanging = workout.phase == WorkoutPhase.hang;
-    final preRest = workout.phase == WorkoutPhase.preRest;
-    final phaseColor = hanging ? gainColor : colorScheme.primary;
-    final forceText = currentKg == null ? '—' : formatKg(currentKg);
+    final holdPhase = workout.phase == WorkoutPhase.hold;
+    final phaseColor = holdPhase ? gainColor : colorScheme.primary;
 
     final String phase;
     final String reps;
     final String clock;
     final double progress;
-    final List<Widget> details;
-    if (hanging) {
+    final Widget instruction;
+    final Widget? warning;
+    if (holdPhase) {
       final target = targets[workout.rep - 1];
       final remaining = target - workout.heldSeconds;
-      phase = 'Hang';
+      phase = 'Hold';
       reps = 'Rep ${workout.rep} of ${plan.reps}';
       // Counts down from the target while pulling, then up past it.
       clock = remaining >= 0
           ? formatClock(remaining.ceil())
           : '+${formatClock((-remaining).floor())}';
       progress = (workout.heldSeconds / target).clamp(0, 1);
-      details = [
-        Text(
-          workout.holding
-              ? 'Hold ${formatClock(target)} at ${formatKg(plan.targetForceKg)}'
-              : workout.waitingForRelease
-              ? 'Release the Crimpdeq, then pull to start the timer'
-              : 'Pull more than '
-                    '${HoldTracker.thresholdKg.toStringAsFixed(0)} kg to '
-                    'start the timer',
-          style: workout.holding
-              ? textTheme.bodyLarge
-              : textTheme.titleMedium?.copyWith(color: colorScheme.primary),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 12),
-        _ForceReadout(force: forceText, targetKg: plan.targetForceKg),
-        const SizedBox(height: 8),
-        LiveForceGraph(
-          trace: workout.forceTrace,
-          targetKg: plan.targetForceKg,
-          section: plan.section,
-        ),
-      ];
+      instruction = Text(
+        workout.holding
+            ? 'Hold ${formatClock(target)} at ${formatKg(plan.targetForceKg)}'
+            : workout.waitingForRelease
+            ? 'Release the Crimpdeq, then pull to start the timer'
+            : 'Pull more than ${formatKg(thresholdKg)} to start the timer',
+        style: workout.holding
+            ? textTheme.bodyLarge
+            : textTheme.titleMedium?.copyWith(color: colorScheme.primary),
+        textAlign: TextAlign.center,
+      );
+      warning = null;
     } else {
-      final upcoming = preRest ? 1 : workout.rep + 1;
+      final upcoming = workout.rep + 1;
       final target = targets[upcoming - 1];
       final planned = plan.targets()[upcoming - 1];
-      final restSeconds = preRest ? plan.preRestSeconds : plan.restSeconds;
-      phase = preRest ? 'Get ready' : 'Rest';
-      reps = preRest
-          ? '${plan.reps} reps'
-          : 'Rep ${workout.rep} of ${plan.reps} done';
+      phase = 'Rest';
+      reps = 'Rep ${workout.rep} of ${plan.reps} done';
       clock = formatClock(workout.restRemainingSeconds);
-      progress = 1 - workout.restRemainingSeconds / restSeconds;
-      // A reading above the threshold at rest would start the next hang at
-      // once and never end it.
-      final loaded = (currentKg ?? 0) > HoldTracker.thresholdKg;
-      details = [
-        Text(
-          'Next: rep $upcoming, ${formatClock(target)} at '
-          '${formatKg(plan.targetForceKg)}'
-          '${target == planned ? '' : ' (planned ${formatClock(planned)})'}',
-          style: textTheme.bodyLarge,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _ForceReadout(force: forceText)),
-            const TareButton(),
-          ],
-        ),
-        if (loaded)
-          Text(
-            'The Crimpdeq reads more than '
-            '${HoldTracker.thresholdKg.toStringAsFixed(0)} kg at rest, so the '
-            'next hang would start at once. Release it, or tare it unloaded.',
-            style: textTheme.bodyMedium?.copyWith(color: colorScheme.error),
-          )
-        else if ((currentKg ?? 0).abs() > _unloadedToleranceKg)
-          Text(
-            'It reads ${formatKg(currentKg!)} unloaded: tare it, so the '
-            'forces start from zero.',
-            style: textTheme.bodySmall,
-          ),
-      ];
+      progress = 1 - workout.restRemainingSeconds / plan.restSeconds;
+      instruction = Text(
+        'Next: rep $upcoming, ${formatClock(target)} at '
+        '${formatKg(plan.targetForceKg)}'
+        '${target == planned ? '' : ' (planned ${formatClock(planned)})'}',
+        style: textTheme.bodyLarge,
+        textAlign: TextAlign.center,
+      );
+      // A reading above the threshold through the rest is taken for a load
+      // left on, which the next hold waits to drop.
+      warning = (currentKg ?? 0) > thresholdKg
+          ? Text(
+              'The Crimpdeq reads more than ${formatKg(thresholdKg)} at '
+              'rest, so the next hold waits for you to release it. Release '
+              'it, or tare it unloaded.',
+              style: textTheme.bodyMedium?.copyWith(color: colorScheme.error),
+            )
+          : (currentKg ?? 0).abs() > _unloadedToleranceKg
+          ? Text(
+              'It reads ${formatKg(currentKg!)} unloaded: tare it, so the '
+              'forces start from zero.',
+              style: textTheme.bodySmall,
+            )
+          : null;
     }
 
     final bigButton = FilledButton.styleFrom(
@@ -651,19 +639,30 @@ class _WorkoutTimer extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            ...details,
+            instruction,
+            const SizedBox(height: 12),
+            LiveForceGraph(
+              trace: workout.forceTrace,
+              currentKg: currentKg,
+              target: (
+                kg: plan.targetForceKg,
+                thresholdKg: thresholdKg,
+                section: plan.section,
+              ),
+            ),
+            ?warning,
             const SizedBox(height: 16),
             RepBars(
               targets: targets,
               actual: [
                 ...workout.actualSeconds,
-                if (hanging) workout.heldSeconds,
+                if (holdPhase) workout.heldSeconds,
               ],
               color: sectionColors[plan.section]!,
             ),
             const SizedBox(height: 16),
             // Before the pull, ending the rep is the same as skipping it.
-            if (hanging && workout.holding)
+            if (holdPhase && workout.holding)
               FilledButton(
                 onPressed: notifier.finishRep,
                 style: bigButton,
@@ -673,7 +672,7 @@ class _WorkoutTimer extends ConsumerWidget {
                       : 'Finished Now',
                 ),
               )
-            else if (!hanging)
+            else if (!holdPhase)
               FilledButton.icon(
                 onPressed: notifier.togglePause,
                 style: bigButton,
@@ -695,13 +694,7 @@ class _WorkoutTimer extends ConsumerWidget {
                   child: OutlinedButton.icon(
                     onPressed: notifier.skip,
                     icon: const Icon(Icons.skip_next),
-                    label: Text(
-                      hanging
-                          ? 'Skip Rep'
-                          : preRest
-                          ? 'Start Now'
-                          : 'Skip Rest',
-                    ),
+                    label: Text(holdPhase ? 'Skip Rep' : 'Skip Rest'),
                   ),
                 ),
               ],
@@ -760,38 +753,6 @@ class _PhasePill extends StatelessWidget {
           letterSpacing: 1.2,
         ),
       ),
-    );
-  }
-}
-
-/// The current force, large, with the target during a hang.
-class _ForceReadout extends StatelessWidget {
-  const _ForceReadout({required this.force, this.targetKg});
-
-  final String force;
-  final double? targetKg;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final targetKg = this.targetKg;
-    return Row(
-      mainAxisAlignment: targetKg == null
-          ? MainAxisAlignment.start
-          : MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
-      children: [
-        Text('Force ', style: textTheme.bodyMedium),
-        Text(
-          force,
-          style: textTheme.headlineSmall?.copyWith(
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-        if (targetKg != null)
-          Text(' / ${formatKg(targetKg)}', style: textTheme.bodyMedium),
-      ],
     );
   }
 }
@@ -886,7 +847,7 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
               value: meanForceKg == null ? '—' : formatKg(meanForceKg),
             ),
             StatTile(
-              label: 'Hang',
+              label: 'Hold',
               value: '${meanActual.round()} / ${meanTarget.round()} s',
             ),
             StatTile(

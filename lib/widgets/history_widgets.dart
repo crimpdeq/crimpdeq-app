@@ -193,7 +193,7 @@ class _Entry extends StatelessWidget {
                           value: held ? formatKg(forceKg) : '—',
                         ),
                         StatTile(
-                          label: 'Hang',
+                          label: 'Hold',
                           value:
                               '${workout.meanActualSeconds.round()}'
                               ' / ${workout.meanTargetSeconds.round()} s',

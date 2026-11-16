@@ -3,8 +3,9 @@ import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../analysis/hold_tracker.dart';
+import '../analysis/force_trace.dart';
 import '../analysis/opengrips_curve.dart';
+import 'training_common.dart';
 
 /// OpenGrips colors of the curve sections.
 const sectionColors = {
@@ -184,41 +185,68 @@ class TargetWorkoutGraph extends StatelessWidget {
   }
 }
 
-/// The current rep's force, against the target force and the force the hang
-/// counts above.
+/// The force of the latest [ForceTrace.windowSeconds], the newest at the
+/// right, under the current force, centered, and a tare button. With a
+/// [target], also its force and the threshold the hold counts above.
 class LiveForceGraph extends StatelessWidget {
   const LiveForceGraph({
     super.key,
     required this.trace,
-    required this.targetKg,
-    required this.section,
+    required this.currentKg,
+    this.target,
   });
 
   final List<FlSpot> trace;
-  final double targetKg;
-  final CurveSection section;
+
+  /// Null without a reading.
+  final double? currentKg;
+  final ({double kg, double thresholdKg, CurveSection section})? target;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final targetColor = sectionColors[section]!;
+    final textTheme = Theme.of(context).textTheme;
+    final target = this.target;
+    final currentKg = this.currentKg;
+    final targetColor = target == null ? null : sectionColors[target.section]!;
+    // Seconds before the newest point, so the window scrolls with the force.
+    final newestX = trace.lastOrNull?.x ?? 0;
+    final spots = [for (final spot in trace) FlSpot(spot.x - newestX, spot.y)];
     final peakKg = trace.fold(0.0, (peak, spot) => max(peak, spot.y));
     return Column(
       children: [
+        Row(
+          children: [
+            const Spacer(),
+            Text(
+              currentKg == null ? '—' : formatKg(currentKg),
+              style: textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            const Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: FittedBox(fit: BoxFit.scaleDown, child: TareButton()),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         SizedBox(
           height: 200,
           child: LineChart(
             duration: Duration.zero,
             LineChartData(
-              minX: 0,
-              // Grows with the rep, from 10 s.
-              maxX: max(10, trace.lastOrNull?.x ?? 0),
+              minX: -ForceTrace.windowSeconds.toDouble(),
+              maxX: 0,
               minY: 0,
-              maxY: max(targetKg * 1.25, peakKg * 1.1),
+              maxY: max((target?.kg ?? 8) * 1.25, peakKg * 1.1),
               clipData: const FlClipData.all(),
               lineBarsData: [
                 LineChartBarData(
-                  spots: trace,
+                  spots: spots,
                   color: colorScheme.primary,
                   barWidth: 2.5,
                   dotData: const FlDotData(show: false),
@@ -230,17 +258,19 @@ class LiveForceGraph extends StatelessWidget {
               ],
               extraLinesData: ExtraLinesData(
                 horizontalLines: [
-                  HorizontalLine(
-                    y: targetKg,
-                    color: targetColor,
-                    strokeWidth: 2,
-                  ),
-                  HorizontalLine(
-                    y: HoldTracker.thresholdKg,
-                    color: targetColor.withValues(alpha: 0.7),
-                    strokeWidth: 1.5,
-                    dashArray: [6, 4],
-                  ),
+                  if (target != null) ...[
+                    HorizontalLine(
+                      y: target.kg,
+                      color: targetColor,
+                      strokeWidth: 2,
+                    ),
+                    HorizontalLine(
+                      y: target.thresholdKg,
+                      color: targetColor!.withValues(alpha: 0.7),
+                      strokeWidth: 1.5,
+                      dashArray: [6, 4],
+                    ),
+                  ],
                 ],
               ),
               lineTouchData: const LineTouchData(enabled: false),
@@ -256,6 +286,7 @@ class LiveForceGraph extends StatelessWidget {
                 bottomTitles: _titles(
                   context,
                   (value) => '${value.round()} s',
+                  interval: 5,
                   maxIncluded: false,
                 ),
               ),
@@ -264,20 +295,21 @@ class LiveForceGraph extends StatelessWidget {
             ),
           ),
         ),
-        _Legend([
-          (colorScheme.primary, 'Force'),
-          (targetColor, 'Target ${targetKg.toStringAsFixed(1)} kg'),
-          (
-            targetColor.withValues(alpha: 0.7),
-            '${HoldTracker.thresholdKg.toStringAsFixed(0)} kg: hang counts',
-          ),
-        ]),
+        if (target != null)
+          _Legend([
+            (colorScheme.primary, 'Force'),
+            (targetColor!, 'Target ${formatKg(target.kg)}'),
+            (
+              targetColor.withValues(alpha: 0.7),
+              '${formatKg(target.thresholdKg)}: hold counts',
+            ),
+          ]),
       ],
     );
   }
 }
 
-/// Past workouts by force and first hang, against the ideal force curve.
+/// Past workouts by force and first hold, against the ideal force curve.
 /// With a [section], also its force range and the target force.
 class ForceCurveGraph extends StatelessWidget {
   const ForceCurveGraph({
@@ -419,7 +451,7 @@ class ForceCurveGraph extends StatelessWidget {
         ),
         _Legend([
           (_idealCurveColor, 'Ideal force curve'),
-          (_workoutColor, 'First hangs'),
+          (_workoutColor, 'First holds'),
           if (section != null)
             (sectionColors[section]!, '${section.label} range and target'),
         ]),

@@ -1,6 +1,8 @@
+import 'package:crimpdeq/analysis/force_trace.dart';
 import 'package:crimpdeq/analysis/hold_tracker.dart';
 import 'package:crimpdeq/analysis/opengrips_curve.dart';
 import 'package:crimpdeq/models/progressor_models.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Samples every 100 ms from [startMs], one per weight.
@@ -165,7 +167,7 @@ void main() {
 
   group('HoldTracker', () {
     test('counts the time pulling more than 2 kg until released', () {
-      final tracker = HoldTracker();
+      final tracker = HoldTracker(thresholdKg: 2);
       _samples([
         ..._repeat(0, 0.5),
         ..._repeat(10, 3),
@@ -186,7 +188,7 @@ void main() {
     });
 
     test('waits for a load left on to drop first', () {
-      final tracker = HoldTracker(waitForRelease: true);
+      final tracker = HoldTracker(thresholdKg: 2, waitForRelease: true);
       _samples(_repeat(5, 2)).forEach(tracker.add);
       expect(tracker.started, isFalse);
       expect(tracker.waitForRelease, isTrue);
@@ -198,12 +200,45 @@ void main() {
       expect(tracker.heldSeconds, closeTo(1.9, 1e-9));
     });
 
-    test('waits for a pull of more than 2 kg', () {
-      final tracker = HoldTracker();
-      _samples(_repeat(2, 3)).forEach(tracker.add);
+    test('waits for a pull of more than the threshold', () {
+      final tracker = HoldTracker(thresholdKg: 5);
+      _samples(_repeat(5, 3)).forEach(tracker.add);
       expect(tracker.started, isFalse);
       expect(tracker.failed, isFalse);
       expect(tracker.meanKg, isNull);
+      _samples(_repeat(5.5, 1), startMs: 3000).forEach(tracker.add);
+      expect(tracker.started, isTrue);
+    });
+  });
+
+  group('ForceTrace', () {
+    test('keeps a mean point every 0.1 s of the latest 15 s', () {
+      final trace = ForceTrace();
+      // Samples every 50 ms, two per point.
+      trace.addAll([
+        for (var i = 0; i < 400; i++)
+          WeightMeasurement(
+            weightKg: i.isEven ? 10 : 12,
+            timestampUs: i * 50000,
+          ),
+      ]);
+      final points = trace.points;
+      expect(points.last.x, closeTo(19.9, 1e-9));
+      // From the last point before the window, so the line reaches its edge.
+      final fromX = points.last.x - ForceTrace.windowSeconds;
+      expect(points.first.x, lessThanOrEqualTo(fromX));
+      expect(points[1].x, greaterThan(fromX));
+      expect(points[1].y, 11);
+    });
+
+    test('continues after the timeline restarts', () {
+      final trace = ForceTrace();
+      _samples(_repeat(10, 2)).forEach((sample) => trace.addAll([sample]));
+      _samples(
+        _repeat(20, 1),
+        startMs: 0,
+      ).forEach((sample) => trace.addAll([sample]));
+      expect(trace.points.last, const FlSpot(2.8, 20));
     });
   });
 

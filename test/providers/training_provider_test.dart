@@ -7,7 +7,6 @@ import 'package:crimpdeq/protocol/progressor_protocol.dart';
 import 'package:crimpdeq/providers/progressor_provider.dart';
 import 'package:crimpdeq/providers/training_provider.dart';
 import 'package:crimpdeq/providers/workout_feedback_provider.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -104,14 +103,12 @@ void main() {
     final workout = container.read(workoutProvider.notifier);
     WorkoutState state() => container.read(workoutProvider);
 
+    // The first hold, without a rest before it.
     await workout.start(plan);
-    expect(state().phase, WorkoutPhase.preRest);
-    expect(state().restRemainingSeconds, 3);
-    await tester.pump(const Duration(seconds: 3));
-    expect(state().phase, WorkoutPhase.hang);
+    expect(state().phase, WorkoutPhase.hold);
     expect(state().rep, 1);
 
-    // The hang starts with a pull of more than 2 kg.
+    // The hold starts with a pull of more than 2 kg.
     workout.addSamples(_pull(1.5, 1, 0));
     expect(state().holding, isFalse);
     workout.addSamples([..._pull(12, 15, 1000), ..._pull(0, 1.1, 16000)]);
@@ -127,16 +124,16 @@ void main() {
     expect(state().restRemainingSeconds, 1);
     workout.togglePause();
     await tester.pump(const Duration(seconds: 1));
-    expect(state().phase, WorkoutPhase.hang);
+    expect(state().phase, WorkoutPhase.hold);
     expect(state().rep, 2);
 
     workout.addSamples(_pull(14, 3, 20000));
-    // A new trace for each hang: a mean point every 0.1 s from its first
-    // sample, here one per sample.
+    // One trace through the holds and rests: a point every 0.1 s of the
+    // latest 15 s, here one per sample.
     final trace = state().forceTrace;
-    expect(trace.length, 30);
-    expect(trace.first, const FlSpot(0, 14));
-    expect(trace.last.x, closeTo(2.9, 1e-9));
+    expect(trace.first.x, inInclusiveRange(7.7, 7.9));
+    expect(trace.last.x, closeTo(22.9, 1e-9));
+    expect(trace.last.y, 14);
     workout.finishRep();
     workout.skip();
     expect(state().rep, 3);
@@ -193,9 +190,9 @@ void main() {
     addTearDown(container.dispose);
     final workout = container.read(workoutProvider.notifier);
 
-    // The pre-rest, both hangs and the rest between them.
+    // Both holds and the rest between them.
     await workout.start(plan.copyWith(reps: 2));
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < 3; i++) {
       workout.skip();
     }
     expect(container.read(workoutProvider).phase, WorkoutPhase.done);
@@ -209,7 +206,7 @@ void main() {
     // Leaving before the save is stored keeps the next workout unsaved.
     workout.reset();
     await workout.start(plan.copyWith(reps: 2));
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < 3; i++) {
       workout.skip();
     }
     final save = workout.save(perceivedExertion: 5, notes: '');
@@ -238,6 +235,10 @@ void main() {
     expect(recording.recording, isFalse);
     expect(recording.elapsedSeconds, 6.9);
     expect(recording.bestKg, closeTo(25, 1e-9));
+    // The force until the stop, one point per sample.
+    expect(recording.trace, hasLength(70));
+    expect(recording.trace.last.x, closeTo(6.9, 1e-9));
+    expect(recording.trace.last.y, 25);
   });
 
   testWidgets('keeps the reps done when the device disconnects', (
@@ -253,8 +254,11 @@ void main() {
 
     await workout.start(plan);
     device.link();
-    workout.skip();
-    workout.addSamples([..._pull(12, 5, 0), ..._pull(0, 1.1, 5000)]);
+    workout.addSamples([
+      ..._pull(0, 1, 0),
+      ..._pull(12, 5, 1000),
+      ..._pull(0, 1.1, 6000),
+    ]);
     expect(state().phase, WorkoutPhase.rest);
 
     device.drop();
@@ -319,8 +323,11 @@ void main() {
 
     await workout.start(plan);
     device.link();
-    workout.skip();
-    workout.addSamples([..._pull(12, 5, 0), ..._pull(0, 1.1, 5000)]);
+    workout.addSamples([
+      ..._pull(0, 1, 0),
+      ..._pull(12, 5, 1000),
+      ..._pull(0, 1.1, 6000),
+    ]);
     device.failStarts = true;
     device.setMeasuring(false);
     await tester.pump();
@@ -339,7 +346,7 @@ void main() {
     expect(container.read(benchmarkRecorderProvider).recording, isFalse);
   });
 
-  testWidgets('cues the rests and hangs and keeps the screen on', (
+  testWidgets('cues the rests and holds and keeps the screen on', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
@@ -349,19 +356,15 @@ void main() {
     final workout = container.read(workoutProvider.notifier);
     final events = feedback.events;
 
-    // A 6 s rest between reps, so its pre-rest lasts 3 s.
     await workout.start(plan.copyWith(restSeconds: 6, reps: 2));
-    expect(events, ['screen true']);
-    await tester.pump(const Duration(seconds: 3));
-    // 2 and 1 s left, then the hang starts.
-    expect(events.sublist(1), ['countdown', 'countdown', 'go']);
+    expect(events, ['screen true', 'go']);
     events.clear();
 
     // The 10 s target, reached once.
-    workout.addSamples(_pull(12, 10.2, 0));
-    workout.addSamples(_pull(12, 1, 10200));
+    workout.addSamples([..._pull(0, 1, 0), ..._pull(12, 10.2, 1000)]);
+    workout.addSamples(_pull(12, 1, 11200));
     expect(events, ['go']);
-    workout.addSamples(_pull(0, 1.1, 11200));
+    workout.addSamples(_pull(0, 1.1, 12200));
     // The 6 s rest: 5 s left, then 2 and 1 s.
     await tester.pump(const Duration(seconds: 6));
     expect(events.sublist(1), ['restWarning', 'countdown', 'countdown', 'go']);
@@ -373,7 +376,8 @@ void main() {
     await container.read(soundsMutedProvider.notifier).toggle();
     events.clear();
     await workout.start(plan);
-    await tester.pump(const Duration(seconds: 10));
+    workout.skip();
+    await tester.pump(const Duration(seconds: 6));
     expect(events, ['screen true']);
     await workout.stop();
     expect(events, ['screen true', 'screen false']);
@@ -386,9 +390,8 @@ void main() {
     addTearDown(container.dispose);
     final workout = container.read(workoutProvider.notifier);
 
-    await workout.start(plan.copyWith(restSeconds: 5));
-    await tester.pump(const Duration(seconds: 3));
-    expect(container.read(workoutProvider).phase, WorkoutPhase.hang);
+    await workout.start(plan);
+    expect(container.read(workoutProvider).phase, WorkoutPhase.hold);
     expect(feedback.events, ['screen true']);
     await workout.stop();
   });
@@ -450,15 +453,16 @@ void main() {
       final workout = container.read(workoutProvider.notifier);
       WorkoutState state() => container.read(workoutProvider);
 
-      // The 10 s pre-workout rest, loaded for its last seconds.
-      await workout.start(plan.copyWith(restSeconds: 20));
+      // The 10 s rest after the first rep, loaded for its last seconds.
+      await workout.start(plan.copyWith(restSeconds: 10));
+      workout.skip();
       final loadedFromMs = ((10 - loadedSeconds) * 1000).round();
       workout.addSamples([
         ..._pull(0, loadedFromMs / 1000, 0),
         ..._pull(5, loadedSeconds, loadedFromMs),
       ]);
       await tester.pump(const Duration(seconds: 10));
-      expect(state().phase, WorkoutPhase.hang);
+      expect(state().phase, WorkoutPhase.hold);
       expect(state().waitingForRelease, waits);
 
       workout.addSamples(_pull(5, 1, 10000));
@@ -467,33 +471,67 @@ void main() {
     });
   }
 
-  testWidgets('counts nothing after the rest until pulling more than 2 kg', (
-    tester,
-  ) async {
+  testWidgets('waits for a load on at the start to drop', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final container = _measuring();
     addTearDown(container.dispose);
     final workout = container.read(workoutProvider.notifier);
     WorkoutState state() => container.read(workoutProvider);
 
-    // A 6 s rest between reps, so the pre-workout rest lasts 3 s.
-    await workout.start(plan.copyWith(restSeconds: 6));
-    await tester.pump(const Duration(seconds: 3));
-    expect(state().phase, WorkoutPhase.hang);
+    await workout.start(plan);
+    // Until a sample shows the load, nothing is reported.
+    expect(state().waitingForRelease, isFalse);
+    workout.addSamples(_pull(5, 2, 0));
+    expect(state().waitingForRelease, isTrue);
+    expect(state().holding, isFalse);
 
-    // 10 s at 2 kg or less, as time passes.
+    workout.addSamples([..._pull(0, 0.5, 2000), ..._pull(5, 1, 2500)]);
+    expect(state().waitingForRelease, isFalse);
+    expect(state().holding, isTrue);
+    await workout.stop();
+  });
+
+  testWidgets('waits after the rest for a pull above the stored threshold', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'training.holdThresholdKg': 5.0});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final workout = container.read(workoutProvider.notifier);
+    WorkoutState state() => container.read(workoutProvider);
+
+    await workout.start(plan.copyWith(restSeconds: 6));
+    workout.skip();
+    await tester.pump(const Duration(seconds: 6));
+    expect(state().phase, WorkoutPhase.hold);
+    expect(state().rep, 2);
+
+    // 10 s at 5 kg or less, as time passes.
     for (var second = 0; second < 10; second++) {
-      workout.addSamples(_pull(second.isEven ? 2 : 0.5, 1, second * 1000));
+      workout.addSamples(_pull(second.isEven ? 5 : 0.5, 1, second * 1000));
       await tester.pump(const Duration(seconds: 1));
     }
     expect(state().holding, isFalse);
     expect(state().heldSeconds, 0);
-    expect(state().phase, WorkoutPhase.hang);
+    expect(state().phase, WorkoutPhase.hold);
 
-    // The first sample above 2 kg starts the hang, so 2 s of samples hold 1.9 s.
+    // The first sample above 5 kg starts the hold, so 2 s of samples hold
+    // 1.9 s.
     workout.addSamples(_pull(12, 2, 10000));
     expect(state().holding, isTrue);
     expect(state().heldSeconds, 1.9);
     await workout.stop();
+  });
+
+  testWidgets('stores the hold threshold', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    expect(await container.read(holdThresholdProvider.future), 2);
+    await container.read(holdThresholdProvider.notifier).set(3.5);
+
+    final reloaded = ProviderContainer();
+    addTearDown(reloaded.dispose);
+    expect(await reloaded.read(holdThresholdProvider.future), 3.5);
   });
 }

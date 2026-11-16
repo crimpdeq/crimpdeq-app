@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../analysis/hold_tracker.dart';
 import '../models/training_models.dart';
 import '../providers/progressor_provider.dart';
 import '../providers/training_provider.dart';
@@ -306,6 +307,10 @@ class ToolAndHand extends StatelessWidget {
 bool watchConnected(WidgetRef ref) => ref.watch(
   progressorProvider.select((state) => state.connection.isConnected),
 );
+
+/// The force a hold counts above, the default while it loads.
+double watchHoldThreshold(WidgetRef ref) =>
+    ref.watch(holdThresholdProvider).value ?? HoldTracker.defaultThresholdKg;
 
 /// Tares the Crimpdeq, unloaded, so the forces start from zero.
 class TareButton extends ConsumerWidget {

@@ -8,11 +8,12 @@ import '../providers/navigation_provider.dart';
 import '../providers/progressor_provider.dart';
 import '../providers/training_provider.dart';
 import 'connection_widgets.dart';
+import 'training_charts.dart';
 import 'training_common.dart';
 
-/// The lightest benchmark with a workout whose hangs count: the Power target,
-/// the balanced force, must pull more than the hang threshold.
-const _minBenchmarkKg = HoldTracker.thresholdKg / balancedRatio;
+/// The lightest benchmark with a workout whose holds count: the Power target,
+/// the balanced force, must pull more than the hold threshold.
+double _minBenchmarkKg(double thresholdKg) => thresholdKg / balancedRatio;
 
 /// OpenGrips benchmarks: the highest force held for 5 s with each tool and
 /// hand. The first one for a tool and hand unlocks its workouts.
@@ -103,7 +104,7 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
       );
   }
 
-  Future<void> _saveHold(String tool, Hand hand) async {
+  Future<void> _saveHold(String tool, Hand hand, double minBenchmarkKg) async {
     double? parse(TextEditingController field) =>
         double.tryParse(field.text.trim().replaceAll(',', '.'));
     final weightKg = parse(_weightKg);
@@ -117,10 +118,10 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
       return;
     }
     final benchmarkKg = deriveBenchmarkKg(weightKg, heldSeconds);
-    if (benchmarkKg <= _minBenchmarkKg) {
+    if (benchmarkKg <= minBenchmarkKg) {
       _showError(
         'The hold is a ${formatKg(benchmarkKg)} benchmark. A workout needs '
-        'more than ${formatKg(_minBenchmarkKg)}.',
+        'more than ${formatKg(minBenchmarkKg)}.',
       );
       return;
     }
@@ -139,8 +140,13 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
     final textTheme = theme.textTheme;
     final recording = ref.watch(benchmarkRecorderProvider);
     final recorder = ref.read(benchmarkRecorderProvider.notifier);
-    final currentKg = ref.watch(
-      progressorProvider.select((state) => state.measurement.currentKg),
+    final measurement = ref.watch(
+      progressorProvider.select(
+        (state) => (
+          isMeasuring: state.measurement.isMeasuring,
+          currentKg: state.measurement.currentKg,
+        ),
+      ),
     );
     final workoutRunning = ref.watch(
       workoutProvider.select((state) => state.isRunning),
@@ -153,7 +159,8 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
     final hand = selection.hand ?? latest?.hand;
     final selector = ref.read(benchmarkSelectionProvider.notifier);
     final bestKg = recording.bestKg;
-    final pulled = bestKg != null && bestKg > _minBenchmarkKg;
+    final minBenchmarkKg = _minBenchmarkKg(watchHoldThreshold(ref));
+    final pulled = bestKg != null && bestKg > minBenchmarkKg;
     final isConnected = watchConnected(ref);
     final windowSeconds =
         FiveSecondMax.windowUs / Duration.microsecondsPerSecond;
@@ -185,10 +192,6 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
               color: pulled ? theme.colorScheme.primary : null,
             ),
             StatTile(
-              label: 'Force',
-              value: currentKg == null ? '—' : formatKg(currentKg),
-            ),
-            StatTile(
               label: 'Time',
               value: '${recording.elapsedSeconds.toStringAsFixed(1)} s',
             ),
@@ -206,50 +209,45 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
               backgroundColor: theme.colorScheme.outlineVariant,
             ),
           ),
+          const SizedBox(height: 12),
+          LiveForceGraph(
+            trace: recording.trace,
+            // A stopped measurement's last reading is not the force now.
+            currentKg: measurement.isMeasuring ? measurement.currentKg : null,
+          ),
           if (!recording.recording && recording.elapsedSeconds > 0 && !pulled)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                'Pull more than ${formatKg(_minBenchmarkKg)} for at least 5 s.',
+                'Pull more than ${formatKg(minBenchmarkKg)} for at least 5 s.',
                 style: textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.error,
                 ),
               ),
             ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              const TareButton(),
-              const SizedBox(width: 8),
-              Expanded(
-                child: recording.recording
-                    ? FilledButton.icon(
-                        onPressed: recorder.stop,
-                        icon: const Icon(Icons.stop),
-                        label: const Text('Stop'),
-                        style: FilledButton.styleFrom(minimumSize: tall),
-                      )
-                    // Once pulled, saving is the next step.
-                    : pulled
-                    ? OutlinedButton.icon(
-                        onPressed: workoutRunning || !isConnected
-                            ? null
-                            : recorder.start,
-                        icon: const Icon(Icons.replay),
-                        label: const Text('Pull Again'),
-                        style: OutlinedButton.styleFrom(minimumSize: tall),
-                      )
-                    : FilledButton.icon(
-                        onPressed: workoutRunning || !isConnected
-                            ? null
-                            : recorder.start,
-                        icon: const Icon(Icons.fiber_manual_record),
-                        label: const Text('Start Pull'),
-                        style: FilledButton.styleFrom(minimumSize: tall),
-                      ),
-              ),
-            ],
-          ),
+          if (recording.recording)
+            FilledButton.icon(
+              onPressed: recorder.stop,
+              icon: const Icon(Icons.stop),
+              label: const Text('Stop'),
+              style: FilledButton.styleFrom(minimumSize: tall),
+            )
+          // Once pulled, saving is the next step.
+          else if (pulled)
+            OutlinedButton.icon(
+              onPressed: workoutRunning || !isConnected ? null : recorder.start,
+              icon: const Icon(Icons.replay),
+              label: const Text('Pull Again'),
+              style: OutlinedButton.styleFrom(minimumSize: tall),
+            )
+          else
+            FilledButton.icon(
+              onPressed: workoutRunning || !isConnected ? null : recorder.start,
+              icon: const Icon(Icons.fiber_manual_record),
+              label: const Text('Start Pull'),
+              style: FilledButton.styleFrom(minimumSize: tall),
+            ),
           const SizedBox(height: 8),
           FilledButton.icon(
             onPressed:
@@ -268,7 +266,7 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
         ExpansionTile(
           title: const Text('Enter a held weight instead'),
           subtitle: Text(
-            'From a hang with weights, without the Crimpdeq',
+            'From a hold with weights, without the Crimpdeq',
             style: textTheme.bodySmall,
           ),
           initiallyExpanded: !isConnected,
@@ -309,7 +307,7 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
             OutlinedButton(
               onPressed: tool == null || hand == null
                   ? null
-                  : () => _saveHold(tool, hand),
+                  : () => _saveHold(tool, hand, minBenchmarkKg),
               child: const Text('Save Hold'),
             ),
           ],

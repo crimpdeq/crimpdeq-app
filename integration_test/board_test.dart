@@ -209,9 +209,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // Workout: two reps, each ended by the simulated release.
-    // Each rest ends at another point of the simulated cycle, so a hang lasts
-    // up to the 6 s a pull stays above 2 kg.
-    void expectSimulatedHangs() {
+    // Each hold waits for the next simulated pull, so it lasts up to the 6 s
+    // a pull stays above 2 kg.
+    void expectSimulatedHolds() {
       expect(workout().actualSeconds, hasLength(2));
       for (final seconds in workout().actualSeconds) {
         expect(seconds, inExclusiveRange(0, 6.5));
@@ -236,8 +236,8 @@ void main() {
       await tester.pumpAndSettle();
       await tap(find.widgetWithText(FilledButton, 'Start Workout'));
       await waitUntil(
-        () => workout().phase == WorkoutPhase.preRest,
-        'the pre-workout rest',
+        () => workout().phase == WorkoutPhase.hold,
+        'the first hold',
       );
     }
 
@@ -248,9 +248,9 @@ void main() {
       timeout: const Duration(seconds: 45),
     );
     debugPrint(
-      'Hangs: ${workout().actualSeconds}, ${workout().meanForceKg} kg',
+      'Holds: ${workout().actualSeconds}, ${workout().meanForceKg} kg',
     );
-    expectSimulatedHangs();
+    expectSimulatedHolds();
     expect(workout().meanForceKg, isNotNull);
     // The workout started the measurement, so it stops it.
     await waitUntil(
@@ -294,11 +294,11 @@ void main() {
     await waitUntil(
       () => workout().phase == WorkoutPhase.rest,
       'the rest after the first rep',
-      // After the 30 s pre-workout rest, half the rest.
-      timeout: const Duration(seconds: 60),
+      // The first simulated pull and its release.
+      timeout: const Duration(seconds: 20),
     );
     await waitUntil(() => force() > 10, 'a pull during the rest');
-    expect(find.textContaining('more than 2 kg at rest'), findsOne);
+    expect(find.textContaining('more than 2.0 kg at rest'), findsOne);
     await tap(find.widgetWithText(OutlinedButton, 'Tare'));
     final offsetKg = await waitForRest('the rest after the tare mid-pull');
     expect(offsetKg, lessThan(-5));
@@ -320,7 +320,7 @@ void main() {
       'the workout to stop',
     );
 
-    // The hangs time alike at the highest sample rate, whose stored setting
+    // The holds time alike at the highest sample rate, whose stored setting
     // the test restores.
     Future<void> setSampleRate(int samplesPerSecond) async {
       await openDeviceTools();
@@ -365,12 +365,12 @@ void main() {
       receivedHz.sort();
       final medianHz = receivedHz[receivedHz.length ~/ 2];
       debugPrint(
-        'Hangs at 1000 SPS: ${workout().actualSeconds}, received '
+        'Holds at 1000 SPS: ${workout().actualSeconds}, received '
         '${receivedHz.first.round()}-${receivedHz.last.round()} Hz, '
         'median ${medianHz.round()} Hz',
       );
       expect(medianHz, greaterThan(900));
-      expectSimulatedHangs();
+      expectSimulatedHolds();
       await discardWorkout();
     } finally {
       await setSampleRate(sampleRate);
