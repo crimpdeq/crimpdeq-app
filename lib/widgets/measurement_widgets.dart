@@ -392,12 +392,19 @@ class PerformanceCard extends StatelessWidget {
                         : (value) {
                             if (value != null) onSampleRateChanged(value);
                           },
+                    // With the device's rate, which older firmware may set
+                    // outside the list.
                     items: [
-                      for (final MapEntry(key: rate, value: useCase)
-                          in AppConstants.sampleRateUseCases.entries)
+                      for (final rate in {
+                        ...AppConstants.sampleRateUseCases.keys,
+                        sampleRate,
+                      })
                         DropdownMenuItem(
                           value: rate,
-                          child: Text('$useCase · $rate SPS'),
+                          child: Text(
+                            '${AppConstants.sampleRateUseCases[rate] ?? 'Device'}'
+                            ' · $rate SPS',
+                          ),
                         ),
                     ],
                   ),
