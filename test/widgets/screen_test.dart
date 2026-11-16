@@ -1098,6 +1098,34 @@ void main() {
     expect(find.text('7.5 kg'), findsOneWidget);
   });
 
+  testWidgets('hides the saved benchmark message after a while', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await _pumpScreen(
+      tester,
+      const ProgressorState(connection: DeviceConnection(bluetoothReady: true)),
+      deviceTools: false,
+    );
+    await _openPage(tester, 'Benchmarks');
+    await _select(tester, 'Photon');
+    await _select(tester, 'Right');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Weight held (kg)'),
+      '30',
+    );
+    final save = find.widgetWithText(OutlinedButton, 'Save Hold');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Benchmark saved'), findsOne);
+
+    // Its action does not keep it on screen.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Benchmark saved'), findsNothing);
+  });
+
   testWidgets('compares benchmarks with the previous and best ones', (
     tester,
   ) async {

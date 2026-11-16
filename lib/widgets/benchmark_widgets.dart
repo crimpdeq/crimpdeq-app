@@ -96,6 +96,9 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
             label: 'Open Workout',
             onPressed: () => pages.open(TrainingPage.workout),
           ),
+          // With an action it would stay until dismissed; the action is a
+          // shortcut, so it times out like the other messages.
+          persist: false,
         ),
       );
   }
