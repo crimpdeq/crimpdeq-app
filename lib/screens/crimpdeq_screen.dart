@@ -5,15 +5,23 @@ import '../providers/navigation_provider.dart';
 import '../providers/progressor_provider.dart';
 import '../providers/theme_mode_provider.dart';
 import '../providers/training_provider.dart';
+import '../providers/warmup_provider.dart';
 import '../theme.dart';
 import '../widgets/benchmark_widgets.dart';
 import '../widgets/calibration_widgets.dart';
 import '../widgets/connection_widgets.dart';
 import '../widgets/history_widgets.dart';
 import '../widgets/measurement_widgets.dart';
+import '../widgets/warmup_widgets.dart';
 import '../widgets/workout_widgets.dart';
 
 const _pages = {
+  TrainingPage.warmup: (
+    'Warm-up',
+    Icons.local_fire_department_outlined,
+    Icons.local_fire_department,
+    WarmupTab(),
+  ),
   TrainingPage.workout: (
     'Workout',
     Icons.timer_outlined,
@@ -41,15 +49,15 @@ class CrimpdeqScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final page = ref.watch(trainingPageProvider);
-    // A running workout keeps the whole screen, and cannot be left by a
-    // stray tap.
-    final workoutRunning = ref.watch(
-      workoutProvider.select((state) => state.isRunning),
-    );
+    // A running workout or warm-up keeps the whole screen, and cannot be
+    // left by a stray tap.
+    final running =
+        ref.watch(workoutProvider.select((state) => state.isRunning)) ||
+        ref.watch(warmupProvider.select((state) => state.isRunning));
 
     return Scaffold(
       appBar: const _CrimpdeqAppBar(),
-      bottomNavigationBar: workoutRunning
+      bottomNavigationBar: running
           ? null
           : NavigationBar(
               selectedIndex: page.index,

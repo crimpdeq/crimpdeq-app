@@ -585,6 +585,328 @@ $WorkoutPlanCopyWith<$Res>? get plan {
 }
 
 /// @nodoc
+mixin _$WarmupState {
+
+ WarmupKind? get kind; List<WarmupStep> get steps; WorkoutPhase get phase;/// Current step, or the next one during its rest. 0-based.
+ int get step; int get restRemainingSeconds; bool get paused; bool get holding; bool get waitingForRelease; double get heldSeconds; List<FlSpot> get forceTrace;/// Best 5 s of each step done, null for a hold at a force or a maximal
+/// pull under 5 s.
+ List<double?> get bestKg;/// The readiness check is stored in the training log.
+ bool get saved; WorkoutEnd? get endedEarly;
+/// Create a copy of WarmupState
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$WarmupStateCopyWith<WarmupState> get copyWith => _$WarmupStateCopyWithImpl<WarmupState>(this as WarmupState, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  final _this = this as WarmupState;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WarmupState&&(identical(other.kind, _this.kind) || other.kind == _this.kind)&&const DeepCollectionEquality().equals(other.steps, _this.steps)&&(identical(other.phase, _this.phase) || other.phase == _this.phase)&&(identical(other.step, _this.step) || other.step == _this.step)&&(identical(other.restRemainingSeconds, _this.restRemainingSeconds) || other.restRemainingSeconds == _this.restRemainingSeconds)&&(identical(other.paused, _this.paused) || other.paused == _this.paused)&&(identical(other.holding, _this.holding) || other.holding == _this.holding)&&(identical(other.waitingForRelease, _this.waitingForRelease) || other.waitingForRelease == _this.waitingForRelease)&&(identical(other.heldSeconds, _this.heldSeconds) || other.heldSeconds == _this.heldSeconds)&&const DeepCollectionEquality().equals(other.forceTrace, _this.forceTrace)&&const DeepCollectionEquality().equals(other.bestKg, _this.bestKg)&&(identical(other.saved, _this.saved) || other.saved == _this.saved)&&(identical(other.endedEarly, _this.endedEarly) || other.endedEarly == _this.endedEarly));
+}
+
+
+@override
+int get hashCode {
+  final _this = this as WarmupState;
+  return Object.hash(runtimeType,_this.kind,const DeepCollectionEquality().hash(_this.steps),_this.phase,_this.step,_this.restRemainingSeconds,_this.paused,_this.holding,_this.waitingForRelease,_this.heldSeconds,const DeepCollectionEquality().hash(_this.forceTrace),const DeepCollectionEquality().hash(_this.bestKg),_this.saved,_this.endedEarly);
+}
+
+@override
+String toString() {
+  final _this = this as WarmupState;
+  return 'WarmupState(kind: ${_this.kind}, steps: ${_this.steps}, phase: ${_this.phase}, step: ${_this.step}, restRemainingSeconds: ${_this.restRemainingSeconds}, paused: ${_this.paused}, holding: ${_this.holding}, waitingForRelease: ${_this.waitingForRelease}, heldSeconds: ${_this.heldSeconds}, forceTrace: ${_this.forceTrace}, bestKg: ${_this.bestKg}, saved: ${_this.saved}, endedEarly: ${_this.endedEarly})';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $WarmupStateCopyWith<$Res>  {
+  factory $WarmupStateCopyWith(WarmupState value, $Res Function(WarmupState) _then) = _$WarmupStateCopyWithImpl;
+@useResult
+$Res call({
+ WarmupKind? kind, List<WarmupStep> steps, WorkoutPhase phase, int step, int restRemainingSeconds, bool paused, bool holding, bool waitingForRelease, double heldSeconds, List<FlSpot> forceTrace, List<double?> bestKg, bool saved, WorkoutEnd? endedEarly
+});
+
+
+
+
+}
+/// @nodoc
+class _$WarmupStateCopyWithImpl<$Res>
+    implements $WarmupStateCopyWith<$Res> {
+  _$WarmupStateCopyWithImpl(this._self, this._then);
+
+  final WarmupState _self;
+  final $Res Function(WarmupState) _then;
+
+/// Create a copy of WarmupState
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? kind = freezed,Object? steps = null,Object? phase = null,Object? step = null,Object? restRemainingSeconds = null,Object? paused = null,Object? holding = null,Object? waitingForRelease = null,Object? heldSeconds = null,Object? forceTrace = null,Object? bestKg = null,Object? saved = null,Object? endedEarly = freezed,}) {
+  return _then(WarmupState(
+kind: freezed == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
+as WarmupKind?,steps: null == steps ? _self.steps : steps // ignore: cast_nullable_to_non_nullable
+as List<WarmupStep>,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
+as WorkoutPhase,step: null == step ? _self.step : step // ignore: cast_nullable_to_non_nullable
+as int,restRemainingSeconds: null == restRemainingSeconds ? _self.restRemainingSeconds : restRemainingSeconds // ignore: cast_nullable_to_non_nullable
+as int,paused: null == paused ? _self.paused : paused // ignore: cast_nullable_to_non_nullable
+as bool,holding: null == holding ? _self.holding : holding // ignore: cast_nullable_to_non_nullable
+as bool,waitingForRelease: null == waitingForRelease ? _self.waitingForRelease : waitingForRelease // ignore: cast_nullable_to_non_nullable
+as bool,heldSeconds: null == heldSeconds ? _self.heldSeconds : heldSeconds // ignore: cast_nullable_to_non_nullable
+as double,forceTrace: null == forceTrace ? _self.forceTrace : forceTrace // ignore: cast_nullable_to_non_nullable
+as List<FlSpot>,bestKg: null == bestKg ? _self.bestKg : bestKg // ignore: cast_nullable_to_non_nullable
+as List<double?>,saved: null == saved ? _self.saved : saved // ignore: cast_nullable_to_non_nullable
+as bool,endedEarly: freezed == endedEarly ? _self.endedEarly : endedEarly // ignore: cast_nullable_to_non_nullable
+as WorkoutEnd?,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [WarmupState].
+extension WarmupStatePatterns on WarmupState {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _WarmupState value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _WarmupState() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _WarmupState value)  $default,){
+final _that = this;
+switch (_that) {
+case _WarmupState():
+return $default(_that);}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _WarmupState value)?  $default,){
+final _that = this;
+switch (_that) {
+case _WarmupState() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( WarmupKind? kind,  List<WarmupStep> steps,  WorkoutPhase phase,  int step,  int restRemainingSeconds,  bool paused,  bool holding,  bool waitingForRelease,  double heldSeconds,  List<FlSpot> forceTrace,  List<double?> bestKg,  bool saved,  WorkoutEnd? endedEarly)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _WarmupState() when $default != null:
+return $default(_that.kind,_that.steps,_that.phase,_that.step,_that.restRemainingSeconds,_that.paused,_that.holding,_that.waitingForRelease,_that.heldSeconds,_that.forceTrace,_that.bestKg,_that.saved,_that.endedEarly);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( WarmupKind? kind,  List<WarmupStep> steps,  WorkoutPhase phase,  int step,  int restRemainingSeconds,  bool paused,  bool holding,  bool waitingForRelease,  double heldSeconds,  List<FlSpot> forceTrace,  List<double?> bestKg,  bool saved,  WorkoutEnd? endedEarly)  $default,) {final _that = this;
+switch (_that) {
+case _WarmupState():
+return $default(_that.kind,_that.steps,_that.phase,_that.step,_that.restRemainingSeconds,_that.paused,_that.holding,_that.waitingForRelease,_that.heldSeconds,_that.forceTrace,_that.bestKg,_that.saved,_that.endedEarly);}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( WarmupKind? kind,  List<WarmupStep> steps,  WorkoutPhase phase,  int step,  int restRemainingSeconds,  bool paused,  bool holding,  bool waitingForRelease,  double heldSeconds,  List<FlSpot> forceTrace,  List<double?> bestKg,  bool saved,  WorkoutEnd? endedEarly)?  $default,) {final _that = this;
+switch (_that) {
+case _WarmupState() when $default != null:
+return $default(_that.kind,_that.steps,_that.phase,_that.step,_that.restRemainingSeconds,_that.paused,_that.holding,_that.waitingForRelease,_that.heldSeconds,_that.forceTrace,_that.bestKg,_that.saved,_that.endedEarly);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+
+
+class _WarmupState extends WarmupState {
+  const _WarmupState({this.kind,  List<WarmupStep> steps = const [], this.phase = WorkoutPhase.idle, this.step = 0, this.restRemainingSeconds = 0, this.paused = false, this.holding = false, this.waitingForRelease = false, this.heldSeconds = 0.0,  List<FlSpot> forceTrace = const [],  List<double?> bestKg = const [], this.saved = false, this.endedEarly}): _steps = steps,_forceTrace = forceTrace,_bestKg = bestKg,super._();
+  
+
+@override final  WarmupKind? kind;
+ final  List<WarmupStep> _steps;
+@override@JsonKey() List<WarmupStep> get steps {
+  if (_steps is EqualUnmodifiableListView) return _steps;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_steps);
+}
+
+@override@JsonKey() final  WorkoutPhase phase;
+/// Current step, or the next one during its rest. 0-based.
+@override@JsonKey() final  int step;
+@override@JsonKey() final  int restRemainingSeconds;
+@override@JsonKey() final  bool paused;
+@override@JsonKey() final  bool holding;
+@override@JsonKey() final  bool waitingForRelease;
+@override@JsonKey() final  double heldSeconds;
+ final  List<FlSpot> _forceTrace;
+@override@JsonKey() List<FlSpot> get forceTrace {
+  if (_forceTrace is EqualUnmodifiableListView) return _forceTrace;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_forceTrace);
+}
+
+/// Best 5 s of each step done, null for a hold at a force or a maximal
+/// pull under 5 s.
+ final  List<double?> _bestKg;
+/// Best 5 s of each step done, null for a hold at a force or a maximal
+/// pull under 5 s.
+@override@JsonKey() List<double?> get bestKg {
+  if (_bestKg is EqualUnmodifiableListView) return _bestKg;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_bestKg);
+}
+
+/// The readiness check is stored in the training log.
+@override@JsonKey() final  bool saved;
+@override final  WorkoutEnd? endedEarly;
+
+/// Create a copy of WarmupState
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$WarmupStateCopyWith<_WarmupState> get copyWith => __$WarmupStateCopyWithImpl<_WarmupState>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _WarmupState&&(identical(other.kind, kind) || other.kind == kind)&&const DeepCollectionEquality().equals(other.steps, _steps)&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.step, step) || other.step == step)&&(identical(other.restRemainingSeconds, restRemainingSeconds) || other.restRemainingSeconds == restRemainingSeconds)&&(identical(other.paused, paused) || other.paused == paused)&&(identical(other.holding, holding) || other.holding == holding)&&(identical(other.waitingForRelease, waitingForRelease) || other.waitingForRelease == waitingForRelease)&&(identical(other.heldSeconds, heldSeconds) || other.heldSeconds == heldSeconds)&&const DeepCollectionEquality().equals(other.forceTrace, _forceTrace)&&const DeepCollectionEquality().equals(other.bestKg, _bestKg)&&(identical(other.saved, saved) || other.saved == saved)&&(identical(other.endedEarly, endedEarly) || other.endedEarly == endedEarly));
+}
+
+
+@override
+int get hashCode {
+    return Object.hash(runtimeType,kind,const DeepCollectionEquality().hash(_steps),phase,step,restRemainingSeconds,paused,holding,waitingForRelease,heldSeconds,const DeepCollectionEquality().hash(_forceTrace),const DeepCollectionEquality().hash(_bestKg),saved,endedEarly);
+}
+
+@override
+String toString() {
+    return 'WarmupState(kind: $kind, steps: $steps, phase: $phase, step: $step, restRemainingSeconds: $restRemainingSeconds, paused: $paused, holding: $holding, waitingForRelease: $waitingForRelease, heldSeconds: $heldSeconds, forceTrace: $forceTrace, bestKg: $bestKg, saved: $saved, endedEarly: $endedEarly)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$WarmupStateCopyWith<$Res> implements $WarmupStateCopyWith<$Res> {
+  factory _$WarmupStateCopyWith(_WarmupState value, $Res Function(_WarmupState) _then) = __$WarmupStateCopyWithImpl;
+@override @useResult
+$Res call({
+ WarmupKind? kind, List<WarmupStep> steps, WorkoutPhase phase, int step, int restRemainingSeconds, bool paused, bool holding, bool waitingForRelease, double heldSeconds, List<FlSpot> forceTrace, List<double?> bestKg, bool saved, WorkoutEnd? endedEarly
+});
+
+
+
+
+}
+/// @nodoc
+class __$WarmupStateCopyWithImpl<$Res>
+    implements _$WarmupStateCopyWith<$Res> {
+  __$WarmupStateCopyWithImpl(this._self, this._then);
+
+  final _WarmupState _self;
+  final $Res Function(_WarmupState) _then;
+
+/// Create a copy of WarmupState
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? kind = freezed,Object? steps = null,Object? phase = null,Object? step = null,Object? restRemainingSeconds = null,Object? paused = null,Object? holding = null,Object? waitingForRelease = null,Object? heldSeconds = null,Object? forceTrace = null,Object? bestKg = null,Object? saved = null,Object? endedEarly = freezed,}) {
+  return _then(_WarmupState(
+kind: freezed == kind ? _self.kind : kind // ignore: cast_nullable_to_non_nullable
+as WarmupKind?,steps: null == steps ? _self._steps : steps // ignore: cast_nullable_to_non_nullable
+as List<WarmupStep>,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
+as WorkoutPhase,step: null == step ? _self.step : step // ignore: cast_nullable_to_non_nullable
+as int,restRemainingSeconds: null == restRemainingSeconds ? _self.restRemainingSeconds : restRemainingSeconds // ignore: cast_nullable_to_non_nullable
+as int,paused: null == paused ? _self.paused : paused // ignore: cast_nullable_to_non_nullable
+as bool,holding: null == holding ? _self.holding : holding // ignore: cast_nullable_to_non_nullable
+as bool,waitingForRelease: null == waitingForRelease ? _self.waitingForRelease : waitingForRelease // ignore: cast_nullable_to_non_nullable
+as bool,heldSeconds: null == heldSeconds ? _self.heldSeconds : heldSeconds // ignore: cast_nullable_to_non_nullable
+as double,forceTrace: null == forceTrace ? _self._forceTrace : forceTrace // ignore: cast_nullable_to_non_nullable
+as List<FlSpot>,bestKg: null == bestKg ? _self._bestKg : bestKg // ignore: cast_nullable_to_non_nullable
+as List<double?>,saved: null == saved ? _self.saved : saved // ignore: cast_nullable_to_non_nullable
+as bool,endedEarly: freezed == endedEarly ? _self.endedEarly : endedEarly // ignore: cast_nullable_to_non_nullable
+as WorkoutEnd?,
+  ));
+}
+
+
+}
+
+/// @nodoc
 mixin _$WorkoutState {
 
  WorkoutPlan? get plan; WorkoutPhase get phase;/// Current rep, or the last one during a rest. 1-based.

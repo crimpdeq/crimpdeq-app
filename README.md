@@ -15,6 +15,12 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
 - Data visualization with charts
 - Training, following [OpenGrips](https://opengrips.xyz) with the Crimpdeq as the weight, on the
   navigation bar:
+  - Warm-up: before climbing (Spark, then Photon) or before gripper training (a ramp on one
+    tool, with a short 85% hold for heavy sessions), both hands alternating at fractions of the
+    benchmarks. Each hold ends at its target, never at failure, with the same timer and live
+    graph as a workout and a warning when the force overshoots. After a climbing warm-up, an
+    optional readiness check pulls Photon as hard as possible with each hand; its best 5 s
+    against the benchmark is stored as a readiness history, apart from benchmarks and workouts
   - Workout: the suggested workout type with its targets, a Start button above the fold, and a
     full-screen timer with sound cues and the screen kept on. Each hold waits for a pull above a
     threshold (2 kg by default, set in Customize), even once its rest is over, and a live graph
@@ -147,7 +153,7 @@ test/                  # Unit and widget tests
 - `flutter_riverpod`: State management
 - `fl_chart`: Data visualization
 - `permission_handler`: Opening the app settings
-- `shared_preferences`: Storing the training benchmarks and workouts
+- `shared_preferences`: Storing the training benchmarks, workouts and readiness checks
 - `audioplayers`: Workout sound cues (needs GStreamer to build for Linux)
 - `wakelock_plus`: Keeping the screen on during a workout
 - `freezed`: Code generation for immutable classes

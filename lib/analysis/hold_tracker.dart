@@ -61,6 +61,37 @@ class HoldTracker {
   }
 }
 
+/// Whether a load stays on through the end of a rest: on for [leftOnUs] is
+/// left on, such as a resting grip, not the next pull, which then waits for
+/// it to drop.
+class RestLoad {
+  RestLoad({required this.thresholdKg});
+
+  static const leftOnUs = 3000000;
+
+  final double thresholdKg;
+
+  // Device time since the force stayed above the threshold, and of the
+  // latest sample.
+  int? _loadedSinceUs;
+  int? _lastUs;
+
+  bool get leftOn {
+    final loadedSinceUs = _loadedSinceUs;
+    return loadedSinceUs != null && _lastUs! - loadedSinceUs >= leftOnUs;
+  }
+
+  void add(WeightMeasurement sample) {
+    final lastUs = _lastUs;
+    // A tare or restart moves the timeline back: the load starts over.
+    if (lastUs != null && sample.timestampUs < lastUs) _loadedSinceUs = null;
+    _lastUs = sample.timestampUs;
+    _loadedSinceUs = sample.weightKg > thresholdKg
+        ? _loadedSinceUs ?? sample.timestampUs
+        : null;
+  }
+}
+
 /// Highest mean force over any 5 s of a pull: the force the climber could
 /// hold for 5 s, which OpenGrips takes as the benchmark.
 class FiveSecondMax {

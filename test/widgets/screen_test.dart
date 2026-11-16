@@ -6,6 +6,7 @@ import 'package:crimpdeq/protocol/progressor_protocol.dart';
 import 'package:crimpdeq/providers/progressor_provider.dart';
 import 'package:crimpdeq/providers/theme_mode_provider.dart';
 import 'package:crimpdeq/providers/training_provider.dart';
+import 'package:crimpdeq/providers/warmup_provider.dart';
 import 'package:crimpdeq/screens/crimpdeq_screen.dart';
 import 'package:crimpdeq/theme.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -104,6 +105,18 @@ class _FixedWorkout extends WorkoutNotifier {
   void set(WorkoutState workout) => state = workout;
 }
 
+/// A warm-up in a fixed state.
+class _FixedWarmup extends WarmupNotifier {
+  _FixedWarmup(this.initialState);
+
+  final WarmupState initialState;
+
+  @override
+  WarmupState build() => initialState;
+
+  void set(WarmupState warmup) => state = warmup;
+}
+
 /// Opens the training pages, or the device tools from the app bar menu.
 Future<_FakeProgressor> _pumpScreen(
   WidgetTester tester,
@@ -194,6 +207,18 @@ CalibrationState _calibrationWith(CalibrationDetails details) =>
 const _benchmark =
     '{"date":"2026-10-26T10:00:00.000","tool":"Photon","hand":"right",'
     '"forceKg":30}';
+
+/// A benchmark for every tool and hand, which the warm-ups need.
+final _allBenchmarks = [
+  for (final (tool, hand, forceKg) in [
+    ('Photon', 'left', 20),
+    ('Photon', 'right', 30),
+    ('Spark', 'left', 40),
+    ('Spark', 'right', 50),
+  ])
+    '{"date":"2026-10-26T10:00:00.000","tool":"$tool","hand":"$hand",'
+        '"forceKg":$forceKg}',
+].join(',');
 
 void main() {
   // Measure the app bar with the bundled font instead of the test font.
@@ -1435,5 +1460,302 @@ void main() {
     container.read(themeModeProvider);
     await tester.pump();
     expect(container.read(themeModeProvider), ThemeMode.light);
+  });
+  testWidgets('asks for every benchmark a warm-up needs', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    await _openPage(tester, 'Warm-up');
+
+    expect(
+      find.text(
+        'The forces are fractions of your benchmarks. Record one for '
+        'Photon Left, Spark Left, Spark Right.',
+      ),
+      findsOne,
+    );
+    await _select(tester, 'Before training');
+    expect(
+      find.text(
+        'The forces are fractions of your benchmarks. Record one for '
+        'Photon Left.',
+      ),
+      findsOne,
+    );
+    expect(
+      find.text(
+        'No readiness checks yet. Run one after a climbing '
+        'warm-up.',
+      ),
+      findsOne,
+    );
+  });
+
+  testWidgets('shows the holds of each warm-up before it starts', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_allBenchmarks]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    await _openPage(tester, 'Warm-up');
+
+    // Before climbing: Spark, then Photon, 4:40 with the rests.
+    expect(find.text('10'), findsOne);
+    expect(find.text('04:40'), findsOne);
+    expect(find.text('75%'), findsOne);
+    expect(find.text('22.5 kg'), findsOne);
+    final start = find.widgetWithText(FilledButton, 'Start Warm-up');
+    await tester.ensureVisible(start);
+    expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+
+    // Before training a heavy session: 85% for 3 s more.
+    await tester.ensureVisible(find.text('Before training'));
+    await _select(tester, 'Before training');
+    await _select(tester, 'Spark');
+    expect(find.text('6'), findsOne);
+    expect(find.text('85%'), findsNothing);
+    await tester.tap(find.text('Heavy session'));
+    await tester.pumpAndSettle();
+    expect(find.text('8'), findsOne);
+    expect(find.text('85%'), findsOne);
+    expect(find.text('42.5 kg'), findsOne);
+  });
+
+  testWidgets('blocks a warm-up whose lightest hold cannot start', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_allBenchmarks]',
+      'training.holdThresholdKg': 7.0,
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    await _openPage(tester, 'Warm-up');
+    await _select(tester, 'Before training');
+
+    expect(
+      find.text(
+        'The lightest hold, 6.0 kg, is too light to start above 7.0 kg. '
+        'Lower the threshold in the workout Customize settings.',
+      ),
+      findsOne,
+    );
+    final start = find.widgetWithText(FilledButton, 'Start Warm-up');
+    await tester.ensureVisible(start);
+    expect(tester.widget<FilledButton>(start).onPressed, isNull);
+  });
+
+  const warmupStep = (
+    tool: 'Spark',
+    hand: Hand.left,
+    benchmarkKg: 40.0,
+    forceKg: 16.0,
+    seconds: 20,
+    restSeconds: 0,
+  );
+
+  testWidgets('keeps the whole screen for a running warm-up', (tester) async {
+    final warmup = _FixedWarmup(const WarmupState());
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        measurement: const MeasurementState(isMeasuring: true, currentKg: 19),
+      ),
+      deviceTools: false,
+      overrides: [warmupProvider.overrideWith(() => warmup)],
+    );
+    // Started from the Warm-up page, the timer opens it.
+    warmup.set(
+      const WarmupState(
+        kind: WarmupKind.climbing,
+        steps: [warmupStep, warmupStep],
+        phase: WorkoutPhase.hold,
+        holding: true,
+        heldSeconds: 4,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.text('HOLD'), findsOne);
+    expect(find.text('Before climbing · step 1 of 2'), findsOne);
+    expect(find.text('Spark · Left hand'), findsOne);
+    expect(find.text('00:16'), findsOne);
+    expect(find.text('Hold 00:20 at 16.0 kg (40%)'), findsOne);
+    // 19 kg is more than 15% over the 16 kg target.
+    expect(
+      find.text('Ease off to 16.0 kg: a warm-up stays far from your max.'),
+      findsOne,
+    );
+  });
+
+  testWidgets('fits the warm-up and its timer on a 360 dp phone', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_allBenchmarks]',
+      'training.readiness':
+          '[{"date":"2026-10-26T18:00:00.000","tool":"Photon","pulls":['
+          '{"hand":"left","forceKg":19,"benchmarkKg":20},'
+          '{"hand":"right","forceKg":27,"benchmarkKg":30}]}]',
+    });
+    final warmup = _FixedWarmup(const WarmupState());
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        measurement: const MeasurementState(isMeasuring: true, currentKg: 19),
+      ),
+      deviceTools: false,
+      overrides: [warmupProvider.overrideWith(() => warmup)],
+    );
+    await _openPage(tester, 'Warm-up');
+    // Rendering would fail on an overflow.
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpAndSettle();
+    await _select(tester, 'Before training');
+    await tester.tap(find.text('Heavy session'));
+    await tester.pumpAndSettle();
+
+    for (final phase in [WorkoutPhase.rest, WorkoutPhase.hold]) {
+      warmup.set(
+        WarmupState(
+          kind: WarmupKind.climbing,
+          steps: const [warmupStep, warmupStep],
+          phase: phase,
+          step: 1,
+          restRemainingSeconds: 10,
+          holding: true,
+        ),
+      );
+      await tester.pump();
+    }
+    expect(find.text('Spark · Left hand'), findsOne);
+  });
+
+  testWidgets('offers a readiness check after a climbing warm-up', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_allBenchmarks]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+      overrides: [
+        warmupProvider.overrideWith(
+          () => _FixedWarmup(
+            const WarmupState(
+              kind: WarmupKind.climbing,
+              steps: [warmupStep],
+              phase: WorkoutPhase.done,
+              bestKg: [null],
+            ),
+          ),
+        ),
+      ],
+    );
+
+    expect(find.byType(NavigationBar), findsOne);
+    await _openPage(tester, 'Warm-up');
+    expect(find.text('Warm-up complete'), findsOne);
+    final check = find.widgetWithText(FilledButton, 'Readiness Check');
+    await tester.ensureVisible(check);
+    expect(tester.widget<FilledButton>(check).onPressed, isNotNull);
+  });
+
+  testWidgets('shows a readiness check result', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+      overrides: [
+        warmupProvider.overrideWith(
+          () => _FixedWarmup(
+            WarmupState(
+              kind: WarmupKind.readiness,
+              steps: [
+                for (final hand in Hand.values)
+                  (
+                    tool: 'Photon',
+                    hand: hand,
+                    benchmarkKg: 30.0,
+                    forceKg: null,
+                    seconds: 6,
+                    restSeconds: 15,
+                  ),
+              ],
+              phase: WorkoutPhase.done,
+              bestKg: const [28.5, null],
+              saved: true,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    await _openPage(tester, 'Warm-up');
+    expect(find.text('Readiness check complete'), findsOne);
+    expect(
+      find.text('Left: 95% of your benchmark, 28.5 kg of 30.0 kg'),
+      findsOne,
+    );
+    expect(find.text('Right: held under 5 s, not measured'), findsOne);
+    expect(find.text('Saved to your readiness history.'), findsOne);
+  });
+
+  testWidgets('lists the readiness checks and deletes one', (tester) async {
+    String check(String date, double left, double right) =>
+        '{"date":"$date","tool":"Photon","pulls":['
+        '{"hand":"left","forceKg":$left,"benchmarkKg":20},'
+        '{"hand":"right","forceKg":$right,"benchmarkKg":30}]}';
+    SharedPreferences.setMockInitialValues({
+      'training.readiness':
+          '[${check('2026-10-26T18:00:00.000', 19, 27)},'
+          '${check('2026-10-27T18:00:00.000', 18, 30)}]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    await _openPage(tester, 'Warm-up');
+
+    // The newest first, against the previous check.
+    final latest = find.text(
+      'Left 90% (18.0 kg) · -5 pts vs previous\n'
+      'Right 100% (30.0 kg) · +10 pts vs previous',
+    );
+    await tester.ensureVisible(latest);
+    expect(latest, findsOne);
+    expect(find.text('Left 95% (19.0 kg)\nRight 90% (27.0 kg)'), findsOne);
+
+    await tester.tap(find.byTooltip('Delete readiness check').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Delete the readiness check?'), findsOne);
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    expect(latest, findsNothing);
+    final readiness = (await ProviderScope.containerOf(
+      tester.element(find.byType(CrimpdeqScreen)),
+    ).read(trainingLogProvider.future)).readiness;
+    expect(readiness.single.date, DateTime(2026, 10, 26, 18));
   });
 }

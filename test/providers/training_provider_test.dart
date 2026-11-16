@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:crimpdeq/analysis/opengrips_curve.dart';
+import 'package:crimpdeq/analysis/warmup.dart';
 import 'package:crimpdeq/models/progressor_models.dart';
 import 'package:crimpdeq/models/training_models.dart';
 import 'package:crimpdeq/protocol/progressor_protocol.dart';
 import 'package:crimpdeq/providers/progressor_provider.dart';
 import 'package:crimpdeq/providers/training_provider.dart';
+import 'package:crimpdeq/providers/warmup_provider.dart';
 import 'package:crimpdeq/providers/workout_feedback_provider.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -533,5 +535,161 @@ void main() {
     final reloaded = ProviderContainer();
     addTearDown(reloaded.dispose);
     expect(await reloaded.read(holdThresholdProvider.future), 3.5);
+  });
+  testWidgets('ends each warm-up hold at its target or release', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final feedback = _Feedback();
+    final container = _measuring(feedback);
+    addTearDown(container.dispose);
+    final warmup = container.read(warmupProvider.notifier);
+    WarmupState state() => container.read(warmupProvider);
+    const steps = <WarmupStep>[
+      (
+        tool: 'Spark',
+        hand: Hand.left,
+        benchmarkKg: 40,
+        forceKg: 16,
+        seconds: 3,
+        restSeconds: 0,
+      ),
+      (
+        tool: 'Spark',
+        hand: Hand.right,
+        benchmarkKg: 50,
+        forceKg: 20,
+        seconds: 2,
+        restSeconds: 4,
+      ),
+    ];
+
+    // The first hold, without a rest before it.
+    await warmup.start(WarmupKind.climbing, steps);
+    expect(state().phase, WorkoutPhase.hold);
+    expect(feedback.events, ['screen true', 'go']);
+
+    // 3 s held, so the rest starts without waiting for the release.
+    warmup.addSamples([..._pull(0, 0.5, 0), ..._pull(16, 4, 500)]);
+    expect(state().phase, WorkoutPhase.rest);
+    expect(state().step, 1);
+    expect(state().restRemainingSeconds, 4);
+    expect(state().bestKg, [null]);
+
+    await tester.pump(const Duration(seconds: 4));
+    expect(state().phase, WorkoutPhase.hold);
+    warmup.addSamples(_pull(20, 1, 10000));
+    expect(state().holding, isTrue);
+    expect(state().heldSeconds, 0.9);
+    // Released before the target, the last hold ends the warm-up.
+    warmup.addSamples(_pull(0, 1.1, 11000));
+    expect(state().phase, WorkoutPhase.done);
+    expect(state().bestKg, [null, null]);
+    expect(feedback.events, [
+      'screen true',
+      'go',
+      'go',
+      'countdown',
+      'countdown',
+      'go',
+      'screen false',
+    ]);
+
+    // A warm-up stores nothing.
+    await tester.pump();
+    expect(state().saved, isFalse);
+    expect((await container.read(trainingLogProvider.future)).readiness, []);
+  });
+
+  testWidgets('stores the readiness pulls of at least 5 s', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final warmup = container.read(warmupProvider.notifier);
+    WarmupState state() => container.read(warmupProvider);
+    final steps = readinessCheck([
+      for (final (hand, forceKg) in [(Hand.left, 20.0), (Hand.right, 30.0)])
+        Benchmark(
+          date: DateTime(2026, 10, 26),
+          tool: 'Photon',
+          hand: hand,
+          forceKg: forceKg,
+        ),
+    ]);
+
+    await warmup.start(WarmupKind.readiness, steps);
+    expect(state().phase, WorkoutPhase.rest);
+    expect(state().restRemainingSeconds, 180);
+    warmup.skip();
+    // The best 5 s of a 6 s pull, after its start.
+    warmup.addSamples([
+      ..._pull(0, 0.5, 0),
+      ..._pull(15, 1, 500),
+      ..._pull(18, 6, 1500),
+    ]);
+    expect(state().phase, WorkoutPhase.rest);
+    expect(state().bestKg, [18]);
+
+    // Under 5 s held, the right pull is not measured.
+    warmup.skip();
+    warmup.addSamples([..._pull(25, 3, 20000), ..._pull(0, 1.1, 23000)]);
+    expect(state().phase, WorkoutPhase.done);
+    expect(state().bestKg, [18, null]);
+
+    await tester.pump();
+    expect(state().saved, isTrue);
+    final reloaded = ProviderContainer();
+    addTearDown(reloaded.dispose);
+    final check = (await reloaded.read(trainingLogProvider.future)).readiness;
+    expect(check.single.tool, 'Photon');
+    expect(check.single.pulls, [
+      (hand: Hand.left, forceKg: 18.0, benchmarkKg: 20.0),
+    ]);
+  });
+
+  testWidgets('keeps the readiness pulls done when the device disconnects', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final warmup = container.read(warmupProvider.notifier);
+    final device =
+        container.read(progressorProvider.notifier) as _MeasuringProgressor;
+    WarmupState state() => container.read(warmupProvider);
+    final steps = readinessCheck([
+      for (final hand in Hand.values)
+        Benchmark(
+          date: DateTime(2026, 10, 26),
+          tool: 'Photon',
+          hand: hand,
+          forceKg: 30,
+        ),
+    ]);
+
+    await warmup.start(WarmupKind.readiness, steps);
+    device.link();
+    warmup.skip();
+    warmup.addSamples([..._pull(0, 0.5, 0), ..._pull(27, 6.5, 500)]);
+    device.drop();
+    expect(state().phase, WorkoutPhase.done);
+    expect(state().endedEarly, WorkoutEnd.disconnected);
+    // The rest timer stopped with it.
+    await tester.pump(const Duration(seconds: 20));
+    expect(state().phase, WorkoutPhase.done);
+    expect(state().saved, isTrue);
+    final readiness = (await container.read(trainingLogProvider.future))
+        .readiness;
+    expect(readiness.single.pulls.single.forceKg, 27);
+
+    // Stopping a running check stores nothing more.
+    warmup.reset();
+    await warmup.start(WarmupKind.readiness, steps);
+    await warmup.stop();
+    expect(state().phase, WorkoutPhase.idle);
+    expect(
+      (await container.read(trainingLogProvider.future)).readiness,
+      hasLength(1),
+    );
   });
 }
