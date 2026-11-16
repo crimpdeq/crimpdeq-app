@@ -15,6 +15,15 @@ const sectionColors = {
   CurveSection.power: Color(0xFFEF4444),
 };
 
+/// A section's color for text, darker on a light background, where yellow and
+/// orange lack contrast.
+Color sectionTextColor(BuildContext context, CurveSection section) {
+  final color = sectionColors[section]!;
+  return Theme.of(context).brightness == Brightness.light
+      ? Color.lerp(color, Colors.black, 0.3)!
+      : color;
+}
+
 const _idealCurveColor = Color(0xFFEF4444);
 const _workoutColor = Color(0xFFF97316);
 
@@ -311,7 +320,8 @@ class ForceCurveGraph extends StatelessWidget {
               minX: floorKg,
               maxX: benchmarkKg,
               minY: 0,
-              maxY: maxSeconds,
+              // Headroom, so the longest first hang's dot is not cut.
+              maxY: maxSeconds * 1.1,
               clipData: const FlClipData.all(),
               rangeAnnotations: RangeAnnotations(
                 verticalRangeAnnotations: [

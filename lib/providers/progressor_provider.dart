@@ -166,7 +166,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
           bluetoothReady: true,
           needsSettings: false,
           status: connection.device == null
-              ? 'Bluetooth ready - Press scan button'
+              ? 'Turn on the Crimpdeq, then scan for it.'
               : connection.status,
         );
       case BluetoothAdapterState.unauthorized:

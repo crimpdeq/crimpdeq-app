@@ -85,6 +85,26 @@ void main() {
       await tester.pump();
     }
 
+    Future<void> openDeviceTools() async {
+      await tap(find.byTooltip('More'));
+      await tester.pumpAndSettle();
+      await tap(find.text('Device tools'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> openPage(String label) async {
+      await tap(find.widgetWithText(NavigationDestination, label));
+      await tester.pumpAndSettle();
+    }
+
+    /// Discards the results of a workout, which asks first.
+    Future<void> discardWorkout() async {
+      await tap(find.widgetWithText(OutlinedButton, 'Discard'));
+      await tester.pumpAndSettle();
+      await tap(find.widgetWithText(TextButton, 'Discard'));
+      await tester.pumpAndSettle();
+    }
+
     Future<void> connect() async {
       await waitUntil(
         () => device().connection.bluetoothReady,
@@ -112,7 +132,7 @@ void main() {
 
     // Training is reachable without a device, and connects from the workout.
     await waitUntil(
-      () => find.text('Connect a Crimpdeq to start').evaluate().isNotEmpty,
+      () => find.text('Connect your Crimpdeq').evaluate().isNotEmpty,
       'the training part',
     );
     await connect();
@@ -126,9 +146,8 @@ void main() {
       'the battery',
     );
 
-    // Debugging: the measurement reaches the simulated peaks.
-    await tap(find.widgetWithText(NavigationDestination, 'Debugging'));
-    await tester.pumpAndSettle();
+    // Device tools: the measurement reaches the simulated peaks.
+    await openDeviceTools();
     expect(find.text('Calibration Model'), findsOne);
     await tap(find.text('Measurements'));
     await tester.pumpAndSettle();
@@ -164,19 +183,16 @@ void main() {
     );
 
     // Benchmark: a pull over two simulated cycles, the second to 30 kg.
-    await tap(find.widgetWithText(NavigationDestination, 'Training'));
+    await tester.pageBack();
     await tester.pumpAndSettle();
-    await tap(find.text('Benchmarks'));
-    await tester.pumpAndSettle();
-    Future<void> select<T>(String option) async {
-      await tap(find.byType(DropdownButton<T>).first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(option).last);
+    await openPage('Benchmarks');
+    Future<void> select(String option) async {
+      await tap(find.text(option).first);
       await tester.pumpAndSettle();
     }
 
-    await select<String>('Photon');
-    await select<Hand>('Right');
+    await select('Photon');
+    await select('Right');
     await tap(find.widgetWithText(FilledButton, 'Start Pull'));
     await waitUntil(
       () => container.read(benchmarkRecorderProvider).elapsedSeconds >= 17,
@@ -187,7 +203,7 @@ void main() {
     debugPrint('Best 5 s: $bestKg kg');
     // Two pulls of the 12 to 30 kg cycle, held for 4 s each.
     expect(bestKg, inInclusiveRange(15, 30));
-    await tap(find.widgetWithText(OutlinedButton, 'Save Benchmark'));
+    await tap(find.widgetWithText(FilledButton, 'Save Benchmark'));
     await tester.pumpAndSettle();
     await tap(find.text('Open Workout'));
     await tester.pumpAndSettle();
@@ -244,14 +260,12 @@ void main() {
     );
     await tap(find.widgetWithText(FilledButton, 'Save Results'));
     await waitUntil(() => workout().saved, 'the workout to save');
-    await tap(find.text('History'));
-    await tester.pumpAndSettle();
+    await openPage('History');
     expect(find.text('Photon · Right hand'), findsOne);
 
     // A disconnect mid-workout keeps the reps done.
-    await tap(find.text('Workout'));
-    await tester.pumpAndSettle();
-    await tap(find.widgetWithText(OutlinedButton, 'Start New Workout'));
+    await openPage('Workout');
+    await tap(find.widgetWithText(FilledButton, 'Start New Workout'));
     await tester.pumpAndSettle();
     await startWorkout(3);
     await waitUntil(
@@ -259,17 +273,16 @@ void main() {
       'the first rep',
       timeout: const Duration(seconds: 20),
     );
-    await tap(find.byTooltip('Disconnect'));
+    await tap(find.text(_deviceName));
+    await tester.pumpAndSettle();
+    await tap(find.text('Disconnect'));
     await waitUntil(
       () => workout().phase == WorkoutPhase.done,
       'the workout to end on the disconnect',
     );
     expect(workout().endedEarly, WorkoutEnd.disconnected);
     expect(find.textContaining('disconnected after rep 1'), findsOne);
-    await tap(find.widgetWithText(OutlinedButton, 'Start New Workout'));
-    await tester.pumpAndSettle();
-    await tap(find.widgetWithText(OutlinedButton, 'Leave without saving?'));
-    await tester.pumpAndSettle();
+    await discardWorkout();
 
     // And the device connects again.
     await connect();
@@ -310,8 +323,7 @@ void main() {
     // The hangs time alike at the highest sample rate, whose stored setting
     // the test restores.
     Future<void> setSampleRate(int samplesPerSecond) async {
-      await tap(find.widgetWithText(NavigationDestination, 'Debugging'));
-      await tester.pumpAndSettle();
+      await openDeviceTools();
       await tap(find.text('Measurements'));
       await tester.pumpAndSettle();
       await tap(find.byType(DropdownButton<int>));
@@ -321,10 +333,9 @@ void main() {
         () => device().deviceInfo.sampleRate == samplesPerSecond,
         'the $samplesPerSecond SPS sample rate',
       );
-      await tap(find.widgetWithText(NavigationDestination, 'Training'));
+      await tester.pageBack();
       await tester.pumpAndSettle();
-      await tap(find.text('Workout'));
-      await tester.pumpAndSettle();
+      await openPage('Workout');
     }
 
     // Read last after connecting.
@@ -360,10 +371,7 @@ void main() {
       );
       expect(medianHz, greaterThan(900));
       expectSimulatedHangs();
-      await tap(find.widgetWithText(OutlinedButton, 'Start New Workout'));
-      await tester.pumpAndSettle();
-      await tap(find.widgetWithText(OutlinedButton, 'Leave without saving?'));
-      await tester.pumpAndSettle();
+      await discardWorkout();
     } finally {
       await setSampleRate(sampleRate);
     }
