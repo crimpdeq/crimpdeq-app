@@ -11,18 +11,21 @@ import '../theme.dart';
 String _volts(int millivolts) => '${(millivolts / 1000).toStringAsFixed(2)} V';
 
 /// Status chip for the app bar: the connection state, or the device name and
-/// battery once connected. Tapping it opens the device details.
+/// battery once connected. Tapping it opens the device details, which can
+/// disconnect: two taps, so a workout does not end by accident.
 class DeviceStatusChip extends StatelessWidget {
   const DeviceStatusChip({
     super.key,
     required this.connection,
     required this.deviceInfo,
     required this.compact,
+    required this.onDisconnect,
   });
 
   final DeviceConnection connection;
   final DeviceInfo deviceInfo;
   final bool compact;
+  final VoidCallback onDisconnect;
 
   @override
   Widget build(BuildContext context) {
@@ -167,6 +170,12 @@ class DeviceStatusChip extends StatelessWidget {
             ),
           ),
         ),
+        const Divider(height: 1),
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.bluetooth_disabled, color: paleRed),
+          onPressed: onDisconnect,
+          child: const Text('Disconnect'),
+        ),
       ],
       builder: (context, controller, _) => chip(
         () => controller.isOpen ? controller.close() : controller.open(),
@@ -197,35 +206,20 @@ Color? _batteryColor(int percent) => percent <= 15
     ? Colors.orangeAccent.shade200
     : null;
 
-/// Scan button, settings shortcut and the devices found, centered on the
-/// screen.
-class ConnectPanel extends StatelessWidget {
-  const ConnectPanel({
-    super.key,
-    required this.connection,
-    required this.onStartScanning,
-    required this.onConnect,
-  });
-
-  final DeviceConnection connection;
-  final VoidCallback onStartScanning;
-  final ValueChanged<DiscoveredDevice> onConnect;
+/// Scans for devices and connects to the selected one, centered on a page
+/// that needs a device.
+class ConnectView extends StatelessWidget {
+  const ConnectView({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.topCenter,
       child: SingleChildScrollView(
+        padding: const EdgeInsets.only(top: 24),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: Padding(
-            padding: const EdgeInsets.only(top: 56),
-            child: ConnectControls(
-              connection: connection,
-              onStartScanning: onStartScanning,
-              onConnect: onConnect,
-            ),
-          ),
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: const ConnectCard(),
         ),
       ),
     );
@@ -233,170 +227,124 @@ class ConnectPanel extends StatelessWidget {
 }
 
 /// Scan button, settings shortcut and the devices found.
-class ConnectControls extends StatelessWidget {
-  const ConnectControls({
-    super.key,
-    required this.connection,
-    required this.onStartScanning,
-    required this.onConnect,
-  });
-
-  final DeviceConnection connection;
-  final VoidCallback onStartScanning;
-  final ValueChanged<DiscoveredDevice> onConnect;
-
-  @override
-  Widget build(BuildContext context) {
-    final canScan =
-        connection.bluetoothReady &&
-        !connection.isScanning &&
-        !connection.isConnecting &&
-        connection.device == null;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (canScan) ...[
-          FilledButton.icon(
-            onPressed: onStartScanning,
-            icon: const Icon(Icons.search, size: 24),
-            label: const Text('Scan'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(280, 56),
-              textStyle: const TextStyle(
-                fontFamily: interFont,
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-        if (connection.needsSettings && !kIsWeb) ...[
-          const OutlinedButton(
-            onPressed: openAppSettings,
-            child: Text('Open App Settings'),
-          ),
-          const SizedBox(height: 16),
-        ],
-        DiscoveredDevicesCard(connection: connection, onConnect: onConnect),
-      ],
-    );
-  }
-}
-
-/// Scans for devices and connects to the selected one: centered on the
-/// screen, or [inline] within a page.
-class ConnectView extends ConsumerWidget {
-  const ConnectView({super.key, this.inline = false});
-
-  final bool inline;
+class ConnectCard extends ConsumerWidget {
+  const ConnectCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final notifier = ref.read(progressorProvider.notifier);
     final connection = ref.watch(
       progressorProvider.select((state) => state.connection),
     );
-    return inline
-        ? ConnectControls(
-            connection: connection,
-            onStartScanning: notifier.startScanning,
-            onConnect: notifier.connect,
-          )
-        : ConnectPanel(
-            connection: connection,
-            onStartScanning: notifier.startScanning,
-            onConnect: notifier.connect,
-          );
-  }
-}
-
-class DiscoveredDevicesCard extends StatelessWidget {
-  const DiscoveredDevicesCard({
-    super.key,
-    required this.connection,
-    required this.onConnect,
-  });
-
-  final DeviceConnection connection;
-  final ValueChanged<DiscoveredDevice> onConnect;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final devices = connection.discoveredDevices;
+    final busy = connection.isScanning || connection.isConnecting;
+    final canScan =
+        connection.bluetoothReady && !busy && connection.device == null;
 
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
-                Expanded(
-                  child: Text('Devices', style: theme.textTheme.titleMedium),
+                Icon(
+                  connection.bluetoothReady
+                      ? Icons.bluetooth_searching
+                      : Icons.bluetooth_disabled,
+                  color: theme.colorScheme.primary,
                 ),
-                if (connection.isScanning)
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Connect your Crimpdeq',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                      Text(connection.status, style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+                if (busy)
                   const SizedBox.square(
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(connection.status, style: theme.textTheme.bodyMedium),
-            for (final device in devices) ...[
-              const SizedBox(height: 10),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.25,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: colorScheme.outlineVariant),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.bluetooth_searching,
-                        color: colorScheme.primary,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              device.name,
-                              style: theme.textTheme.titleSmall,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(device.id, style: theme.textTheme.bodySmall),
-                            const SizedBox(height: 4),
-                            Text(
-                              'RSSI: ${device.rssi} dBm',
-                              style: theme.textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      FilledButton(
-                        onPressed: connection.isConnecting
-                            ? null
-                            : () => onConnect(device),
-                        child: const Text('Connect'),
-                      ),
-                    ],
-                  ),
+            if (canScan) ...[
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: notifier.startScanning,
+                icon: const Icon(Icons.search),
+                label: const Text('Scan'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
                 ),
               ),
             ],
+            if (connection.needsSettings && !kIsWeb) ...[
+              const SizedBox(height: 8),
+              const OutlinedButton(
+                onPressed: openAppSettings,
+                child: Text('Open App Settings'),
+              ),
+            ],
+            for (final device in connection.discoveredDevices) ...[
+              const SizedBox(height: 8),
+              _DeviceRow(
+                device: device,
+                onConnect: connection.isConnecting
+                    ? null
+                    : () => notifier.connect(device),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeviceRow extends StatelessWidget {
+  const _DeviceRow({required this.device, required this.onConnect});
+
+  final DiscoveredDevice device;
+  final VoidCallback? onConnect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(device.name, style: theme.textTheme.titleSmall),
+                  // Tells devices with the same name apart, the nearest by
+                  // the strongest signal.
+                  Text(
+                    '${device.id} · ${device.rssi} dBm',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(onPressed: onConnect, child: const Text('Connect')),
           ],
         ),
       ),

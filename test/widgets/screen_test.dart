@@ -4,9 +4,11 @@ import 'package:crimpdeq/models/progressor_models.dart';
 import 'package:crimpdeq/models/training_models.dart';
 import 'package:crimpdeq/protocol/progressor_protocol.dart';
 import 'package:crimpdeq/providers/progressor_provider.dart';
+import 'package:crimpdeq/providers/theme_mode_provider.dart';
 import 'package:crimpdeq/providers/training_provider.dart';
 import 'package:crimpdeq/screens/crimpdeq_screen.dart';
 import 'package:crimpdeq/theme.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -73,7 +75,7 @@ class _Recorded extends BenchmarkRecorder {
 
   @override
   BenchmarkRecording build() =>
-      (recording: false, elapsedSeconds: 6, bestKg: bestKg);
+      (recording: false, elapsedSeconds: 6, bestKg: bestKg, trace: const []);
 }
 
 const _deviceId = '00:11:22:33:44:55';
@@ -90,11 +92,23 @@ final _connected = DeviceConnection(
   status: 'Connected to Progressor',
 );
 
-/// Opens [part] of the app once connected.
+/// A workout in a fixed state.
+class _FixedWorkout extends WorkoutNotifier {
+  _FixedWorkout(this.initialState);
+
+  final WorkoutState initialState;
+
+  @override
+  WorkoutState build() => initialState;
+
+  void set(WorkoutState workout) => state = workout;
+}
+
+/// Opens the training pages, or the device tools from the app bar menu.
 Future<_FakeProgressor> _pumpScreen(
   WidgetTester tester,
   ProgressorState state, {
-  String part = 'Debugging',
+  bool deviceTools = true,
   List<Override> overrides = const [],
 }) async {
   final fake = _FakeProgressor(state);
@@ -104,11 +118,35 @@ Future<_FakeProgressor> _pumpScreen(
       child: MaterialApp(theme: buildDarkTheme(), home: const CrimpdeqScreen()),
     ),
   );
-  // A pump, since a pending calibration point animates without settling.
-  await tester.tap(find.widgetWithText(NavigationDestination, part));
-  await tester.pump();
+  if (deviceTools) {
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Device tools'));
+    // Pumps for the route transition, since a pending calibration point
+    // animates without settling.
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+  } else {
+    // Loads the training log.
+    await tester.pump();
+  }
   return fake;
 }
+
+/// Opens a training page from the navigation bar.
+Future<void> _openPage(WidgetTester tester, String label) async {
+  await tester.tap(find.widgetWithText(NavigationDestination, label));
+  await tester.pumpAndSettle();
+}
+
+/// Taps a segment, such as a tool or hand, of the first selector with it.
+Future<void> _select(WidgetTester tester, String label) async {
+  await tester.tap(find.text(label).first);
+  await tester.pumpAndSettle();
+}
+
+bool _chipSelected(WidgetTester tester, String label) =>
+    tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, label)).selected;
 
 /// Details as the provider assembles them from the firmware notifications.
 CalibrationDetails _details({
@@ -180,13 +218,13 @@ void main() {
           sampleRate: 80,
         ),
       ),
+      deviceTools: false,
     );
 
     expect(find.text('Progressor_1A2B'), findsOneWidget);
     expect(find.text('~50% · 3.84 V'), findsOneWidget);
     expect(find.byIcon(Icons.battery_3_bar), findsOneWidget);
     expect(find.text('1.2.3'), findsNothing);
-    expect(find.byType(TabBar), findsOneWidget);
 
     await tester.tap(find.text('Progressor_1A2B'));
     await tester.pumpAndSettle();
@@ -195,10 +233,12 @@ void main() {
     expect(find.text('~50%'), findsOneWidget);
     expect(find.text('3.84 V'), findsOneWidget);
     expect(find.text('80 Hz'), findsOneWidget);
-    await tester.tapAt(Offset.zero);
-    await tester.pumpAndSettle();
+    expect(fake.calls, isEmpty);
 
-    await tester.tap(find.byTooltip('Disconnect'));
+    // Disconnecting takes the menu, so a stray tap does not end a workout.
+    await tester.tap(find.text('Disconnect'));
+    // The menu closes before the action.
+    await tester.pump();
     expect(fake.calls, ['disconnect']);
   });
 
@@ -215,6 +255,7 @@ void main() {
           batteryCharging: true,
         ),
       ),
+      deviceTools: false,
     );
 
     expect(find.text('21% · 3.84 V'), findsOneWidget);
@@ -237,6 +278,7 @@ void main() {
       ProgressorState(
         connection: _connected.copyWith(device: BluetoothDevice.fromId(uuid)),
       ),
+      deviceTools: false,
     );
 
     await tester.tap(find.text('Progressor_1A2B'));
@@ -250,11 +292,11 @@ void main() {
       const ProgressorState(
         connection: DeviceConnection(bluetoothReady: true, isScanning: true),
       ),
+      deviceTools: false,
     );
 
     expect(find.text('Scanning…'), findsOneWidget);
     expect(find.byIcon(Icons.arrow_drop_down), findsNothing);
-    expect(find.byTooltip('Disconnect'), findsNothing);
   });
 
   for (final (name, physicalSize, pixelRatio) in [
@@ -262,8 +304,7 @@ void main() {
     ('360 dp phone', const Size(1080, 2340), 3.0),
   ]) {
     testWidgets(
-      'fits the status between the logo and the disconnect button on a '
-      '$name',
+      'fits the status between the logo and the menu button on a $name',
       (tester) async {
         tester.view.physicalSize = physicalSize;
         tester.view.devicePixelRatio = pixelRatio;
@@ -277,18 +318,15 @@ void main() {
               batteryMillivolts: 3750,
             ),
           ),
+          deviceTools: false,
         );
 
         final logo = tester.getRect(find.byType(Image));
-        final disconnectButton = tester.getRect(find.byTooltip('Disconnect'));
+        final menuButton = tester.getRect(find.byTooltip('More'));
         for (final text in ['Progressor_1A2B', '~25%']) {
           final rect = tester.getRect(find.text(text));
           expect(rect.left, greaterThanOrEqualTo(logo.right), reason: text);
-          expect(
-            rect.right,
-            lessThanOrEqualTo(disconnectButton.left),
-            reason: text,
-          );
+          expect(rect.right, lessThanOrEqualTo(menuButton.left), reason: text);
           expect(
             tester
                 .renderObject<RenderParagraph>(find.text(text))
@@ -820,16 +858,19 @@ void main() {
     await _pumpScreen(
       tester,
       ProgressorState(connection: _connected),
-      part: 'Training',
+      deviceTools: false,
     );
 
-    expect(
-      find.textContaining('Record a benchmark in the Benchmarks tab first'),
-      findsOneWidget,
-    );
-    await tester.tap(find.text('History'));
+    expect(find.text('Record your first benchmark'), findsOneWidget);
+    await _openPage(tester, 'History');
+    expect(find.text('No workouts yet'), findsOneWidget);
+
+    // Each empty page links to the one that fills it.
+    await tester.tap(find.text('Go to Workout'));
     await tester.pumpAndSettle();
-    expect(find.text('No workout results found.'), findsOneWidget);
+    await tester.tap(find.text('Record a Benchmark'));
+    await tester.pumpAndSettle();
+    expect(find.text('New benchmark'), findsOneWidget);
   });
 
   testWidgets('unlocks the workout with the latest benchmark', (tester) async {
@@ -839,21 +880,21 @@ void main() {
     await _pumpScreen(
       tester,
       ProgressorState(connection: _connected),
-      part: 'Training',
+      deviceTools: false,
     );
 
-    expect(find.text('Workout Type: Endurance'), findsOneWidget);
-    expect(find.text('Endurance (0) · suggested'), findsOneWidget);
-    expect(find.text('Force: 6.8 kg'), findsOneWidget);
-    expect(find.text('First hang: 193 s'), findsOneWidget);
-    expect(find.text('No Endurance sessions yet.'), findsOneWidget);
+    expect(_chipSelected(tester, 'Endurance'), isTrue);
+    expect(find.text('Suggested'), findsOneWidget);
+    expect(find.text('6.8 kg'), findsOneWidget);
+    expect(find.text('3:13'), findsOneWidget);
+    expect(find.text('No Endurance workouts yet.'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Power (0)'));
-    await tester.tap(find.text('Power (0)'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Power'));
     await tester.pumpAndSettle();
-    expect(find.text('Workout Type: Power'), findsOneWidget);
-    expect(find.text('Force: 20.0 kg'), findsOneWidget);
-    expect(find.text('Reps: 6'), findsOneWidget);
+    expect(_chipSelected(tester, 'Power'), isTrue);
+    expect(find.text('Suggested'), findsNothing);
+    expect(find.text('20.0 kg'), findsOneWidget);
+    expect(find.text('6'), findsOneWidget);
   });
 
   for (final (bestKg, saves) in [(0.0, false), (3.0, false), (3.1, true)]) {
@@ -863,24 +904,17 @@ void main() {
       await _pumpScreen(
         tester,
         ProgressorState(connection: _connected),
-        part: 'Training',
+        deviceTools: false,
         overrides: [
           benchmarkRecorderProvider.overrideWith(() => _Recorded(bestKg)),
         ],
       );
-      await tester.tap(find.text('Benchmarks'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButton<String>).first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Photon').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButton<Hand>).first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Right').last);
-      await tester.pumpAndSettle();
+      await _openPage(tester, 'Benchmarks');
+      await _select(tester, 'Photon');
+      await _select(tester, 'Right');
 
-      final save = find.widgetWithText(OutlinedButton, 'Save Benchmark');
-      expect(tester.widget<OutlinedButton>(save).onPressed != null, saves);
+      final save = find.widgetWithText(FilledButton, 'Save Benchmark');
+      expect(tester.widget<FilledButton>(save).onPressed != null, saves);
       expect(
         find.text('Pull more than 3.0 kg for at least 5 s.'),
         saves ? findsNothing : findsOne,
@@ -888,7 +922,7 @@ void main() {
     });
   }
 
-  testWidgets('blocks a workout whose target cannot start a hang', (
+  testWidgets('blocks a workout whose target cannot start a hold', (
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({
@@ -899,7 +933,7 @@ void main() {
     await _pumpScreen(
       tester,
       ProgressorState(connection: _connected),
-      part: 'Training',
+      deviceTools: false,
     );
     await tester.pumpAndSettle();
     final start = find.widgetWithText(FilledButton, 'Start Workout');
@@ -908,7 +942,16 @@ void main() {
     expect(find.textContaining('target is too light'), findsOneWidget);
     expect(tester.widget<FilledButton>(start).onPressed, isNull);
 
-    await tester.tap(find.text('Power (0)'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Power'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('target is too light'), findsNothing);
+    expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+
+    // A lower threshold lets the light target start a hold.
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Endurance'));
+    await ProviderScope.containerOf(tester.element(find.byType(CrimpdeqScreen)))
+        .read(holdThresholdProvider.notifier)
+        .set(1);
     await tester.pumpAndSettle();
     expect(find.textContaining('target is too light'), findsNothing);
     expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
@@ -923,37 +966,30 @@ void main() {
     await _pumpScreen(
       tester,
       ProgressorState(connection: _connected),
-      part: 'Training',
+      deviceTools: false,
     );
-    Future<void> openBenchmarks() async {
-      await tester.tap(find.text('Benchmarks'));
-      await tester.pumpAndSettle();
-    }
+    await _openPage(tester, 'Benchmarks');
+    await _select(tester, 'Spark');
+    await _select(tester, 'Left');
 
-    Future<void> select(Type dropdown, String option) async {
-      await tester.tap(find.byType(dropdown).first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(option).last);
-      await tester.pumpAndSettle();
-    }
-
-    await openBenchmarks();
-    await select(DropdownButton<String>, 'Spark');
-    await select(DropdownButton<Hand>, 'Left');
-
-    // A pull recorded here saves under them after a visit to Debugging.
-    await tester.tap(find.widgetWithText(NavigationDestination, 'Debugging'));
+    // A pull recorded here saves under them after a visit to the workout
+    // and the device tools.
+    await _openPage(tester, 'Workout');
+    await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(NavigationDestination, 'Training'));
+    await tester.tap(find.text('Device tools'));
     await tester.pumpAndSettle();
-    await openBenchmarks();
-    final tool = tester.widget<DropdownButton<String>>(
-      find.byType(DropdownButton<String>).first,
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await _openPage(tester, 'Benchmarks');
+    final tool = tester.widget<SegmentedButton<String?>>(
+      find.byType(SegmentedButton<String?>).first,
     );
-    final hand = tester.widget<DropdownButton<Hand>>(
-      find.byType(DropdownButton<Hand>).first,
+    final hand = tester.widget<SegmentedButton<Hand>>(
+      find.byType(SegmentedButton<Hand>),
     );
-    expect((tool.value, hand.value), ('Spark', Hand.left));
+    expect(tool.selected, {'Spark'});
+    expect(hand.selected, {Hand.left});
   });
 
   testWidgets('drops an edited plan when the default tool or hand moves', (
@@ -965,7 +1001,7 @@ void main() {
     await _pumpScreen(
       tester,
       ProgressorState(connection: _connected),
-      part: 'Training',
+      deviceTools: false,
     );
     await tester.pumpAndSettle();
     final container = ProviderScope.containerOf(
@@ -982,7 +1018,7 @@ void main() {
           ).copyWith(reps: 17),
         );
     await tester.pump();
-    expect(find.text('Reps: 17'), findsOneWidget);
+    expect(find.text('17'), findsOneWidget);
 
     // The latest benchmark sets the default tool and hand.
     await container
@@ -996,7 +1032,7 @@ void main() {
           ),
         );
     await tester.pumpAndSettle();
-    expect(find.text('Reps: 17'), findsNothing);
+    expect(find.text('17'), findsNothing);
   });
 
   testWidgets('falls back to a tool with benchmarks left', (tester) async {
@@ -1008,7 +1044,7 @@ void main() {
     await _pumpScreen(
       tester,
       ProgressorState(connection: _connected),
-      part: 'Training',
+      deviceTools: false,
     );
     await tester.pumpAndSettle();
     final container = ProviderScope.containerOf(
@@ -1033,21 +1069,15 @@ void main() {
     await _pumpScreen(
       tester,
       ProgressorState(connection: _connected),
-      part: 'Training',
+      deviceTools: false,
     );
-    await tester.tap(find.text('Benchmarks'));
+    await _openPage(tester, 'Benchmarks');
+    await _select(tester, 'Spark');
+    await _select(tester, 'Left');
+    // Folded while a device is connected.
+    await tester.ensureVisible(find.text('Enter a held weight instead'));
+    await tester.tap(find.text('Enter a held weight instead'));
     await tester.pumpAndSettle();
-
-    // The add form comes before the entries filter.
-    Future<void> select(Type dropdown, String option) async {
-      await tester.tap(find.byType(dropdown).first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(option).last);
-      await tester.pumpAndSettle();
-    }
-
-    await select(DropdownButton<String>, 'Spark');
-    await select(DropdownButton<Hand>, 'Left');
     final weight = find.widgetWithText(TextField, 'Weight held (kg)');
     final save = find.widgetWithText(OutlinedButton, 'Save Hold');
     await tester.ensureVisible(save);
@@ -1055,7 +1085,7 @@ void main() {
     await tester.tap(save);
     await tester.pump();
     expect(find.text('Enter the weight held, in kg.'), findsOneWidget);
-    // Too light for even the Power target to start a hang.
+    // Too light for even the Power target to start a hold.
     await tester.enterText(weight, '0.5');
     await tester.tap(save);
     await tester.pump();
@@ -1069,13 +1099,42 @@ void main() {
     );
     await tester.tap(save);
     await tester.pumpAndSettle();
-    expect(find.text('Spark · Left: 32.9 kg'), findsOneWidget);
-    expect(find.text('PB'), findsOneWidget);
+    expect(find.text('32.9 kg'), findsOneWidget);
+    expect(find.textContaining('Spark · Left'), findsOneWidget);
+    expect(find.textContaining('Personal best'), findsOneWidget);
 
     await tester.tap(find.text('Open Workout'));
     await tester.pumpAndSettle();
-    expect(find.text('Workout Type: Endurance'), findsOneWidget);
-    expect(find.text('Force: 7.5 kg'), findsOneWidget);
+    expect(_chipSelected(tester, 'Endurance'), isTrue);
+    expect(find.text('7.5 kg'), findsOneWidget);
+  });
+
+  testWidgets('hides the saved benchmark message after a while', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await _pumpScreen(
+      tester,
+      const ProgressorState(connection: DeviceConnection(bluetoothReady: true)),
+      deviceTools: false,
+    );
+    await _openPage(tester, 'Benchmarks');
+    await _select(tester, 'Photon');
+    await _select(tester, 'Right');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Weight held (kg)'),
+      '30',
+    );
+    final save = find.widgetWithText(OutlinedButton, 'Save Hold');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Benchmark saved'), findsOne);
+
+    // Its action does not keep it on screen.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Benchmark saved'), findsNothing);
   });
 
   testWidgets('compares benchmarks with the previous and best ones', (
@@ -1090,16 +1149,16 @@ void main() {
     await _pumpScreen(
       tester,
       ProgressorState(connection: _connected),
-      part: 'Training',
+      deviceTools: false,
     );
-    await tester.tap(find.text('Benchmarks'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Photon · Right: 28.0 kg'));
+    await _openPage(tester, 'Benchmarks');
+    await tester.ensureVisible(find.text('28.0 kg'));
 
-    expect(find.textContaining('vs Prev -2.0 kg · vs Best -2.0 kg'), findsOne);
-    expect(find.textContaining('vs Prev — · vs Best 0.0 kg'), findsOne);
-    expect(find.text('Tracking'), findsOneWidget);
-    expect(find.text('PB'), findsOneWidget);
+    expect(
+      find.textContaining('-2.0 kg vs best · -2.0 kg vs previous'),
+      findsOne,
+    );
+    expect(find.textContaining('Personal best'), findsOne);
   });
 
   testWidgets('shows the workout history with each rep', (tester) async {
@@ -1117,10 +1176,9 @@ void main() {
     await _pumpScreen(
       tester,
       ProgressorState(connection: _connected),
-      part: 'Training',
+      deviceTools: false,
     );
-    await tester.tap(find.text('History'));
-    await tester.pumpAndSettle();
+    await _openPage(tester, 'History');
 
     // Mean deltas of -2 s and -8 s.
     expect(find.text('-2.0 s'), findsOne);
@@ -1150,29 +1208,22 @@ void main() {
     await _pumpScreen(
       tester,
       const ProgressorState(connection: DeviceConnection(bluetoothReady: true)),
-      part: 'Training',
+      deviceTools: false,
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Connect a Crimpdeq to start'), findsOneWidget);
+    expect(find.text('Connect your Crimpdeq'), findsOneWidget);
     expect(find.text('Scan'), findsOneWidget);
-    expect(find.text('Workout Type: Endurance'), findsOneWidget);
+    expect(_chipSelected(tester, 'Endurance'), isTrue);
     final start = find.widgetWithText(FilledButton, 'Start Workout');
     await tester.ensureVisible(start);
     expect(tester.widget<FilledButton>(start).onPressed, isNull);
 
-    await tester.tap(find.text('Benchmarks'));
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Start Pull'))
-          .onPressed,
-      isNull,
-    );
-    expect(
-      find.textContaining('Connect a Crimpdeq in the Workout tab'),
-      findsOne,
-    );
+    // Without a device, a held weight, and the way to connect one.
+    await _openPage(tester, 'Benchmarks');
+    expect(find.text('Connect your Crimpdeq'), findsOneWidget);
+    expect(find.text('Start Pull'), findsNothing);
+    expect(find.text('Save Hold'), findsOneWidget);
 
     // Deleting asks first.
     final delete = find.byTooltip('Delete benchmark');
@@ -1181,12 +1232,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
-    expect(find.text('Photon · Right: 30.0 kg'), findsOneWidget);
+    expect(find.text('30.0 kg'), findsOneWidget);
     await tester.tap(delete);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
-    expect(find.text('Photon · Right: 30.0 kg'), findsNothing);
+    expect(find.text('30.0 kg'), findsNothing);
   });
 
   testWidgets('keeps the workout setup and defaults the benchmark form', (
@@ -1198,22 +1249,191 @@ void main() {
     await _pumpScreen(
       tester,
       ProgressorState(connection: _connected),
-      part: 'Training',
+      deviceTools: false,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Power (0)'));
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Power'));
     await tester.pumpAndSettle();
-    expect(find.text('Workout Type: Power'), findsOneWidget);
+    expect(_chipSelected(tester, 'Power'), isTrue);
 
-    await tester.tap(find.text('Benchmarks'));
+    await _openPage(tester, 'Benchmarks');
+    await tester.ensureVisible(find.text('Enter a held weight instead'));
+    await tester.tap(find.text('Enter a held weight instead'));
     await tester.pumpAndSettle();
     // The latest benchmark's tool and hand, so a hold saves at once.
     final save = find.widgetWithText(OutlinedButton, 'Save Hold');
     await tester.ensureVisible(save);
     expect(tester.widget<OutlinedButton>(save).onPressed, isNotNull);
 
-    await tester.tap(find.text('Workout'));
+    await _openPage(tester, 'Workout');
+    expect(_chipSelected(tester, 'Power'), isTrue);
+  });
+
+  final strength = WorkoutPlan.forSection(
+    tool: 'Photon',
+    hand: Hand.right,
+    section: CurveSection.strength,
+    benchmarkKg: 30,
+  );
+
+  testWidgets('keeps the whole screen for a running workout', (tester) async {
+    final fake = await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        measurement: const MeasurementState(isMeasuring: true, currentKg: 1.2),
+      ),
+      deviceTools: false,
+      overrides: [
+        workoutProvider.overrideWith(
+          () => _FixedWorkout(
+            WorkoutState(
+              plan: strength,
+              phase: WorkoutPhase.hold,
+              rep: 2,
+              actualSeconds: const [101],
+              // The latest 15 s, 72.3 s into the workout.
+              forceTrace: [
+                for (var i = 573; i <= 723; i++) FlSpot(i / 10, 1.2),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.text('HOLD'), findsOneWidget);
+    expect(find.text('Rep 2 of 5'), findsOneWidget);
+    expect(
+      find.text('Pull more than 2.0 kg to start the timer'),
+      findsOneWidget,
+    );
+    // The graph shows the force over the time since the start, and tares.
+    expect(find.text('1.2 kg'), findsOneWidget);
+    for (final label in ['1:00', '1:05', '1:10']) {
+      expect(find.text(label), findsOne);
+    }
+    await tester.tap(find.text('Tare'));
+    await tester.pump();
+    expect(fake.calls, ['tare']);
+  });
+
+  testWidgets('shows the workout that starts on another page', (tester) async {
+    final workout = _FixedWorkout(const WorkoutState());
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+      overrides: [workoutProvider.overrideWith(() => workout)],
+    );
+    // The start awaits the device, meanwhile the user opens another page.
+    await _openPage(tester, 'Benchmarks');
+    workout.set(WorkoutState(plan: strength, phase: WorkoutPhase.hold));
+    await tester.pump();
+
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.text('HOLD'), findsOneWidget);
+  });
+
+  testWidgets('discards the results only after confirmation', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+      overrides: [
+        workoutProvider.overrideWith(
+          () => _FixedWorkout(
+            WorkoutState(
+              plan: strength,
+              phase: WorkoutPhase.done,
+              rep: 5,
+              actualSeconds: const [98, 34, 30, 22, 20],
+              repForcesKg: const [12, 12, 12, 12, 12],
+            ),
+          ),
+        ),
+      ],
+    );
+    expect(find.byType(NavigationBar), findsOneWidget);
+    final discard = find.widgetWithText(OutlinedButton, 'Discard');
+    await tester.ensureVisible(discard);
+
+    await tester.tap(discard);
     await tester.pumpAndSettle();
-    expect(find.text('Workout Type: Power'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Workout complete'), findsOneWidget);
+
+    await tester.tap(discard);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Discard'));
+    await tester.pumpAndSettle();
+    expect(find.text('Workout complete'), findsNothing);
+  });
+
+  testWidgets('saves the results and opens them in the history', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+      overrides: [
+        workoutProvider.overrideWith(
+          () => _FixedWorkout(
+            WorkoutState(
+              plan: strength,
+              phase: WorkoutPhase.done,
+              rep: 5,
+              actualSeconds: const [98, 34, 30, 22, 20],
+              repForcesKg: const [12, 12, 12, 12, 12],
+            ),
+          ),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+    // The mean delta of the reps against their targets.
+    expect(find.text('-2.2 s'), findsOneWidget);
+    final save = find.widgetWithText(FilledButton, 'Save Results');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.text('Saved to your history.'), findsOneWidget);
+
+    await tester.tap(find.text('View History'));
+    await tester.pumpAndSettle();
+    expect(find.text('Photon · Right hand'), findsOneWidget);
+  });
+
+  testWidgets('stores the theme choice', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Light mode'));
+    await tester.pumpAndSettle();
+    expect(
+      ProviderScope.containerOf(tester.element(find.byType(CrimpdeqScreen)))
+          .read(themeModeProvider),
+      ThemeMode.light,
+    );
+
+    // A new start reads it back.
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container.read(themeModeProvider);
+    await tester.pump();
+    expect(container.read(themeModeProvider), ThemeMode.light);
   });
 }

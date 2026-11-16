@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/training_models.dart';
+import '../providers/navigation_provider.dart';
 import '../providers/training_provider.dart';
 import 'training_charts.dart';
 import 'training_common.dart';
@@ -23,6 +24,12 @@ class _HistoryTabState extends State<HistoryTab> {
   Widget build(BuildContext context) {
     return TrainingLogView(
       builder: (context, log) {
+        if (log.workouts.isEmpty) {
+          return const TitledCard(
+            title: 'No workouts yet',
+            child: _StartWorkout(),
+          );
+        }
         final workouts = [
           for (final workout in log.workouts.reversed)
             if (_tool == null || workout.tool == _tool) workout,
@@ -44,12 +51,11 @@ class _HistoryTabState extends State<HistoryTab> {
             ToolAndHand(
               tools: const [null, ...trainingTools],
               tool: _tool,
-              toolLabel: 'Filter by training tool',
               onToolChanged: (tool) => setState(() => _tool = tool),
             ),
             const SizedBox(height: 16),
             TitledCard(
-              title: 'Force Curve Graph',
+              title: 'Force curve',
               child: benchmarkKg == null
                   ? const Text('Record a benchmark to draw the force curve.')
                   : ForceCurveGraph(
@@ -60,10 +66,10 @@ class _HistoryTabState extends State<HistoryTab> {
                     ),
             ),
             const SizedBox(height: 16),
-            Text('Entries', style: Theme.of(context).textTheme.titleMedium),
+            Text('Workouts', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             if (workouts.isEmpty)
-              const Text('No workout results found.')
+              Text('No workouts with $_tool yet.')
             else
               for (final workout in workouts) ...[
                 _Entry(
@@ -95,40 +101,28 @@ class _HistoryTabState extends State<HistoryTab> {
   }
 }
 
-/// Colors of a change in seconds, like OpenGrips: green above the target or
-/// the previous workout, red below, and neutral without a change.
-const _gainColor = Color(0xFF10B981);
-const _lossColor = Color(0xFFF43F5E);
+class _StartWorkout extends ConsumerWidget {
+  const _StartWorkout();
 
-Color? _deltaColor(double? seconds) => seconds == null || seconds.abs() < 0.05
-    ? null
-    : seconds > 0
-    ? _gainColor
-    : _lossColor;
-
-const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const _months = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-
-/// "Tue 27 Oct · 07:20".
-String _formatDay(DateTime date) {
-  final local = date.toLocal();
-  return '${_weekdays[local.weekday - 1]} ${local.day} '
-      '${_months[local.month - 1]} · '
-      '${local.hour.toString().padLeft(2, '0')}:'
-      '${local.minute.toString().padLeft(2, '0')}';
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Finished workouts appear here, with each rep and your force curve.',
+        ),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: () => ref
+              .read(trainingPageProvider.notifier)
+              .open(TrainingPage.workout),
+          icon: const Icon(Icons.timer_outlined),
+          label: const Text('Go to Workout'),
+        ),
+      ],
+    );
+  }
 }
 
 class _Entry extends StatelessWidget {
@@ -170,19 +164,15 @@ class _Entry extends StatelessWidget {
                             child: Text(
                               workout.section.label,
                               style: textTheme.titleMedium?.copyWith(
-                                // Yellow and orange lack contrast on white.
-                                color: theme.brightness == Brightness.light
-                                    ? Color.lerp(
-                                        sectionColor,
-                                        Colors.black,
-                                        0.3,
-                                      )
-                                    : sectionColor,
+                                color: sectionTextColor(
+                                  context,
+                                  workout.section,
+                                ),
                               ),
                             ),
                           ),
                           Text(
-                            _formatDay(workout.date),
+                            formatDate(workout.date),
                             style: textTheme.bodySmall,
                           ),
                           Icon(
@@ -197,32 +187,35 @@ class _Entry extends StatelessWidget {
                         style: textTheme.bodySmall,
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _Metric(
-                            label: 'Force',
-                            value: held ? formatKg(forceKg) : '—',
-                          ),
-                          _Metric(
-                            label: 'Hang',
-                            value:
-                                '${workout.meanActualSeconds.round()}'
-                                ' / ${workout.meanTargetSeconds.round()} s',
-                          ),
-                          _Metric(
-                            label: 'Avg Δ',
-                            value: formatDelta(workout.meanDeltaSeconds, 's'),
-                            color: _deltaColor(workout.meanDeltaSeconds),
-                          ),
-                          _Metric(
-                            label: 'Effort',
-                            value: '${workout.perceivedExertion}/10',
-                          ),
-                        ],
-                      ),
+                      StatRow([
+                        StatTile(
+                          label: 'Force',
+                          value: held ? formatKg(forceKg) : '—',
+                        ),
+                        StatTile(
+                          label: 'Hold',
+                          value:
+                              '${workout.meanActualSeconds.round()}'
+                              ' / ${workout.meanTargetSeconds.round()} s',
+                        ),
+                        StatTile(
+                          label: 'Avg Δ',
+                          value: formatDelta(workout.meanDeltaSeconds, 's'),
+                          color: deltaColor(workout.meanDeltaSeconds),
+                        ),
+                        StatTile(
+                          label: 'Effort',
+                          value: '${workout.perceivedExertion}/10',
+                        ),
+                      ]),
                       const SizedBox(height: 12),
-                      _RepBars(workout: workout, color: sectionColor),
+                      RepBars(
+                        targets: workout.targetSeconds
+                            .take(workout.actualSeconds.length)
+                            .toList(),
+                        actual: workout.actualSeconds,
+                        color: sectionColor,
+                      ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
@@ -263,77 +256,6 @@ class _Entry extends StatelessWidget {
   }
 }
 
-class _Metric extends StatelessWidget {
-  const _Metric({required this.label, required this.value, this.color});
-
-  final String label;
-  final String value;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: textTheme.bodySmall),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: color,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// One bar per rep, filled by the share of its target held: in the workout
-/// type's color, green once the target is reached.
-class _RepBars extends StatelessWidget {
-  const _RepBars({required this.workout, required this.color});
-
-  final WorkoutRecord workout;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final track = Theme.of(context).colorScheme.outlineVariant;
-    return Row(
-      children: [
-        for (final (rep, actual) in workout.actualSeconds.indexed) ...[
-          if (rep > 0) const SizedBox(width: 4),
-          Expanded(
-            child: Tooltip(
-              message:
-                  'Rep ${rep + 1}: ${actual.round()} of '
-                  '${workout.targetSeconds[rep]} s',
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: LinearProgressIndicator(
-                  value: (actual / workout.targetSeconds[rep]).clamp(0, 1),
-                  minHeight: 6,
-                  backgroundColor: track,
-                  color: actual >= workout.targetSeconds[rep]
-                      ? _gainColor
-                      : color,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
 /// Change of the mean Δ since the previous workout with the tool and hand.
 class _Trend extends StatelessWidget {
   const _Trend({required this.seconds});
@@ -343,7 +265,7 @@ class _Trend extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final color = _deltaColor(seconds) ?? textTheme.bodySmall?.color;
+    final color = deltaColor(seconds) ?? textTheme.bodySmall?.color;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

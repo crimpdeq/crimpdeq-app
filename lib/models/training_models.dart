@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:fl_chart/fl_chart.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
@@ -198,9 +196,6 @@ sealed class WorkoutPlan with _$WorkoutPlan {
 
   double get targetForceKg => section.targetForceKg(benchmarkKg);
 
-  /// Rest before the first rep, half the rest between reps.
-  int get preRestSeconds => max(1, (restSeconds / 2).round());
-
   List<int> targets([double? firstHangActualSeconds]) => repTargetSeconds(
     section,
     reps: reps,
@@ -210,9 +205,7 @@ sealed class WorkoutPlan with _$WorkoutPlan {
   );
 
   int get totalSeconds =>
-      targets().reduce((a, b) => a + b) +
-      (reps - 1) * restSeconds +
-      preRestSeconds;
+      targets().reduce((a, b) => a + b) + (reps - 1) * restSeconds;
 }
 
 /// The workout setup choices, kept while switching tabs. Null follows the
@@ -228,7 +221,8 @@ sealed class WorkoutSetup with _$WorkoutSetup {
   }) = _WorkoutSetup;
 }
 
-enum WorkoutPhase { idle, preRest, hang, rest, done }
+/// Each hold waits for the pull, so the workout starts with the first one.
+enum WorkoutPhase { idle, hold, rest, done }
 
 /// Why a workout ended before its last rep.
 enum WorkoutEnd { disconnected, measurementFailed }
@@ -246,15 +240,14 @@ sealed class WorkoutState with _$WorkoutState {
     @Default(0) int restRemainingSeconds,
     @Default(false) bool paused,
 
-    /// The force reached the target in the current rep.
+    /// The pull passed the threshold, so the current hold counts.
     @Default(false) bool holding,
 
-    /// The current rep waits for a load left on from the rest to drop.
+    /// The current rep waits for a load left on to drop.
     @Default(false) bool waitingForRelease,
     @Default(0.0) double heldSeconds,
 
-    /// Force of the current rep over the seconds since its first sample, a
-    /// mean point every 0.1 s.
+    /// The latest force of the workout, through the holds and rests.
     @Default([]) List<FlSpot> forceTrace,
     @Default([]) List<double> actualSeconds,
 

@@ -13,13 +13,15 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
 - Measurement reset, tare and selectable sample rate
 - Battery voltage and estimated state of charge, with a low battery warning
 - Data visualization with charts
-- Training, following [OpenGrips](https://opengrips.xyz) with the Crimpdeq as the weight:
-  - Benchmarks: 5-second-max pulls or held weights, with personal bests
-  - Workout: suggested workout types with their target and force curve graphs, the energy-system
-    configuration, and a timer whose hangs follow the measured force, with sound cues and the
-    screen kept on
+- Training, following [OpenGrips](https://opengrips.xyz) with the Crimpdeq as the weight, on the
+  navigation bar:
+  - Workout: the suggested workout type with its targets, a Start button above the fold, and a
+    full-screen timer with sound cues and the screen kept on. Each hold waits for a pull above a
+    threshold (2 kg by default, set in Customize), even once its rest is over, and a live graph
+    shows the last 15 s of force with the current reading and a Tare button
+  - Benchmarks: 5-second-max pulls, with the same live graph, or held weights, with personal bests
   - History: workouts on the force curve with their per-rep results, stored on the device
-- Debugging: calibration and measurements
+- Device tools, in the app bar menu: calibration and measurements
 - Compatible with Tindeq Progressor API
 - Cross-platform support (Android, macOS, Windows, Linux, Web)
 
@@ -130,11 +132,11 @@ lib/
 ├── theme.dart         # Light and dark themes, bundled fonts
 ├── protocol/          # Progressor BLE protocol: frames, messages, commands
 ├── analysis/          # Force stats and RFD, steady load, calibration check, battery, OpenGrips
-│                      # force curve and hang timing
+│                      # force curve, hold timing and the live force trace
 ├── constants/         # App constants
 ├── models/            # State models
 ├── providers/         # State management (Riverpod)
-├── screens/           # Main screen, app bar, and the Training and Debugging parts
+├── screens/           # Training pages with the app bar, and the device tools
 └── widgets/           # Connection, measurement, calibration, training and chart widgets
 test/                  # Unit and widget tests
 ```

@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../analysis/force_trace.dart';
 import '../analysis/hold_tracker.dart';
 import '../analysis/opengrips_curve.dart';
 import '../models/progressor_models.dart';
@@ -82,6 +83,27 @@ class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
   }
 }
 
+/// Force a hold counts above, stored on this device. Above it the hold timer
+/// starts, and it ends once the force stays at or below it.
+final holdThresholdProvider =
+    AsyncNotifierProvider<HoldThresholdNotifier, double>(
+      HoldThresholdNotifier.new,
+    );
+
+class HoldThresholdNotifier extends AsyncNotifier<double> {
+  static const _key = 'training.holdThresholdKg';
+
+  @override
+  Future<double> build() async =>
+      (await SharedPreferences.getInstance()).getDouble(_key) ??
+      HoldTracker.defaultThresholdKg;
+
+  Future<void> set(double kg) async {
+    state = AsyncData(kg);
+    await (await SharedPreferences.getInstance()).setDouble(_key, kg);
+  }
+}
+
 final workoutSetupProvider =
     NotifierProvider<WorkoutSetupNotifier, WorkoutSetup>(
       WorkoutSetupNotifier.new,
@@ -138,7 +160,17 @@ typedef BenchmarkRecording = ({
   bool recording,
   double elapsedSeconds,
   double? bestKg,
+
+  /// The latest force of the pull.
+  List<FlSpot> trace,
 });
+
+const BenchmarkRecording _noRecording = (
+  recording: false,
+  elapsedSeconds: 0,
+  bestKg: null,
+  trace: [],
+);
 
 /// Records a benchmark pull: the highest mean force over 5 s.
 final benchmarkRecorderProvider =
@@ -177,7 +209,7 @@ class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
         }
       },
     );
-    return (recording: false, elapsedSeconds: 0, bestKg: null);
+    return _noRecording;
   }
 
   /// Ends the pull when the measurement does not start again, instead of
@@ -204,16 +236,24 @@ class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
       if (!measuring) return;
       _startedMeasurement = started;
       final fiveSecondMax = FiveSecondMax();
-      state = (recording: true, elapsedSeconds: 0, bestKg: null);
+      final trace = ForceTrace();
+      state = (
+        recording: true,
+        elapsedSeconds: 0,
+        bestKg: null,
+        trace: const [],
+      );
       _samples = ref.read(progressorProvider.notifier).sampleBatches.listen((
         samples,
       ) {
         samples.forEach(fiveSecondMax.add);
+        trace.addAll(samples);
         // Publish at the displayed resolution, a tenth of a second.
         final next = (
           recording: true,
           elapsedSeconds: (fiveSecondMax.elapsedUs ~/ 100000) / 10,
           bestKg: fiveSecondMax.bestKg,
+          trace: trace.points,
         );
         if (next != state) state = next;
       });
@@ -230,6 +270,7 @@ class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
       recording: false,
       elapsedSeconds: state.elapsedSeconds,
       bestKg: state.bestKg,
+      trace: state.trace,
     );
     if (_startedMeasurement) {
       _startedMeasurement = false;
@@ -237,12 +278,12 @@ class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
     }
   }
 
-  void clear() => state = (recording: false, elapsedSeconds: 0, bestKg: null);
+  void clear() => state = _noRecording;
 }
 
-/// The OpenGrips workout timer, with the Crimpdeq as the weight: a rest
-/// before the first rep, then hangs at the target force separated by rests.
-/// The force starts and ends each hang, and the rests count down.
+/// The OpenGrips workout timer, with the Crimpdeq as the weight: holds at the
+/// target force separated by rests. Each hold waits for the pull above the
+/// threshold, and the rests count down.
 final workoutProvider = NotifierProvider<WorkoutNotifier, WorkoutState>(
   WorkoutNotifier.new,
 );
@@ -253,6 +294,8 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   Timer? _restTimer;
   StreamSubscription<List<WeightMeasurement>>? _samples;
   HoldTracker? _hold;
+  ForceTrace _trace = ForceTrace();
+  double _thresholdKg = HoldTracker.defaultThresholdKg;
   bool _startedMeasurement = false;
   // The workout runs after the measurement starts: a second tap meanwhile
   // would subscribe twice.
@@ -262,15 +305,8 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   // The workout is saved once stored: a second tap meanwhile would store it
   // twice.
   bool _saving = false;
-  // Samples of the current rep since the last trace point.
-  int? _traceStartUs;
-  int? _traceLastUs;
-  // Time of the last trace point since the start of the rep.
-  int? _tracePointUs;
-  double _traceKg = 0;
-  int _traceSamples = 0;
-  // Device time since the force stayed above the hang threshold during the
-  // rest, and of the latest rest sample.
+  // Device time since the force stayed above the threshold during the rest,
+  // and of the latest rest sample.
   int? _restLoadedSinceUs;
   int? _restLastUs;
 
@@ -301,7 +337,7 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
         if (!device.isConnected) {
           _endEarly(WorkoutEnd.disconnected);
         } else if (!device.isMeasuring) {
-          // Stopped elsewhere, such as in the Measurements tab: the hangs need
+          // Stopped elsewhere, such as in the Measurements tab: the holds need
           // the samples, so measure again until the workout ends.
           _restartMeasurement();
         }
@@ -329,52 +365,64 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     if (state.isRunning || _starting) return;
     _starting = true;
     try {
-      // Loaded before the first cue, which reads it.
+      // Loaded before the first cue and hold, which read them.
       await ref.read(soundsMutedProvider.future);
+      final thresholdKg = await ref.read(holdThresholdProvider.future);
       final (:measuring, :started) = await _ensureMeasuring(ref);
       if (!measuring) return;
       _startedMeasurement = started;
+      _thresholdKg = thresholdKg;
+      _trace = ForceTrace();
+      _restLoadedSinceUs = null;
+      _restLastUs = null;
       _samples = ref
           .read(progressorProvider.notifier)
           .sampleBatches
           .listen(addSamples);
       state = WorkoutState(plan: plan);
-      _rest(WorkoutPhase.preRest, plan.preRestSeconds);
+      _startRep(1);
     } finally {
       _starting = false;
     }
   }
 
-  /// Times the current hang with the samples and traces its force.
+  /// Traces the force, and times the current hold with the samples.
   void addSamples(List<WeightMeasurement> samples) {
-    if (state.phase == WorkoutPhase.preRest ||
-        state.phase == WorkoutPhase.rest) {
-      _trackRestLoad(samples);
-      return;
+    if (!state.isRunning) return;
+    _trace.addAll(samples);
+    if (!identical(_trace.points, state.forceTrace)) {
+      state = state.copyWith(forceTrace: _trace.points);
     }
-    final hold = _hold;
-    if (state.phase != WorkoutPhase.hang || hold == null) return;
+    switch (state.phase) {
+      case WorkoutPhase.hold:
+        _trackHold(samples);
+      case WorkoutPhase.rest:
+        _trackRestLoad(samples);
+      case WorkoutPhase.idle || WorkoutPhase.done:
+        return;
+    }
+  }
+
+  void _trackHold(List<WeightMeasurement> samples) {
+    final hold = _hold!;
     samples.forEach(hold.add);
     if (hold.failed) {
       finishRep();
       return;
     }
-    final points = _tracePoints(samples);
     // Publish at the displayed resolution, a tenth of a second.
     final heldSeconds = (hold.heldSeconds * 10).floor() / 10;
     final target = state.targets[state.rep - 1];
     if (state.heldSeconds < target && heldSeconds >= target) {
       _cue(WorkoutCue.go);
     }
-    if (points.isNotEmpty ||
-        hold.started != state.holding ||
+    if (hold.started != state.holding ||
         hold.waitForRelease != state.waitingForRelease ||
         heldSeconds != state.heldSeconds) {
       state = state.copyWith(
         holding: hold.started,
         waitingForRelease: hold.waitForRelease,
         heldSeconds: heldSeconds,
-        forceTrace: [...state.forceTrace, ...points],
       );
     }
   }
@@ -387,60 +435,28 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
         _restLoadedSinceUs = null;
       }
       _restLastUs = sample.timestampUs;
-      _restLoadedSinceUs = sample.weightKg > HoldTracker.thresholdKg
+      _restLoadedSinceUs = sample.weightKg > _thresholdKg
           ? _restLoadedSinceUs ?? sample.timestampUs
           : null;
     }
   }
 
-  /// New trace points: the mean force every 0.1 s.
-  List<FlSpot> _tracePoints(List<WeightMeasurement> samples) {
-    final points = <FlSpot>[];
-    for (final sample in samples) {
-      final lastUs = _traceLastUs;
-      // A tare or restart moves the timeline back: continue the trace.
-      if (lastUs != null && sample.timestampUs < lastUs) {
-        _traceStartUs = _traceStartUs! + sample.timestampUs - lastUs;
-      }
-      final startUs = _traceStartUs ??= sample.timestampUs;
-      _traceLastUs = sample.timestampUs;
-      _traceKg += sample.weightKg;
-      _traceSamples++;
-      final sinceStartUs = sample.timestampUs - startUs;
-      final pointUs = _tracePointUs;
-      if (pointUs == null || sinceStartUs - pointUs >= 100000) {
-        points.add(
-          FlSpot(
-            sinceStartUs / Duration.microsecondsPerSecond,
-            _traceKg / _traceSamples,
-          ),
-        );
-        _tracePointUs = sinceStartUs;
-        _traceKg = 0;
-        _traceSamples = 0;
-      }
-    }
-    return points;
-  }
-
-  /// Ends the current hang with the time held so far.
+  /// Ends the current hold with the time held so far.
   void finishRep() => _endRep(_hold?.heldSeconds ?? 0, _hold?.meanKg);
 
-  /// Skips the current hang, which counts as not held, or the current rest.
+  /// Skips the current hold, which counts as not held, or the current rest.
   void skip() {
     switch (state.phase) {
-      case WorkoutPhase.hang:
+      case WorkoutPhase.hold:
         _endRep(0, null);
-      case WorkoutPhase.preRest:
-        _hang(1);
       case WorkoutPhase.rest:
-        _hang(state.rep + 1);
+        _startRep(state.rep + 1);
       case WorkoutPhase.idle || WorkoutPhase.done:
         return;
     }
   }
 
-  /// Pauses or resumes the rest countdown. Hangs follow the force.
+  /// Pauses or resumes the rest countdown. Holds follow the force.
   void togglePause() => state = state.copyWith(paused: !state.paused);
 
   /// Abandons the workout.
@@ -504,9 +520,12 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   /// Returns to the setup after the results.
   void reset() => state = const WorkoutState();
 
-  void _rest(WorkoutPhase phase, int seconds) {
+  void _rest(int seconds) {
     _hold = null;
-    state = state.copyWith(phase: phase, restRemainingSeconds: seconds);
+    state = state.copyWith(
+      phase: WorkoutPhase.rest,
+      restRemainingSeconds: seconds,
+    );
     _restCue(seconds);
     _restTimer?.cancel();
     _restTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -517,7 +536,7 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
         _restCue(remaining);
         return;
       }
-      _hang(state.phase == WorkoutPhase.preRest ? 1 : state.rep + 1);
+      _startRep(state.rep + 1);
     });
   }
 
@@ -532,39 +551,40 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     _feedback.play(cue);
   }
 
-  void _hang(int rep) {
+  /// Starts a hold, which waits for the pull above the threshold however
+  /// long the rest was.
+  void _startRep(int rep) {
     _restTimer?.cancel();
     final loadedSinceUs = _restLoadedSinceUs;
     final leftOn =
         loadedSinceUs != null && _restLastUs! - loadedSinceUs >= _leftOnUs;
     _restLoadedSinceUs = null;
     _restLastUs = null;
-    _hold = HoldTracker(waitForRelease: leftOn);
-    _traceStartUs = null;
-    _traceLastUs = null;
-    _tracePointUs = null;
-    _traceKg = 0;
-    _traceSamples = 0;
+    // Without a rest before it, the first hold waits for any load already on,
+    // such as an offset, to drop. Its first sample shows whether there is one.
+    _hold = HoldTracker(
+      thresholdKg: _thresholdKg,
+      waitForRelease: leftOn || rep == 1,
+    );
     state = state.copyWith(
-      phase: WorkoutPhase.hang,
+      phase: WorkoutPhase.hold,
       rep: rep,
       paused: false,
       holding: false,
       waitingForRelease: leftOn,
       heldSeconds: 0,
-      forceTrace: const [],
     );
     _cue(WorkoutCue.go);
   }
 
   void _endRep(double heldSeconds, double? forceKg) {
-    if (state.phase != WorkoutPhase.hang) return;
+    if (state.phase != WorkoutPhase.hold) return;
     state = state.copyWith(
       actualSeconds: [...state.actualSeconds, heldSeconds],
       repForcesKg: [...state.repForcesKg, forceKg],
     );
     if (state.rep < state.plan!.reps) {
-      _rest(WorkoutPhase.rest, state.plan!.restSeconds);
+      _rest(state.plan!.restSeconds);
       return;
     }
     _hold = null;

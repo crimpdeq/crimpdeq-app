@@ -2,18 +2,22 @@ import 'dart:collection';
 
 import '../models/progressor_models.dart';
 
-/// Times a hang on the Crimpdeq, which stands in for a hung weight. The hang
-/// counts only while the pull is above 2 kg, so it starts with the pull at
-/// any force and ends when the force stays below 2 kg for a second, once
-/// released. With [waitForRelease], a load already there must drop first.
+/// Times a hold on the Crimpdeq, which stands in for a hung weight. The hold
+/// counts only while the pull is above [thresholdKg], so it starts with the
+/// pull at any force and ends when the force stays at or below the threshold
+/// for a second, once released. With [waitForRelease], a load already there
+/// must drop first.
 class HoldTracker {
-  HoldTracker({this.waitForRelease = false});
+  HoldTracker({required this.thresholdKg, this.waitForRelease = false});
 
-  static const thresholdKg = 2.0;
+  static const defaultThresholdKg = 2.0;
   static const failureUs = 1000000;
 
+  final double thresholdKg;
+
   /// A load that stays on, such as an offset or a resting grip, would start
-  /// the hang before the pull: it starts after the force drops to 2 kg.
+  /// the hold before the pull: it starts after the force drops to the
+  /// threshold.
   bool waitForRelease;
 
   int? _lastUs;

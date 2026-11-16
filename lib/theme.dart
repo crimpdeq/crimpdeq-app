@@ -16,6 +16,7 @@ const _webPanelDeep = Color(0xFF0C131D);
 const _webText = Color(0xFFECF2F8);
 const _webMuted = Color(0xFF9EB1C5);
 const _lightText = Color(0xFF0B1118);
+const _lightPrimary = Color(0xFF0A7FB3);
 const _lightMuted = Color(0xFF607486);
 const _lightBorder = Color(0xFFD7E3EE);
 const _lightOutline = Color(0xFFC9D8E6);
@@ -201,6 +202,8 @@ ThemeData buildDarkTheme() {
         fontFamily: spaceGroteskFont,
         color: _webText,
       ),
+      // The default, the inverse primary, is dark on the dark panel.
+      actionTextColor: webAccent,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -215,7 +218,7 @@ ThemeData buildLightTheme() {
   return dark.copyWith(
     brightness: Brightness.light,
     colorScheme: const ColorScheme.light(
-      primary: Color(0xFF0A7FB3),
+      primary: _lightPrimary,
       onPrimary: Colors.white,
       secondary: Color(0xFF38BDF8),
       onSecondary: Color(0xFF031018),
@@ -228,6 +231,8 @@ ThemeData buildLightTheme() {
     ),
     scaffoldBackgroundColor: const Color(0xFFEFF5FB),
     canvasColor: const Color(0xFFEFF5FB),
+    // Otherwise the dark theme's white icons stay, invisible on white.
+    iconTheme: const IconThemeData(color: _lightText),
     dividerColor: _lightBorder,
     textTheme: _textTheme(
       ThemeData.light().textTheme,
@@ -290,6 +295,7 @@ ThemeData buildLightTheme() {
         fontFamily: spaceGroteskFont,
         color: _lightText,
       ),
+      actionTextColor: _lightPrimary,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: const BorderSide(color: _lightBorder),

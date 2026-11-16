@@ -588,10 +588,9 @@ $WorkoutPlanCopyWith<$Res>? get plan {
 mixin _$WorkoutState {
 
  WorkoutPlan? get plan; WorkoutPhase get phase;/// Current rep, or the last one during a rest. 1-based.
- int get rep; int get restRemainingSeconds; bool get paused;/// The force reached the target in the current rep.
- bool get holding;/// The current rep waits for a load left on from the rest to drop.
- bool get waitingForRelease; double get heldSeconds;/// Force of the current rep over the seconds since its first sample, a
-/// mean point every 0.1 s.
+ int get rep; int get restRemainingSeconds; bool get paused;/// The pull passed the threshold, so the current hold counts.
+ bool get holding;/// The current rep waits for a load left on to drop.
+ bool get waitingForRelease; double get heldSeconds;/// The latest force of the workout, through the holds and rests.
  List<FlSpot> get forceTrace; List<double> get actualSeconds;/// Mean force of each rep, null for a rep not held.
  List<double?> get repForcesKg; bool get saved;/// Set when the workout ended before its last rep.
  WorkoutEnd? get endedEarly;
@@ -818,16 +817,14 @@ class _WorkoutState extends WorkoutState {
 @override@JsonKey() final  int rep;
 @override@JsonKey() final  int restRemainingSeconds;
 @override@JsonKey() final  bool paused;
-/// The force reached the target in the current rep.
+/// The pull passed the threshold, so the current hold counts.
 @override@JsonKey() final  bool holding;
-/// The current rep waits for a load left on from the rest to drop.
+/// The current rep waits for a load left on to drop.
 @override@JsonKey() final  bool waitingForRelease;
 @override@JsonKey() final  double heldSeconds;
-/// Force of the current rep over the seconds since its first sample, a
-/// mean point every 0.1 s.
+/// The latest force of the workout, through the holds and rests.
  final  List<FlSpot> _forceTrace;
-/// Force of the current rep over the seconds since its first sample, a
-/// mean point every 0.1 s.
+/// The latest force of the workout, through the holds and rests.
 @override@JsonKey() List<FlSpot> get forceTrace {
   if (_forceTrace is EqualUnmodifiableListView) return _forceTrace;
   // ignore: implicit_dynamic_type
