@@ -8,6 +8,7 @@ import 'package:crimpdeq/providers/theme_mode_provider.dart';
 import 'package:crimpdeq/providers/training_provider.dart';
 import 'package:crimpdeq/screens/crimpdeq_screen.dart';
 import 'package:crimpdeq/theme.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -1291,6 +1292,10 @@ void main() {
               phase: WorkoutPhase.hold,
               rep: 2,
               actualSeconds: const [101],
+              // The latest 15 s, 72.3 s into the workout.
+              forceTrace: [
+                for (var i = 573; i <= 723; i++) FlSpot(i / 10, 1.2),
+              ],
             ),
           ),
         ),
@@ -1304,8 +1309,11 @@ void main() {
       find.text('Pull more than 2.0 kg to start the timer'),
       findsOneWidget,
     );
-    // The graph shows the force and tares.
+    // The graph shows the force over the time since the start, and tares.
     expect(find.text('1.2 kg'), findsOneWidget);
+    for (final label in ['1:00', '1:05', '1:10']) {
+      expect(find.text(label), findsOne);
+    }
     await tester.tap(find.text('Tare'));
     await tester.pump();
     expect(fake.calls, ['tare']);

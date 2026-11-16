@@ -185,9 +185,10 @@ class TargetWorkoutGraph extends StatelessWidget {
   }
 }
 
-/// The force of the latest [ForceTrace.windowSeconds], the newest at the
-/// right, under the current force, centered, and a tare button. With a
-/// [target], also its force and the threshold the hold counts above.
+/// The force of the latest [ForceTrace.windowSeconds] over the time since
+/// the start, the newest at the right, under the current force, centered,
+/// and a tare button. With a [target], also its force and the threshold the
+/// hold counts above.
 class LiveForceGraph extends StatelessWidget {
   const LiveForceGraph({
     super.key,
@@ -209,9 +210,11 @@ class LiveForceGraph extends StatelessWidget {
     final target = this.target;
     final currentKg = this.currentKg;
     final targetColor = target == null ? null : sectionColors[target.section]!;
-    // Seconds before the newest point, so the window scrolls with the force.
-    final newestX = trace.lastOrNull?.x ?? 0;
-    final spots = [for (final spot in trace) FlSpot(spot.x - newestX, spot.y)];
+    // The window ends at the newest point, so it scrolls with the force.
+    final maxX = max(
+      ForceTrace.windowSeconds.toDouble(),
+      trace.lastOrNull?.x ?? 0,
+    );
     final peakKg = trace.fold(0.0, (peak, spot) => max(peak, spot.y));
     return Column(
       children: [
@@ -239,14 +242,14 @@ class LiveForceGraph extends StatelessWidget {
           child: LineChart(
             duration: Duration.zero,
             LineChartData(
-              minX: -ForceTrace.windowSeconds.toDouble(),
-              maxX: 0,
+              minX: maxX - ForceTrace.windowSeconds,
+              maxX: maxX,
               minY: 0,
               maxY: max((target?.kg ?? 8) * 1.25, peakKg * 1.1),
               clipData: const FlClipData.all(),
               lineBarsData: [
                 LineChartBarData(
-                  spots: spots,
+                  spots: trace,
                   color: colorScheme.primary,
                   barWidth: 2.5,
                   dotData: const FlDotData(show: false),
@@ -283,10 +286,12 @@ class LiveForceGraph extends StatelessWidget {
                   reservedSize: 44,
                   maxIncluded: false,
                 ),
+                // The time since the pull or workout started.
                 bottomTitles: _titles(
                   context,
-                  (value) => '${value.round()} s',
+                  (value) => formatDuration(value.round()),
                   interval: 5,
+                  minIncluded: false,
                   maxIncluded: false,
                 ),
               ),
