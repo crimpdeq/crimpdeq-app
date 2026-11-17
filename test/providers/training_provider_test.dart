@@ -655,6 +655,45 @@ void main() {
     await warmup.stop();
   });
 
+  testWidgets('warns once when a hold pulls well over its target', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final feedback = _Feedback();
+    final container = _measuring(feedback);
+    addTearDown(container.dispose);
+    final warmup = container.read(warmupProvider.notifier);
+    WarmupState state() => container.read(warmupProvider);
+
+    await warmup.start(WarmupKind.training, const [
+      (
+        tool: 'Spark',
+        hand: Hand.right,
+        benchmarkKg: 30.0,
+        forceKg: 12.0,
+        seconds: 20,
+        restSeconds: 0,
+      ),
+    ]);
+    feedback.events.clear();
+    warmup.addSamples([..._pull(0, 0.5, 0), ..._pull(12, 2, 500)]);
+    expect(state().overshooting, isFalse);
+
+    // More than 15% over 12 kg warns once, and stays on above 10% over.
+    warmup.addSamples(_pull(14, 1, 2500));
+    expect(state().overshooting, isTrue);
+    warmup.addSamples([..._pull(13.5, 0.5, 3500), ..._pull(14, 0.5, 4000)]);
+    expect(state().overshooting, isTrue);
+    expect(feedback.events, ['easeOff']);
+
+    // Back near the target, a new overshoot warns again.
+    warmup.addSamples(_pull(12.5, 1, 4500));
+    expect(state().overshooting, isFalse);
+    warmup.addSamples(_pull(14, 1, 5500));
+    expect(feedback.events, ['easeOff', 'easeOff']);
+    await warmup.stop();
+  });
+
   testWidgets('counts the rest down after a training warm-up', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final feedback = _Feedback();

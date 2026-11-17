@@ -1591,6 +1591,7 @@ void main() {
         phase: WorkoutPhase.hold,
         holding: true,
         heldSeconds: 4,
+        overshooting: true,
       ),
     );
     await tester.pump();
@@ -1601,7 +1602,6 @@ void main() {
     expect(find.text('Spark · Left hand'), findsOne);
     expect(find.text('00:16'), findsOne);
     expect(find.text('Hold 00:20 at 16.0 kg (40%)'), findsOne);
-    // 19 kg is more than 15% over the 16 kg target.
     expect(
       find.text('Ease off to 16.0 kg: a warm-up stays far from your max.'),
       findsOne,

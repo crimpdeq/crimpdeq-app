@@ -153,15 +153,25 @@ class WarmupNotifier extends Notifier<WarmupState> {
       _endStep();
       return;
     }
+    final forceKg = state.current.forceKg;
+    final latestKg = samples.lastOrNull?.weightKg ?? 0;
+    final overshooting =
+        hold.started &&
+        forceKg != null &&
+        latestKg >
+            forceKg * (state.overshooting ? overshootEndRatio : overshootRatio);
+    if (overshooting && !state.overshooting) _cue(WorkoutCue.easeOff);
     // Publish at the displayed resolution, a tenth of a second.
     final heldSeconds = (hold.heldSeconds * 10).floor() / 10;
     if (hold.started != state.holding ||
         hold.waitForRelease != state.waitingForRelease ||
-        heldSeconds != state.heldSeconds) {
+        heldSeconds != state.heldSeconds ||
+        overshooting != state.overshooting) {
       state = state.copyWith(
         holding: hold.started,
         waitingForRelease: hold.waitForRelease,
         heldSeconds: heldSeconds,
+        overshooting: overshooting,
       );
     }
   }
@@ -248,6 +258,7 @@ class WarmupNotifier extends Notifier<WarmupState> {
       holding: false,
       waitingForRelease: leftOn,
       heldSeconds: 0,
+      overshooting: false,
     );
     // Straight after a hold, its end cue starts this one.
     if (afterRest || state.step == 0) _cue(WorkoutCue.go);

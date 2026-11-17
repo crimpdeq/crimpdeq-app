@@ -312,6 +312,9 @@ sealed class WarmupState with _$WarmupState {
     @Default(false) bool holding,
     @Default(false) bool waitingForRelease,
     @Default(0.0) double heldSeconds,
+
+    /// The hold pulls well over its target force.
+    @Default(false) bool overshooting,
     @Default([]) List<FlSpot> forceTrace,
 
     /// Best 5 s of each step done, null for a hold at a force or a maximal

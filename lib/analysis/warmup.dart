@@ -36,6 +36,12 @@ const _climbingLevels = <String, List<_Level>>{
   ],
 };
 
+/// A hold pulling more than this share of its target warns to ease off,
+/// until it pulls less than [overshootEndRatio], so a force at the limit does
+/// not warn again and again.
+const overshootRatio = 1.15;
+const overshootEndRatio = 1.1;
+
 /// Rest after a training warm-up, before the workout.
 const workoutRestSeconds = 120;
 

@@ -236,9 +236,6 @@ class _StepTable extends StatelessWidget {
   }
 }
 
-/// A force above this share of the target is no longer a warm-up hold.
-const _overshootRatio = 1.15;
-
 /// Readable from the grip: the phase in its color, the tool and hand, a
 /// large clock and the force, then the controls.
 class _WarmupTimer extends ConsumerWidget {
@@ -283,11 +280,9 @@ class _WarmupTimer extends ConsumerWidget {
                 '${step.hand.label.toLowerCase()} hand'
           : '$take${step.hand.label} hand: pull more than '
                 '${formatKg(thresholdKg)} to start the timer';
-      if (warmup.holding &&
-          forceKg != null &&
-          (currentKg ?? 0) > forceKg * _overshootRatio) {
+      if (warmup.overshooting) {
         warning =
-            'Ease off to ${formatKg(forceKg)}: a warm-up stays far from '
+            'Ease off to ${formatKg(forceKg!)}: a warm-up stays far from '
             'your max.';
       }
     } else {
