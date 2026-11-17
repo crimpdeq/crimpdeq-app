@@ -149,7 +149,6 @@ class WarmupNotifier extends Notifier<WarmupState> {
       return;
     }
     if (hold.heldSeconds >= target) {
-      _cue(WorkoutCue.go);
       _endStep();
       return;
     }
@@ -264,8 +263,11 @@ class WarmupNotifier extends Notifier<WarmupState> {
     if (afterRest || state.step == 0) _cue(WorkoutCue.go);
   }
 
+  /// Ends the current hold, at its target, released or skipped, with the
+  /// cue that also starts a hold straight after it.
   void _endStep() {
     if (state.phase != WorkoutPhase.hold) return;
+    _cue(WorkoutCue.go);
     final hold = _hold!;
     final fullWindow =
         hold.heldSeconds * Duration.microsecondsPerSecond >=

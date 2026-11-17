@@ -585,12 +585,14 @@ void main() {
     warmup.addSamples(_pull(0, 1.1, 11000));
     expect(state().phase, WorkoutPhase.done);
     expect(state().bestKg, [null, null]);
+    // Each hold's end cues, released early too.
     expect(feedback.events, [
       'screen true',
       'go',
       'go',
       'countdown',
       'countdown',
+      'go',
       'go',
       'screen false',
     ]);
