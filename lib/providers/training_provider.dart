@@ -11,14 +11,16 @@ import '../analysis/opengrips_curve.dart';
 import '../models/progressor_models.dart';
 import '../models/training_models.dart';
 import 'progressor_provider.dart';
+import 'warmup_provider.dart';
 import 'workout_feedback_provider.dart';
 
 typedef TrainingLog = ({
   List<Benchmark> benchmarks,
   List<WorkoutRecord> workouts,
+  List<ReadinessCheck> readiness,
 });
 
-/// Benchmarks and workouts, stored on this device.
+/// Benchmarks, workouts and readiness checks, stored on this device.
 final trainingLogProvider =
     AsyncNotifierProvider<TrainingLogNotifier, TrainingLog>(
       TrainingLogNotifier.new,
@@ -27,6 +29,7 @@ final trainingLogProvider =
 class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
   static const _benchmarksKey = 'training.benchmarks';
   static const _workoutsKey = 'training.workouts';
+  static const _readinessKey = 'training.readiness';
 
   @override
   Future<TrainingLog> build() async {
@@ -38,29 +41,55 @@ class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
     return (
       benchmarks: read(_benchmarksKey, Benchmark.fromJson),
       workouts: read(_workoutsKey, WorkoutRecord.fromJson),
+      readiness: read(_readinessKey, ReadinessCheck.fromJson),
     );
   }
 
   Future<void> addBenchmark(Benchmark benchmark) => _update(
-    (log) =>
-        (benchmarks: [...log.benchmarks, benchmark], workouts: log.workouts),
+    (log) => (
+      benchmarks: [...log.benchmarks, benchmark],
+      workouts: log.workouts,
+      readiness: log.readiness,
+    ),
   );
 
   Future<void> deleteBenchmark(Benchmark benchmark) => _update(
     (log) => (
       benchmarks: [...log.benchmarks]..remove(benchmark),
       workouts: log.workouts,
+      readiness: log.readiness,
     ),
   );
 
   Future<void> addWorkout(WorkoutRecord workout) => _update(
-    (log) => (benchmarks: log.benchmarks, workouts: [...log.workouts, workout]),
+    (log) => (
+      benchmarks: log.benchmarks,
+      workouts: [...log.workouts, workout],
+      readiness: log.readiness,
+    ),
   );
 
   Future<void> deleteWorkout(WorkoutRecord workout) => _update(
     (log) => (
       benchmarks: log.benchmarks,
       workouts: [...log.workouts]..remove(workout),
+      readiness: log.readiness,
+    ),
+  );
+
+  Future<void> addReadiness(ReadinessCheck check) => _update(
+    (log) => (
+      benchmarks: log.benchmarks,
+      workouts: log.workouts,
+      readiness: [...log.readiness, check],
+    ),
+  );
+
+  Future<void> deleteReadiness(ReadinessCheck check) => _update(
+    (log) => (
+      benchmarks: log.benchmarks,
+      workouts: log.workouts,
+      readiness: [...log.readiness]..remove(check),
     ),
   );
 
@@ -75,6 +104,7 @@ class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_benchmarksKey, jsonEncode(log.benchmarks));
       await prefs.setString(_workoutsKey, jsonEncode(log.workouts));
+      await prefs.setString(_readinessKey, jsonEncode(log.readiness));
       state = AsyncData(log);
     });
     // A failed update fails its caller, not the later updates.
@@ -126,15 +156,26 @@ class WorkoutSetupNotifier extends Notifier<WorkoutSetup> {
   void updatePlan(WorkoutPlan plan) => state = state.copyWith(plan: plan);
 }
 
-/// Starts measuring unless the device already is. Returns whether it measures
-/// and whether this call started it, so the caller stops it again.
-Future<({bool measuring, bool started})> _ensureMeasuring(Ref ref) async {
-  if (ref.read(progressorProvider).measurement.isMeasuring) {
-    return (measuring: true, started: false);
+/// Measures for a workout, warm-up or benchmark pull, which take the same
+/// samples, then calls [begin] with whether this call started the
+/// measurement, so the session stops it again. Nothing begins when the
+/// device does not measure or [otherRunning] does, such as a workout started
+/// on another page while this start awaited the device: checked right
+/// before [begin], so no other start can come between them.
+Future<void> startSession(
+  Ref ref, {
+  required bool Function() otherRunning,
+  required void Function(bool started) begin,
+}) async {
+  final started = !ref.read(progressorProvider).measurement.isMeasuring;
+  if (started) await ref.read(progressorProvider.notifier).startMeasurement();
+  if (!ref.read(progressorProvider).measurement.isMeasuring) return;
+  if (!otherRunning()) {
+    begin(started);
+    return;
   }
-  await ref.read(progressorProvider.notifier).startMeasurement();
-  final measuring = ref.read(progressorProvider).measurement.isMeasuring;
-  return (measuring: measuring, started: measuring);
+  // The other session measures again once this stop reaches it.
+  if (started) await ref.read(progressorProvider.notifier).stopMeasurement();
 }
 
 /// The benchmark form's tool and hand, kept while switching parts, so a
@@ -232,31 +273,37 @@ class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
     if (state.recording || _starting) return;
     _starting = true;
     try {
-      final (:measuring, :started) = await _ensureMeasuring(ref);
-      if (!measuring) return;
-      _startedMeasurement = started;
-      final fiveSecondMax = FiveSecondMax();
-      final trace = ForceTrace();
-      state = (
-        recording: true,
-        elapsedSeconds: 0,
-        bestKg: null,
-        trace: const [],
+      await startSession(
+        ref,
+        otherRunning: () =>
+            ref.read(workoutProvider).isRunning ||
+            ref.read(warmupProvider).isRunning,
+        begin: (started) {
+          _startedMeasurement = started;
+          final fiveSecondMax = FiveSecondMax();
+          final trace = ForceTrace();
+          state = (
+            recording: true,
+            elapsedSeconds: 0,
+            bestKg: null,
+            trace: const [],
+          );
+          _samples = ref.read(progressorProvider.notifier).sampleBatches.listen(
+            (samples) {
+              samples.forEach(fiveSecondMax.add);
+              trace.addAll(samples);
+              // Publish at the displayed resolution, a tenth of a second.
+              final next = (
+                recording: true,
+                elapsedSeconds: (fiveSecondMax.elapsedUs ~/ 100000) / 10,
+                bestKg: fiveSecondMax.bestKg,
+                trace: trace.points,
+              );
+              if (next != state) state = next;
+            },
+          );
+        },
       );
-      _samples = ref.read(progressorProvider.notifier).sampleBatches.listen((
-        samples,
-      ) {
-        samples.forEach(fiveSecondMax.add);
-        trace.addAll(samples);
-        // Publish at the displayed resolution, a tenth of a second.
-        final next = (
-          recording: true,
-          elapsedSeconds: (fiveSecondMax.elapsedUs ~/ 100000) / 10,
-          bestKg: fiveSecondMax.bestKg,
-          trace: trace.points,
-        );
-        if (next != state) state = next;
-      });
     } finally {
       _starting = false;
     }
@@ -305,13 +352,7 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   // The workout is saved once stored: a second tap meanwhile would store it
   // twice.
   bool _saving = false;
-  // Device time since the force stayed above the threshold during the rest,
-  // and of the latest rest sample.
-  int? _restLoadedSinceUs;
-  int? _restLastUs;
-
-  /// A load on for this long at the end of a rest is left on, not a pull.
-  static const _leftOnUs = 3000000;
+  RestLoad? _restLoad;
 
   @override
   WorkoutState build() {
@@ -368,19 +409,24 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
       // Loaded before the first cue and hold, which read them.
       await ref.read(soundsMutedProvider.future);
       final thresholdKg = await ref.read(holdThresholdProvider.future);
-      final (:measuring, :started) = await _ensureMeasuring(ref);
-      if (!measuring) return;
-      _startedMeasurement = started;
-      _thresholdKg = thresholdKg;
-      _trace = ForceTrace();
-      _restLoadedSinceUs = null;
-      _restLastUs = null;
-      _samples = ref
-          .read(progressorProvider.notifier)
-          .sampleBatches
-          .listen(addSamples);
-      state = WorkoutState(plan: plan);
-      _startRep(1);
+      await startSession(
+        ref,
+        otherRunning: () =>
+            ref.read(warmupProvider).isRunning ||
+            ref.read(benchmarkRecorderProvider).recording,
+        begin: (started) {
+          _startedMeasurement = started;
+          _thresholdKg = thresholdKg;
+          _trace = ForceTrace();
+          _restLoad = null;
+          _samples = ref
+              .read(progressorProvider.notifier)
+              .sampleBatches
+              .listen(addSamples);
+          state = WorkoutState(plan: plan);
+          _startRep(1);
+        },
+      );
     } finally {
       _starting = false;
     }
@@ -397,7 +443,7 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
       case WorkoutPhase.hold:
         _trackHold(samples);
       case WorkoutPhase.rest:
-        _trackRestLoad(samples);
+        samples.forEach(_restLoad!.add);
       case WorkoutPhase.idle || WorkoutPhase.done:
         return;
     }
@@ -424,20 +470,6 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
         waitingForRelease: hold.waitForRelease,
         heldSeconds: heldSeconds,
       );
-    }
-  }
-
-  void _trackRestLoad(List<WeightMeasurement> samples) {
-    for (final sample in samples) {
-      final lastUs = _restLastUs;
-      // A tare or restart moves the timeline back: the load starts over.
-      if (lastUs != null && sample.timestampUs < lastUs) {
-        _restLoadedSinceUs = null;
-      }
-      _restLastUs = sample.timestampUs;
-      _restLoadedSinceUs = sample.weightKg > _thresholdKg
-          ? _restLoadedSinceUs ?? sample.timestampUs
-          : null;
     }
   }
 
@@ -522,6 +554,7 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
 
   void _rest(int seconds) {
     _hold = null;
+    _restLoad = RestLoad(thresholdKg: _thresholdKg);
     state = state.copyWith(
       phase: WorkoutPhase.rest,
       restRemainingSeconds: seconds,
@@ -555,11 +588,8 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
   /// long the rest was.
   void _startRep(int rep) {
     _restTimer?.cancel();
-    final loadedSinceUs = _restLoadedSinceUs;
-    final leftOn =
-        loadedSinceUs != null && _restLastUs! - loadedSinceUs >= _leftOnUs;
-    _restLoadedSinceUs = null;
-    _restLastUs = null;
+    final leftOn = _restLoad?.leftOn ?? false;
+    _restLoad = null;
     // Without a rest before it, the first hold waits for any load already on,
     // such as an offset, to drop. Its first sample shows whether there is one.
     _hold = HoldTracker(

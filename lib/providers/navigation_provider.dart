@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'training_provider.dart';
+import 'warmup_provider.dart';
 
 /// The training pages of the home screen, which link to each other.
-enum TrainingPage { workout, benchmarks, history }
+enum TrainingPage { warmup, workout, benchmarks, history }
 
 final trainingPageProvider =
     NotifierProvider<TrainingPageNotifier, TrainingPage>(
@@ -20,6 +21,12 @@ class TrainingPageNotifier extends Notifier<TrainingPage> {
       running,
     ) {
       if (running) state = TrainingPage.workout;
+    });
+    ref.listen(warmupProvider.select((warmup) => warmup.isRunning), (
+      _,
+      running,
+    ) {
+      if (running) state = TrainingPage.warmup;
     });
     return TrainingPage.workout;
   }

@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:crimpdeq/analysis/opengrips_curve.dart';
+import 'package:crimpdeq/analysis/warmup.dart';
 import 'package:crimpdeq/models/progressor_models.dart';
 import 'package:crimpdeq/models/training_models.dart';
 import 'package:crimpdeq/protocol/progressor_protocol.dart';
 import 'package:crimpdeq/providers/progressor_provider.dart';
 import 'package:crimpdeq/providers/training_provider.dart';
+import 'package:crimpdeq/providers/warmup_provider.dart';
 import 'package:crimpdeq/providers/workout_feedback_provider.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -533,5 +535,394 @@ void main() {
     final reloaded = ProviderContainer();
     addTearDown(reloaded.dispose);
     expect(await reloaded.read(holdThresholdProvider.future), 3.5);
+  });
+  testWidgets('ends each warm-up hold at its target or release', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final feedback = _Feedback();
+    final container = _measuring(feedback);
+    addTearDown(container.dispose);
+    final warmup = container.read(warmupProvider.notifier);
+    WarmupState state() => container.read(warmupProvider);
+    const steps = <WarmupStep>[
+      (
+        tool: 'Spark',
+        hand: Hand.left,
+        benchmarkKg: 40,
+        forceKg: 16,
+        seconds: 3,
+        restSeconds: 0,
+      ),
+      (
+        tool: 'Spark',
+        hand: Hand.right,
+        benchmarkKg: 50,
+        forceKg: 20,
+        seconds: 2,
+        restSeconds: 4,
+      ),
+    ];
+
+    // The first hold, without a rest before it.
+    await warmup.start(WarmupKind.climbing, steps);
+    expect(state().phase, WorkoutPhase.hold);
+    expect(feedback.events, ['screen true', 'go']);
+
+    // 3 s held, so the rest starts without waiting for the release.
+    warmup.addSamples([..._pull(0, 0.5, 0), ..._pull(16, 4, 500)]);
+    expect(state().phase, WorkoutPhase.rest);
+    expect(state().step, 1);
+    expect(state().restRemainingSeconds, 4);
+    expect(state().bestKg, [null]);
+
+    await tester.pump(const Duration(seconds: 4));
+    expect(state().phase, WorkoutPhase.hold);
+    warmup.addSamples(_pull(20, 1, 10000));
+    expect(state().holding, isTrue);
+    expect(state().heldSeconds, 0.9);
+    // Released before the target, the last hold ends the warm-up.
+    warmup.addSamples(_pull(0, 1.1, 11000));
+    expect(state().phase, WorkoutPhase.done);
+    expect(state().bestKg, [null, null]);
+    // Each hold's end cues, released early too.
+    expect(feedback.events, [
+      'screen true',
+      'go',
+      'go',
+      'countdown',
+      'countdown',
+      'go',
+      'go',
+      'screen false',
+    ]);
+
+    // A warm-up stores nothing.
+    await tester.pump();
+    expect(state().saved, isFalse);
+    expect((await container.read(trainingLogProvider.future)).readiness, []);
+  });
+
+  testWidgets('rests each hand between its own holds', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final feedback = _Feedback();
+    final container = _measuring(feedback);
+    addTearDown(container.dispose);
+    final warmup = container.read(warmupProvider.notifier);
+    WarmupState state() => container.read(warmupProvider);
+    WarmupStep step(Hand hand, int restSeconds) => (
+      tool: 'Photon',
+      hand: hand,
+      benchmarkKg: 20.0,
+      forceKg: 6.0,
+      seconds: 2,
+      restSeconds: restSeconds,
+    );
+
+    await warmup.start(WarmupKind.training, [
+      step(Hand.left, 0),
+      step(Hand.right, 0),
+      step(Hand.left, 15),
+    ]);
+    warmup.addSamples([..._pull(0, 0.5, 0), ..._pull(6, 2.5, 500)]);
+    // The right hand has rested since the start: its hold follows at once,
+    // and waits for the left pull, still on, to drop.
+    expect(state().phase, WorkoutPhase.hold);
+    expect(state().step, 1);
+    warmup.addSamples(_pull(6, 1, 3000));
+    expect(state().waitingForRelease, isTrue);
+    expect(state().holding, isFalse);
+
+    // The left hand rests 10 s of its 15 s through the right hold.
+    await tester.pump(const Duration(seconds: 10));
+    warmup.addSamples([..._pull(0, 0.5, 4000), ..._pull(6, 2.5, 4500)]);
+    expect(state().phase, WorkoutPhase.rest);
+    expect(state().step, 2);
+    expect(state().restRemainingSeconds, 5);
+    await tester.pump(const Duration(seconds: 4));
+    expect(state().restRemainingSeconds, 1);
+    await tester.pump(const Duration(seconds: 1));
+    expect(state().phase, WorkoutPhase.hold);
+    // Each hold's end cues the next, and the rest its own.
+    expect(feedback.events, [
+      'screen true',
+      'go',
+      'go',
+      'go',
+      'restWarning',
+      'countdown',
+      'countdown',
+      'go',
+    ]);
+    await warmup.stop();
+  });
+
+  testWidgets('warns once when a hold pulls well over its target', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final feedback = _Feedback();
+    final container = _measuring(feedback);
+    addTearDown(container.dispose);
+    final warmup = container.read(warmupProvider.notifier);
+    WarmupState state() => container.read(warmupProvider);
+
+    await warmup.start(WarmupKind.training, const [
+      (
+        tool: 'Spark',
+        hand: Hand.right,
+        benchmarkKg: 30.0,
+        forceKg: 12.0,
+        seconds: 20,
+        restSeconds: 0,
+      ),
+    ]);
+    feedback.events.clear();
+    warmup.addSamples([..._pull(0, 0.5, 0), ..._pull(12, 2, 500)]);
+    expect(state().overshooting, isFalse);
+
+    // More than 15% over 12 kg warns once, and stays on above 10% over.
+    warmup.addSamples(_pull(14, 1, 2500));
+    expect(state().overshooting, isTrue);
+    warmup.addSamples([..._pull(13.5, 0.5, 3500), ..._pull(14, 0.5, 4000)]);
+    expect(state().overshooting, isTrue);
+    expect(feedback.events, ['easeOff']);
+
+    // Back near the target, a new overshoot warns again.
+    warmup.addSamples(_pull(12.5, 1, 4500));
+    expect(state().overshooting, isFalse);
+    warmup.addSamples(_pull(14, 1, 5500));
+    expect(feedback.events, ['easeOff', 'easeOff']);
+    await warmup.stop();
+  });
+
+  testWidgets('counts the rest down after a training warm-up', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final feedback = _Feedback();
+    final container = _measuring(feedback);
+    addTearDown(container.dispose);
+    final warmup = container.read(warmupProvider.notifier);
+    WarmupState state() => container.read(warmupProvider);
+    const step = (
+      tool: 'Photon',
+      hand: Hand.left,
+      benchmarkKg: 20.0,
+      forceKg: 6.0,
+      seconds: 2,
+      restSeconds: 0,
+    );
+
+    await warmup.start(WarmupKind.training, const [step]);
+    warmup.addSamples([..._pull(0, 0.5, 0), ..._pull(6, 3, 500)]);
+    expect(state().phase, WorkoutPhase.done);
+    expect(state().restRemainingSeconds, workoutRestSeconds);
+    feedback.events.clear();
+
+    // The rest cues, then the workout's.
+    await tester.pump(const Duration(seconds: workoutRestSeconds - 5));
+    expect(state().restRemainingSeconds, 5);
+    await tester.pump(const Duration(seconds: 10));
+    expect(state().restRemainingSeconds, 0);
+    expect(feedback.events, ['restWarning', 'countdown', 'countdown', 'go']);
+
+    // Leaving the results ends the countdown.
+    await warmup.start(WarmupKind.training, const [step]);
+    warmup.addSamples([..._pull(0, 0.5, 10000), ..._pull(6, 3, 10500)]);
+    warmup.reset();
+    await tester.pump(const Duration(seconds: 5));
+    expect(state().restRemainingSeconds, 0);
+  });
+
+  testWidgets('stores the readiness pulls of at least 5 s', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final warmup = container.read(warmupProvider.notifier);
+    WarmupState state() => container.read(warmupProvider);
+    final steps = readinessCheck([
+      for (final (hand, forceKg) in [(Hand.left, 20.0), (Hand.right, 30.0)])
+        Benchmark(
+          date: DateTime(2026, 10, 26),
+          tool: 'Photon',
+          hand: hand,
+          forceKg: forceKg,
+        ),
+    ]);
+
+    await warmup.start(WarmupKind.readiness, steps);
+    expect(state().phase, WorkoutPhase.rest);
+    expect(state().restRemainingSeconds, 180);
+    warmup.skip();
+    // The best 5 s of a 6 s pull, after its start.
+    warmup.addSamples([
+      ..._pull(0, 0.5, 0),
+      ..._pull(15, 1, 500),
+      ..._pull(18, 6, 1500),
+    ]);
+    expect(state().bestKg, [18]);
+
+    // The right hand rests through the left rest and pull, so its pull
+    // follows at once. Under 5 s held, it is not measured.
+    expect(state().phase, WorkoutPhase.hold);
+    expect(state().step, 1);
+    warmup.addSamples([
+      ..._pull(0, 0.5, 20000),
+      ..._pull(25, 3, 20500),
+      ..._pull(0, 1.1, 23500),
+    ]);
+    expect(state().phase, WorkoutPhase.done);
+    expect(state().bestKg, [18, null]);
+
+    await tester.pump();
+    expect(state().saved, isTrue);
+    final reloaded = ProviderContainer();
+    addTearDown(reloaded.dispose);
+    final check = (await reloaded.read(trainingLogProvider.future)).readiness;
+    expect(check.single.tool, 'Photon');
+    expect(check.single.pulls, [
+      (hand: Hand.left, forceKg: 18.0, benchmarkKg: 20.0),
+    ]);
+  });
+
+  testWidgets('gives way to a session started while waiting for the device', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final device =
+        container.read(progressorProvider.notifier) as _MeasuringProgressor;
+    final workout = container.read(workoutProvider.notifier);
+    final warmup = container.read(warmupProvider.notifier);
+    final recorder = container.read(benchmarkRecorderProvider.notifier);
+    final steps = trainingWarmup(
+      [
+        for (final hand in Hand.values)
+          Benchmark(
+            date: DateTime(2026, 10, 26),
+            tool: 'Photon',
+            hand: hand,
+            forceKg: 30,
+          ),
+      ],
+      'Photon',
+      heavy: false,
+    );
+
+    // Each starts before the other has the device: one runs.
+    device.link();
+    for (final workoutFirst in [true, false]) {
+      device.setMeasuring(false);
+      final starts = [
+        () => workout.start(plan),
+        () => warmup.start(WarmupKind.training, steps),
+      ];
+      await Future.wait([
+        for (final start in workoutFirst ? starts : starts.reversed) start(),
+      ]);
+      await tester.pump();
+      final workoutRunning = container.read(workoutProvider).isRunning;
+      expect(container.read(warmupProvider).isRunning, !workoutRunning);
+      // Measuring, whichever started the measurement, until the end.
+      expect(
+        container.read(progressorProvider).measurement.isMeasuring,
+        isTrue,
+      );
+      await recorder.start();
+      expect(container.read(benchmarkRecorderProvider).recording, isFalse);
+      await (workoutRunning ? workout.stop() : warmup.stop());
+      expect(
+        container.read(progressorProvider).measurement.isMeasuring,
+        isFalse,
+      );
+      expect(device.samples.hasListener, isFalse);
+    }
+
+    // A running warm-up keeps the workout and the pull from starting.
+    await warmup.start(WarmupKind.training, steps);
+    await workout.start(plan);
+    await recorder.start();
+    expect(container.read(workoutProvider).phase, WorkoutPhase.idle);
+    expect(container.read(benchmarkRecorderProvider).recording, isFalse);
+    await warmup.stop();
+  });
+
+  testWidgets('leaves a load left on out of the readiness maximum', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final warmup = container.read(warmupProvider.notifier);
+    WarmupState state() => container.read(warmupProvider);
+    final steps = readinessCheck([
+      for (final hand in Hand.values)
+        Benchmark(
+          date: DateTime(2026, 10, 26),
+          tool: 'Photon',
+          hand: hand,
+          forceKg: 30,
+        ),
+    ]);
+
+    // 40 kg left on through the end of the rest, and 5 s more after it.
+    await warmup.start(WarmupKind.readiness, steps);
+    warmup.addSamples(_pull(40, 4, 0));
+    await tester.pump(const Duration(seconds: readinessRestSeconds));
+    expect(state().phase, WorkoutPhase.hold);
+    expect(state().waitingForRelease, isTrue);
+    warmup.addSamples([
+      ..._pull(40, 5, 4000),
+      ..._pull(0, 0.5, 9000),
+      ..._pull(20, 7, 9500),
+    ]);
+    expect(state().bestKg, [20]);
+    await warmup.stop();
+  });
+
+  testWidgets('keeps the readiness pulls done when the device disconnects', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final warmup = container.read(warmupProvider.notifier);
+    final device =
+        container.read(progressorProvider.notifier) as _MeasuringProgressor;
+    WarmupState state() => container.read(warmupProvider);
+    final steps = readinessCheck([
+      for (final hand in Hand.values)
+        Benchmark(
+          date: DateTime(2026, 10, 26),
+          tool: 'Photon',
+          hand: hand,
+          forceKg: 30,
+        ),
+    ]);
+
+    await warmup.start(WarmupKind.readiness, steps);
+    device.link();
+    warmup.skip();
+    warmup.addSamples([..._pull(0, 0.5, 0), ..._pull(27, 6.5, 500)]);
+    device.drop();
+    expect(state().phase, WorkoutPhase.done);
+    expect(state().endedEarly, WorkoutEnd.disconnected);
+    // The rest timer stopped with it.
+    await tester.pump(const Duration(seconds: 20));
+    expect(state().phase, WorkoutPhase.done);
+    expect(state().saved, isTrue);
+    final readiness = (await container.read(trainingLogProvider.future))
+        .readiness;
+    expect(readiness.single.pulls.single.forceKg, 27);
+
+    // Stopping a running check stores nothing more.
+    warmup.reset();
+    await warmup.start(WarmupKind.readiness, steps);
+    await warmup.stop();
+    expect(state().phase, WorkoutPhase.idle);
+    expect(
+      (await container.read(trainingLogProvider.future)).readiness,
+      hasLength(1),
+    );
   });
 }

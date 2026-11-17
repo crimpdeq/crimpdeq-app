@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../analysis/hold_tracker.dart';
 import '../models/training_models.dart';
+import '../providers/navigation_provider.dart';
 import '../providers/progressor_provider.dart';
 import '../providers/training_provider.dart';
+import '../providers/workout_feedback_provider.dart';
 
 String formatKg(double kg) => '${kg.toStringAsFixed(1)} kg';
 
@@ -325,6 +327,73 @@ class TareButton extends ConsumerWidget {
       icon: const Icon(Icons.adjust),
       label: const Text('Tare'),
       style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+    );
+  }
+}
+
+/// Asks for the benchmark that sets a workout's or warm-up's forces.
+class RecordBenchmark extends ConsumerWidget {
+  const RecordBenchmark({super.key, required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(message),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: () => ref
+              .read(trainingPageProvider.notifier)
+              .open(TrainingPage.benchmarks),
+          icon: const Icon(Icons.emoji_events_outlined),
+          label: const Text('Record a Benchmark'),
+        ),
+      ],
+    );
+  }
+}
+
+class MuteButton extends ConsumerWidget {
+  const MuteButton({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final muted = ref.watch(soundsMutedProvider).value ?? false;
+    return IconButton(
+      tooltip: muted ? 'Unmute sounds' : 'Mute sounds',
+      onPressed: ref.read(soundsMutedProvider.notifier).toggle,
+      icon: Icon(muted ? Icons.volume_off : Icons.volume_up),
+    );
+  }
+}
+
+/// A timer's phase, such as a hold or a rest, in its color.
+class PhasePill extends StatelessWidget {
+  const PhasePill({super.key, required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.2,
+        ),
+      ),
     );
   }
 }

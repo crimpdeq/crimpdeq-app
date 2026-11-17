@@ -6,7 +6,6 @@ import '../models/training_models.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/progressor_provider.dart';
 import '../providers/training_provider.dart';
-import '../providers/workout_feedback_provider.dart';
 import '../theme.dart';
 import 'connection_widgets.dart';
 import 'training_charts.dart';
@@ -51,31 +50,6 @@ String _howWorkoutsWork(double thresholdKg) =>
     'If the first hold misses its target by more than 3 s, the later targets '
     'scale with it.';
 
-/// Asks for the benchmark that sets a workout's targets.
-class _RecordBenchmark extends ConsumerWidget {
-  const _RecordBenchmark({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(message),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: () => ref
-              .read(trainingPageProvider.notifier)
-              .open(TrainingPage.benchmarks),
-          icon: const Icon(Icons.emoji_events_outlined),
-          label: const Text('Record a Benchmark'),
-        ),
-      ],
-    );
-  }
-}
-
 class _WorkoutSetup extends ConsumerWidget {
   const _WorkoutSetup({required this.log});
 
@@ -93,7 +67,7 @@ class _WorkoutSetup extends ConsumerWidget {
     if (tools.isEmpty) {
       return const TitledCard(
         title: 'Record your first benchmark',
-        child: _RecordBenchmark(
+        child: RecordBenchmark(
           message:
               'Workout targets are fractions of your strongest 5-second '
               'pull. Record one with each tool and hand you train.',
@@ -128,7 +102,7 @@ class _WorkoutSetup extends ConsumerWidget {
           children: [
             toolAndHand,
             const SizedBox(height: 16),
-            _RecordBenchmark(
+            RecordBenchmark(
               message:
                   'Record a benchmark for $tool with the ${hand.label} hand '
                   'to unlock its workouts.',
@@ -503,20 +477,6 @@ class _SliderRow extends StatelessWidget {
 /// A reading further from zero, unloaded, offsets every force.
 const _unloadedToleranceKg = 0.5;
 
-class _MuteButton extends ConsumerWidget {
-  const _MuteButton();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final muted = ref.watch(soundsMutedProvider).value ?? false;
-    return IconButton(
-      tooltip: muted ? 'Unmute sounds' : 'Mute sounds',
-      onPressed: ref.read(soundsMutedProvider.notifier).toggle,
-      icon: Icon(muted ? Icons.volume_off : Icons.volume_up),
-    );
-  }
-}
-
 /// Readable from the hangboard: the phase in its color, a large clock and
 /// the force, then the controls.
 class _WorkoutTimer extends ConsumerWidget {
@@ -610,10 +570,10 @@ class _WorkoutTimer extends ConsumerWidget {
           children: [
             Row(
               children: [
-                _PhasePill(label: phase, color: phaseColor),
+                PhasePill(label: phase, color: phaseColor),
                 const SizedBox(width: 12),
                 Expanded(child: Text(reps, style: textTheme.titleSmall)),
-                const _MuteButton(),
+                const MuteButton(),
               ],
             ),
             FittedBox(
@@ -727,33 +687,6 @@ class _WorkoutTimer extends ConsumerWidget {
       ),
     );
     if (stop ?? false) await notifier.stop();
-  }
-}
-
-class _PhasePill extends StatelessWidget {
-  const _PhasePill({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color),
-      ),
-      child: Text(
-        label.toUpperCase(),
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.2,
-        ),
-      ),
-    );
   }
 }
 

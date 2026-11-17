@@ -61,6 +61,51 @@ Benchmark? bestBenchmark(List<Benchmark> benchmarks, String tool, Hand hand) {
   return best;
 }
 
+/// One hand's pull of a readiness check: the best 5 s of a maximal pull, and
+/// the benchmark it compares with.
+typedef ReadinessPull = ({Hand hand, double forceKg, double benchmarkKg});
+
+/// Maximal pulls after a climbing warm-up, against the benchmarks then: how
+/// ready the fingers are for the session.
+class ReadinessCheck {
+  const ReadinessCheck({
+    required this.date,
+    required this.tool,
+    required this.pulls,
+  });
+
+  ReadinessCheck.fromJson(Map<String, Object?> json)
+    : date = DateTime.parse(json['date']! as String),
+      tool = json['tool']! as String,
+      pulls = [
+        for (final pull in (json['pulls']! as List).cast<Map>())
+          (
+            hand: Hand.values.byName(pull['hand']! as String),
+            forceKg: (pull['forceKg']! as num).toDouble(),
+            benchmarkKg: (pull['benchmarkKg']! as num).toDouble(),
+          ),
+      ];
+
+  final DateTime date;
+  final String tool;
+
+  /// The hands pulled for at least 5 s, in their order.
+  final List<ReadinessPull> pulls;
+
+  Map<String, Object?> toJson() => {
+    'date': date.toIso8601String(),
+    'tool': tool,
+    'pulls': [
+      for (final pull in pulls)
+        {
+          'hand': pull.hand.name,
+          'forceKg': pull.forceKg,
+          'benchmarkKg': pull.benchmarkKg,
+        },
+    ],
+  };
+}
+
 class WorkoutRecord {
   const WorkoutRecord({
     required this.date,
@@ -223,6 +268,69 @@ sealed class WorkoutSetup with _$WorkoutSetup {
 
 /// Each hold waits for the pull, so the workout starts with the first one.
 enum WorkoutPhase { idle, hold, rest, done }
+
+enum WarmupKind {
+  climbing('Before climbing'),
+  training('Before training'),
+  readiness('Readiness check');
+
+  const WarmupKind(this.label);
+
+  final String label;
+}
+
+/// One hold of a warm-up: [forceKg] for [seconds], or without a force, as
+/// hard as possible. Its hand rests [restSeconds] first, since its previous
+/// hold or the start of the warm-up.
+typedef WarmupStep = ({
+  String tool,
+  Hand hand,
+  double benchmarkKg,
+  double? forceKg,
+  int seconds,
+  int restSeconds,
+});
+
+/// A warm-up timer: each step rests, then holds once the pull starts, and
+/// ends at its target or when released.
+@freezed
+sealed class WarmupState with _$WarmupState {
+  const WarmupState._();
+
+  const factory WarmupState({
+    WarmupKind? kind,
+    @Default([]) List<WarmupStep> steps,
+    @Default(WorkoutPhase.idle) WorkoutPhase phase,
+
+    /// Current step, or the next one during its hand's rest. 0-based.
+    @Default(0) int step,
+
+    /// The rest of the step's hand, or once a training warm-up is done, the
+    /// rest before the workout.
+    @Default(0) int restRemainingSeconds,
+    @Default(false) bool paused,
+    @Default(false) bool holding,
+    @Default(false) bool waitingForRelease,
+    @Default(0.0) double heldSeconds,
+
+    /// The hold pulls well over its target force.
+    @Default(false) bool overshooting,
+    @Default([]) List<FlSpot> forceTrace,
+
+    /// Best 5 s of each step done, null for a hold at a force or a maximal
+    /// pull under 5 s.
+    @Default([]) List<double?> bestKg,
+
+    /// The readiness check is stored in the training log.
+    @Default(false) bool saved,
+    WorkoutEnd? endedEarly,
+  }) = _WarmupState;
+
+  bool get isRunning =>
+      phase != WorkoutPhase.idle && phase != WorkoutPhase.done;
+
+  WarmupStep get current => steps[step];
+}
 
 /// Why a workout ended before its last rep.
 enum WorkoutEnd { disconnected, measurementFailed }
