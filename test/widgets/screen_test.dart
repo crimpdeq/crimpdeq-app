@@ -10,6 +10,7 @@ import 'package:crimpdeq/providers/training_provider.dart';
 import 'package:crimpdeq/providers/warmup_provider.dart';
 import 'package:crimpdeq/screens/crimpdeq_screen.dart';
 import 'package:crimpdeq/theme.dart';
+import 'package:crimpdeq/widgets/training_charts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -175,6 +176,14 @@ Future<_FakeProgressor> _pumpScreen(
 /// Opens a training page from the navigation bar.
 Future<void> _openPage(WidgetTester tester, String label) async {
   await tester.tap(find.widgetWithText(NavigationDestination, label));
+  await tester.pumpAndSettle();
+}
+
+/// Unfolds the benchmark history of the first tool with benchmarks.
+Future<void> _openBenchmarkHistory(WidgetTester tester) async {
+  final history = find.widgetWithText(ExpansionTile, 'History');
+  await tester.ensureVisible(history.first);
+  await tester.tap(history.first);
   await tester.pumpAndSettle();
 }
 
@@ -1150,9 +1159,10 @@ void main() {
     );
     await tester.tap(save);
     await tester.pumpAndSettle();
+    // The left hand's best, the right hand without one.
+    expect(find.widgetWithText(Card, '1 benchmark'), findsOne);
     expect(find.text('32.9 kg'), findsOneWidget);
-    expect(find.textContaining('Spark · Left'), findsOneWidget);
-    expect(find.textContaining('Personal best'), findsOneWidget);
+    expect(find.text('No benchmark yet'), findsOne);
 
     await tester.tap(find.text('Open Workout'));
     await tester.pumpAndSettle();
@@ -1205,14 +1215,17 @@ void main() {
       deviceTools: false,
     );
     await _openPage(tester, 'Benchmarks');
-    await tester.ensureVisible(find.text('28.0 kg · 50% BW'));
+    // The right hand's best, its latest and none for the left hand.
     expect(find.text('30.0 kg'), findsOne);
+    expect(find.text('26 Oct 2026'), findsOne);
+    expect(find.text('Latest 28.0 kg · 27 Oct'), findsOne);
+    expect(find.text('No benchmark yet'), findsOne);
+    expect(find.byType(BenchmarkProgressGraph), findsOne);
 
-    expect(
-      find.textContaining('-2.0 kg vs best · -2.0 kg vs previous'),
-      findsOne,
-    );
-    expect(find.textContaining('Personal best'), findsOne);
+    await _openBenchmarkHistory(tester);
+    expect(find.text('28.0 kg · 50% BW'), findsOne);
+    expect(find.textContaining('-2.0 kg vs previous'), findsOne);
+    expect(find.byTooltip('Personal best'), findsOne);
   });
 
   testWidgets('logs body weights from the app bar menu', (tester) async {
@@ -1473,13 +1486,15 @@ void main() {
     expect(find.text('Save Hold'), findsOneWidget);
 
     // Deleting asks first.
+    await _openBenchmarkHistory(tester);
     final delete = find.byTooltip('Delete benchmark');
     await tester.ensureVisible(delete);
     await tester.tap(delete);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
-    expect(find.text('30.0 kg'), findsOneWidget);
+    // The best and the history entry.
+    expect(find.text('30.0 kg'), findsNWidgets(2));
     await tester.tap(delete);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));

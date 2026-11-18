@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../analysis/force_trace.dart';
 import '../analysis/opengrips_curve.dart';
+import '../models/training_models.dart';
 import 'training_common.dart';
 
 /// OpenGrips colors of the curve sections.
@@ -46,9 +47,14 @@ AxisTitles _titles(
     interval: interval,
     minIncluded: minIncluded,
     maxIncluded: maxIncluded,
-    getTitlesWidget: (value, meta) => Text(
-      label(value),
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 10),
+    // Kept inside the chart, so the labels at the ends are not cut.
+    getTitlesWidget: (value, meta) => SideTitleWidget(
+      meta: meta,
+      fitInside: SideTitleFitInsideData.fromTitleMeta(meta),
+      child: Text(
+        label(value),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 10),
+      ),
     ),
   ),
 );
@@ -452,6 +458,103 @@ class ForceCurveGraph extends StatelessWidget {
           (_workoutColor, 'First holds'),
           if (section != null)
             (sectionColors[section]!, '${section.label} range and target'),
+        ]),
+      ],
+    );
+  }
+}
+
+/// Benchmarks of one tool over time, a line per hand in its color.
+class BenchmarkProgressGraph extends StatelessWidget {
+  const BenchmarkProgressGraph({super.key, required this.benchmarks});
+
+  /// In date order, spanning at least a day.
+  final List<Benchmark> benchmarks;
+
+  /// The x axis spans 0 to 3, so its four dates fall on whole values.
+  static const _dateSteps = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    final first = benchmarks.first.date;
+    final span = benchmarks.last.date.difference(first);
+    double x(DateTime date) =>
+        date.difference(first).inMilliseconds /
+        span.inMilliseconds *
+        _dateSteps;
+    final forces = [for (final benchmark in benchmarks) benchmark.forceKg];
+    final minKg = forces.reduce(min);
+    final maxKg = forces.reduce(max);
+    final paddingKg = max((maxKg - minKg) * 0.2, 2);
+    return Column(
+      children: [
+        SizedBox(
+          height: 180,
+          child: LineChart(
+            duration: Duration.zero,
+            LineChartData(
+              minX: 0,
+              maxX: _dateSteps.toDouble(),
+              minY: max(0, (minKg - paddingKg).floorToDouble()),
+              maxY: (maxKg + paddingKg).ceilToDouble(),
+              lineBarsData: [
+                for (final hand in Hand.values)
+                  LineChartBarData(
+                    spots: [
+                      for (final benchmark in benchmarks)
+                        if (benchmark.hand == hand)
+                          FlSpot(x(benchmark.date), benchmark.forceKg),
+                    ],
+                    color: handColors[hand],
+                    barWidth: 2.5,
+                    dotData: FlDotData(
+                      getDotPainter: (spot, percent, bar, index) =>
+                          FlDotCirclePainter(
+                            radius: 3,
+                            color: handColors[hand]!,
+                            strokeWidth: 0,
+                          ),
+                    ),
+                  ),
+              ],
+              lineTouchData: LineTouchData(
+                touchTooltipData: LineTouchTooltipData(
+                  fitInsideHorizontally: true,
+                  fitInsideVertically: true,
+                  getTooltipItems: (spots) => [
+                    for (final spot in spots)
+                      _tooltip(
+                        context,
+                        '${Hand.values[spot.barIndex].label} '
+                        '${formatKg(spot.y)}',
+                      ),
+                  ],
+                ),
+              ),
+              titlesData: FlTitlesData(
+                topTitles: _hiddenTitles,
+                rightTitles: _hiddenTitles,
+                leftTitles: _titles(
+                  context,
+                  (value) => '${value.round()} kg',
+                  reservedSize: 44,
+                  minIncluded: false,
+                  maxIncluded: false,
+                ),
+                bottomTitles: _titles(
+                  context,
+                  (value) =>
+                      formatDayMonth(first.add(span * (value / _dateSteps))),
+                  interval: 1,
+                ),
+              ),
+              gridData: _grid(Theme.of(context).colorScheme),
+              borderData: FlBorderData(show: false),
+            ),
+          ),
+        ),
+        _Legend([
+          for (final hand in Hand.values) (handColors[hand]!, hand.label),
         ]),
       ],
     );

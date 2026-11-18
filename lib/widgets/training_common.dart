@@ -39,11 +39,15 @@ const _months = [
   'Dec',
 ];
 
-/// "27 Oct 2026".
-String formatDay(DateTime date) {
+/// "27 Oct".
+String formatDayMonth(DateTime date) {
   final local = date.toLocal();
-  return '${local.day} ${_months[local.month - 1]} ${local.year}';
+  return '${local.day} ${_months[local.month - 1]}';
 }
+
+/// "27 Oct 2026".
+String formatDay(DateTime date) =>
+    '${formatDayMonth(date)} ${date.toLocal().year}';
 
 /// "Tue 27 Oct · 07:20".
 String formatDate(DateTime date) {
@@ -67,6 +71,12 @@ String formatDelta(double? value, String unit, {int digits = 1}) =>
 /// result, red below, and neutral without a change.
 const gainColor = Color(0xFF10B981);
 const lossColor = Color(0xFFF43F5E);
+
+/// Colors that tell the hands apart, away from the gain and loss colors.
+const handColors = {
+  Hand.left: Color(0xFF818CF8),
+  Hand.right: Color(0xFFFB923C),
+};
 
 Color? deltaColor(double? value) => value == null || value.abs() < 0.05
     ? null

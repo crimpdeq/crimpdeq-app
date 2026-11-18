@@ -45,11 +45,24 @@ class BenchmarksTab extends ConsumerWidget {
             ),
             child: _AddBenchmark(),
           ),
-          const SizedBox(height: 16),
-          TitledCard(
-            title: 'Your benchmarks',
-            child: _Entries(benchmarks: log.benchmarks),
-          ),
+          if (log.benchmarks.isEmpty) ...[
+            const SizedBox(height: 16),
+            const TitledCard(
+              title: 'Your benchmarks',
+              child: Text(
+                'No benchmarks yet. Your first one unlocks workouts.',
+              ),
+            ),
+          ],
+          for (final tool in trainingTools)
+            if ([
+                  for (final benchmark in log.benchmarks)
+                    if (benchmark.tool == tool) benchmark,
+                ]
+                case final benchmarks when benchmarks.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _ToolBenchmarks(tool: tool, benchmarks: benchmarks),
+            ],
         ],
       ),
     );
@@ -317,89 +330,203 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
   }
 }
 
-class _Entries extends ConsumerStatefulWidget {
-  const _Entries({required this.benchmarks});
+/// One tool's benchmarks: the best of each hand, which sets its workouts, the
+/// progress over time and the history.
+class _ToolBenchmarks extends ConsumerWidget {
+  const _ToolBenchmarks({required this.tool, required this.benchmarks});
 
+  final String tool;
+
+  /// Of [tool], in date order, at least one.
   final List<Benchmark> benchmarks;
 
   @override
-  ConsumerState<_Entries> createState() => _EntriesState();
-}
-
-class _EntriesState extends ConsumerState<_Entries> {
-  // Null shows every tool.
-  String? _tool;
-
-  @override
-  Widget build(BuildContext context) {
-    final benchmarks = widget.benchmarks;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
     final bodyWeights = ref.watch(bodyWeightsProvider).value ?? const [];
-    final shown = [
-      for (final benchmark in benchmarks.reversed)
-        if (_tool == null || benchmark.tool == _tool) benchmark,
-    ];
-
-    if (benchmarks.isEmpty) {
-      return const Text('No benchmarks yet. Your first one unlocks workouts.');
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ToolAndHand(
-          tools: const [null, ...trainingTools],
-          tool: _tool,
-          onToolChanged: (tool) => setState(() => _tool = tool),
-        ),
-        const SizedBox(height: 8),
-        if (shown.isEmpty)
-          Text('No benchmarks with $_tool yet.')
-        else
-          for (final benchmark in shown)
-            _Entry(
-              benchmark: benchmark,
-              bodyKg: bodyWeightOn(bodyWeights, benchmark.date),
-              comparison: _compare(benchmark, benchmarks),
-              onDelete: () async {
-                if (await confirm(
-                  context,
-                  title: 'Delete the benchmark?',
-                  content:
-                      '${benchmark.tool} ${benchmark.hand.label}, '
-                      '${formatKg(benchmark.forceKg)}. The workouts of a tool '
-                      'and hand lock without a benchmark.',
-                  action: 'Delete',
-                )) {
-                  await ref
-                      .read(trainingLogProvider.notifier)
-                      .deleteBenchmark(benchmark);
-                }
-              },
+    final spansDays =
+        benchmarks.last.date.difference(benchmarks.first.date) >=
+        const Duration(days: 1);
+    return TitledCard(
+      title: tool,
+      trailing: Text(
+        '${benchmarks.length} benchmark${benchmarks.length == 1 ? '' : 's'}',
+        style: textTheme.bodySmall,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'PERSONAL BEST',
+            style: textTheme.labelMedium?.copyWith(letterSpacing: 1.2),
+          ),
+          const SizedBox(height: 8),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final hand in Hand.values) ...[
+                  if (hand != Hand.values.first)
+                    const VerticalDivider(width: 24),
+                  Expanded(
+                    child: _HandBest(
+                      hand: hand,
+                      best: bestBenchmark(benchmarks, tool, hand),
+                      latest: benchmarks
+                          .where((benchmark) => benchmark.hand == hand)
+                          .lastOrNull,
+                      bodyWeights: bodyWeights,
+                    ),
+                  ),
+                ],
+              ],
             ),
-      ],
+          ),
+          if (spansDays) ...[
+            const SizedBox(height: 20),
+            BenchmarkProgressGraph(benchmarks: benchmarks),
+          ],
+          const SizedBox(height: 8),
+          ExpansionTile(
+            title: const Text('History'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: EdgeInsets.zero,
+            shape: const Border(),
+            children: [
+              for (final benchmark in benchmarks.reversed)
+                _Entry(
+                  benchmark: benchmark,
+                  bodyKg: bodyWeightOn(bodyWeights, benchmark.date),
+                  comparison: _compare(benchmark, benchmarks),
+                  onDelete: () async {
+                    if (await confirm(
+                      context,
+                      title: 'Delete the benchmark?',
+                      content:
+                          '${benchmark.tool} ${benchmark.hand.label}, '
+                          '${formatKg(benchmark.forceKg)}. The workouts of a '
+                          'tool and hand lock without a benchmark.',
+                      action: 'Delete',
+                    )) {
+                      await ref
+                          .read(trainingLogProvider.notifier)
+                          .deleteBenchmark(benchmark);
+                    }
+                  },
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  /// Change against the previous benchmark with the same tool and hand, and
-  /// against the best of them, like OpenGrips.
-  static ({double? vsPrevious, double vsBest, bool isBest}) _compare(
+  /// Change against the previous benchmark of the tool with the same hand,
+  /// and whether it is the best of them.
+  static ({double? vsPrevious, bool isBest}) _compare(
     Benchmark benchmark,
     List<Benchmark> benchmarks,
   ) {
     final comparable = [
       for (final other in benchmarks)
-        if (other.tool == benchmark.tool && other.hand == benchmark.hand) other,
+        if (other.hand == benchmark.hand) other,
     ];
     final index = comparable.indexOf(benchmark);
     final previous = index > 0 ? comparable[index - 1] : null;
-    final bestKg = comparable
-        .map((other) => other.forceKg)
-        .reduce((a, b) => a > b ? a : b);
     return (
       vsPrevious: previous == null
           ? null
           : benchmark.forceKg - previous.forceKg,
-      vsBest: benchmark.forceKg - bestKg,
-      isBest: benchmark.forceKg == bestKg,
+      isBest: comparable.every((other) => other.forceKg <= benchmark.forceKg),
+    );
+  }
+}
+
+/// The hand's label after a dot in its color.
+class _HandLabel extends StatelessWidget {
+  const _HandLabel(this.hand);
+
+  final Hand hand;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(Icons.circle, size: 10, color: handColors[hand]),
+        const SizedBox(width: 6),
+        Text(
+          '${hand.label} hand',
+          style: Theme.of(context).textTheme.titleSmall
+              ?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+}
+
+/// A hand's best benchmark with a tool, and its latest when it is another.
+class _HandBest extends StatelessWidget {
+  const _HandBest({
+    required this.hand,
+    required this.best,
+    required this.latest,
+    required this.bodyWeights,
+  });
+
+  final Hand hand;
+
+  /// Null, as [latest], without a benchmark.
+  final Benchmark? best;
+  final Benchmark? latest;
+  final List<BodyWeight> bodyWeights;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final best = this.best;
+    final latest = this.latest;
+    final bodyKg = best == null ? null : bodyWeightOn(bodyWeights, best.date);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _HandLabel(hand),
+        const SizedBox(height: 4),
+        if (best == null) ...[
+          Text('—', style: textTheme.headlineMedium),
+          Text('No benchmark yet', style: textTheme.bodySmall),
+        ] else ...[
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: best.forceKg.toStringAsFixed(1),
+                    style: textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  TextSpan(text: ' kg', style: textTheme.bodyMedium),
+                ],
+              ),
+            ),
+          ),
+          Text(
+            [
+              if (bodyKg != null) formatBodyWeightShare(best.forceKg, bodyKg),
+              formatDay(best.date),
+            ].join(' · '),
+            style: textTheme.bodySmall,
+          ),
+          if (latest != null && latest != best)
+            Text(
+              'Latest ${formatKg(latest.forceKg)} · '
+              '${formatDayMonth(latest.date)}',
+              style: textTheme.bodySmall,
+            ),
+        ],
+      ],
     );
   }
 }
@@ -418,7 +545,7 @@ class _Entry extends StatelessWidget {
 
   /// Body weight on the benchmark's day, null without one.
   final double? bodyKg;
-  final ({double? vsPrevious, double vsBest, bool isBest}) comparison;
+  final ({double? vsPrevious, bool isBest}) comparison;
   final VoidCallback onDelete;
 
   @override
@@ -426,13 +553,16 @@ class _Entry extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final vsPrevious = comparison.vsPrevious;
     final bodyKg = this.bodyKg;
+    final handColor = handColors[benchmark.hand]!;
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        comparison.isBest ? Icons.emoji_events : Icons.trending_flat,
-        color: comparison.isBest
-            ? _personalBestColor
-            : textTheme.bodySmall?.color,
+      leading: CircleAvatar(
+        backgroundColor: handColor.withValues(alpha: 0.18),
+        foregroundColor: handColor,
+        child: Text(
+          benchmark.hand.label[0],
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
       ),
       title: Text(
         '${formatKg(benchmark.forceKg)}'
@@ -440,15 +570,23 @@ class _Entry extends StatelessWidget {
         style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
       ),
       subtitle: Text(
-        '${benchmark.tool} · ${benchmark.hand.label} · '
-        '${formatDay(benchmark.date)}\n'
-        '${comparison.isBest ? 'Personal best' : '${formatDelta(comparison.vsBest, 'kg')} vs best'}'
-        '${vsPrevious == null ? '' : ' · ${formatDelta(vsPrevious, 'kg')} vs previous'}',
+        '${benchmark.hand.label} hand · ${formatDay(benchmark.date)}'
+        '${vsPrevious == null ? '' : '\n${formatDelta(vsPrevious, 'kg')} vs previous'}',
       ),
-      trailing: IconButton(
-        tooltip: 'Delete benchmark',
-        icon: const Icon(Icons.delete_outline),
-        onPressed: onDelete,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (comparison.isBest)
+            const Tooltip(
+              message: 'Personal best',
+              child: Icon(Icons.emoji_events, color: _personalBestColor),
+            ),
+          IconButton(
+            tooltip: 'Delete benchmark',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: onDelete,
+          ),
+        ],
       ),
     );
   }
