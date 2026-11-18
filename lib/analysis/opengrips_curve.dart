@@ -85,6 +85,21 @@ enum CurveSection {
   double targetForceKg(double benchmarkKg) =>
       _round2(benchmarkKg * balancedRatio * forceRatio);
 
+  /// Forces that belong to the section for a benchmark, bounded by the curve:
+  /// from its floor to the benchmark.
+  Range rangeKg(double benchmarkKg) {
+    final floorKg = curveFloorKg(benchmarkKg);
+    final balancedKg = benchmarkKg * balancedRatio;
+    return (
+      min: this == CurveSection.endurance
+          ? floorKg
+          : (balancedKg * bottomRatio).clamp(floorKg, benchmarkKg),
+      max: this == CurveSection.power
+          ? benchmarkKg
+          : (balancedKg * topRatio).clamp(floorKg, benchmarkKg),
+    );
+  }
+
   /// Section that a workout at [forceKg] trained. Without a benchmark, any
   /// force is Power, as in OpenGrips.
   static CurveSection of(double forceKg, double benchmarkKg) {
@@ -230,6 +245,15 @@ double deriveBenchmarkKg(double forceKg, double heldSeconds) {
     }
   }
   return (low + high) / 2;
+}
+
+/// Force axis of a curve chart: the whole curve and every workout, even one
+/// outside the curve, such as a lighter tool's under the strongest benchmark.
+Range forceAxisKg(double benchmarkKg, List<double> forcesKg) {
+  final low = [curveFloorKg(benchmarkKg), ...forcesKg].reduce(min);
+  final high = [benchmarkKg, ...forcesKg].reduce(max);
+  // A benchmark under the 1 kg floor would leave no axis.
+  return (min: low, max: high > low ? high : low + 1);
 }
 
 /// A past workout on the curve: its mean force and its first hang.

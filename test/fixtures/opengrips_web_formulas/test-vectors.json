@@ -1,0 +1,3584 @@
+{
+    "$schema": "./test-vectors.schema.json",
+    "version": "1.0.1",
+    "metadata": {
+        "description": "Canonical language-agnostic test vectors for OpenGrips Force Curve formulas (all weights in kg)",
+        "sourceRepository": "OpenGripsWeb",
+        "sourceFiles": [
+            "utils/functions/workoutCurve.ts",
+            "app/workout/WorkoutClient.tsx"
+        ],
+        "tolerances": {
+            "floatTolerance": 1e-9,
+            "benchmarkDerivationTolerance": 0.000001
+        },
+        "suiteClassification": {
+            "chartAxisAndCoverage": "General app suite: axis bounds and section coverage from a list of weight/time points",
+            "forceCurveDataset": "OpenGrips.xyz database row ingestion and dataset aggregation suite (specific to opengrips.xyz schema)"
+        }
+    },
+    "constants": {
+        "BALANCED_RATIO": 0.6666666666666666,
+        "CURVE_T0_SECONDS": 5,
+        "CURVE_T_END_SECONDS": 193,
+        "ENDURANCE_MIN_WEIGHT_OFFSET_KG": 10,
+        "MIN_CURVE_WEIGHT_FLOOR_KG": 1,
+        "CURVE_EPSILON": 0.000001,
+        "DEFAULT_FIRST_HANG_TARGET": 40,
+        "DEFAULT_REPS": 6,
+        "DEFAULT_REST": 20,
+        "DEFAULT_POWER": 0.4,
+        "DEFAULT_POWER_ENDURANCE": 0.25,
+        "DEFAULT_ENDURANCE": 0.15,
+        "MIN_ENDURANCE": 0.05,
+        "MAX_ENDURANCE": 0.2,
+        "MIN_POWER_ENDURANCE": 0.17,
+        "MAX_POWER_ENDURANCE": 0.37,
+        "MIN_POWER": 0.22,
+        "MAX_POWER": 0.85,
+        "ENDURANCE_WEIGHT_FROM_BALANCED_RATIO": 0.3,
+        "POWER_FIRST_REP_SECONDS": 40,
+        "ENDURANCE_FIRST_REP_SECONDS": 195,
+        "SECTION_WEIGHT_CURVE_EXPONENT": 1.25,
+        "SECTION_TIME_CURVE_EXPONENT": 0.72,
+        "CURVE_SECTIONS": [
+            "Endurance",
+            "Strength/Endurance",
+            "Strength",
+            "Power/Strength",
+            "Power"
+        ],
+        "SECTION_CURVE_MODEL": {
+            "Endurance": {
+                "weightRatioOfBalanced": 0.3409091,
+                "ratioOfSectionTop": 0.3901515,
+                "ratioOfSectionBottom": 0,
+                "firstRepTargetSeconds": 193,
+                "repRatios": [
+                    1,
+                    0.285,
+                    0.223,
+                    0.202
+                ]
+            },
+            "Strength/Endurance": {
+                "weightRatioOfBalanced": 0.4393939,
+                "ratioOfSectionTop": 0.51893935,
+                "ratioOfSectionBottom": 0.3901515,
+                "firstRepTargetSeconds": 146,
+                "repRatios": [
+                    1,
+                    0.342,
+                    0.295,
+                    0.24
+                ]
+            },
+            "Strength": {
+                "weightRatioOfBalanced": 0.5984848,
+                "ratioOfSectionTop": 0.7310606,
+                "ratioOfSectionBottom": 0.51893935,
+                "firstRepTargetSeconds": 101,
+                "repRatios": [
+                    1,
+                    0.356,
+                    0.287,
+                    0.257,
+                    0.228
+                ]
+            },
+            "Power/Strength": {
+                "weightRatioOfBalanced": 0.8636364,
+                "ratioOfSectionTop": 0.9318181999999999,
+                "ratioOfSectionBottom": 0.7310606,
+                "firstRepTargetSeconds": 56,
+                "repRatios": [
+                    1,
+                    0.357,
+                    0.232,
+                    0.214,
+                    0.196
+                ]
+            },
+            "Power": {
+                "weightRatioOfBalanced": 1,
+                "ratioOfSectionTop": 100,
+                "ratioOfSectionBottom": 0.9318181999999999,
+                "firstRepTargetSeconds": 40,
+                "repRatios": [
+                    1,
+                    0.375,
+                    0.25,
+                    0.225,
+                    0.2,
+                    0.2
+                ]
+            }
+        },
+        "SESSION_TEMPLATES": {
+            "Endurance": {
+                "section": "Endurance",
+                "reps": 4,
+                "rest": 20,
+                "power": 0.74,
+                "powerEndurance": 0.37,
+                "endurance": 0.2,
+                "defaultFirstHangTarget": 90
+            },
+            "Strength/Endurance": {
+                "section": "Strength/Endurance",
+                "reps": 4,
+                "rest": 20,
+                "power": 0.62,
+                "powerEndurance": 0.31,
+                "endurance": 0.17,
+                "defaultFirstHangTarget": 72
+            },
+            "Strength": {
+                "section": "Strength",
+                "reps": 5,
+                "rest": 20,
+                "power": 0.52,
+                "powerEndurance": 0.27,
+                "endurance": 0.15,
+                "defaultFirstHangTarget": 56
+            },
+            "Power/Strength": {
+                "section": "Power/Strength",
+                "reps": 5,
+                "rest": 20,
+                "power": 0.41,
+                "powerEndurance": 0.22,
+                "endurance": 0.12,
+                "defaultFirstHangTarget": 42
+            },
+            "Power": {
+                "section": "Power",
+                "reps": 6,
+                "rest": 20,
+                "power": 0.3,
+                "powerEndurance": 0.17,
+                "endurance": 0.05,
+                "defaultFirstHangTarget": 30
+            }
+        },
+        "SECTION_STROKE_COLORS": {
+            "Endurance": "#22c55e",
+            "Strength/Endurance": "#3b82f6",
+            "Strength": "#eab308",
+            "Power/Strength": "#f97316",
+            "Power": "#ef4444"
+        }
+    },
+    "idealForceCurve": [
+        {
+            "benchmarkWeightKg": 15,
+            "balancedPowerWeightKg": 10,
+            "minWeightKg": 1,
+            "k": 0.014404522346288352,
+            "weightAtTimeSamples": [
+                {
+                    "tSeconds": 5,
+                    "weightKg": 15
+                },
+                {
+                    "tSeconds": 10,
+                    "weightKg": 13.95764782701563
+                },
+                {
+                    "tSeconds": 20,
+                    "weightKg": 12.085209697747525
+                },
+                {
+                    "tSeconds": 30,
+                    "weightKg": 10.463961782718167
+                },
+                {
+                    "tSeconds": 40,
+                    "weightKg": 9.060206560635374
+                },
+                {
+                    "tSeconds": 56,
+                    "weightKg": 7.195239029800529
+                },
+                {
+                    "tSeconds": 75,
+                    "weightKg": 5.472489528092018
+                },
+                {
+                    "tSeconds": 101,
+                    "weightKg": 3.7629982850027095
+                },
+                {
+                    "tSeconds": 146,
+                    "weightKg": 1.9679896712654306
+                },
+                {
+                    "tSeconds": 193,
+                    "weightKg": 1
+                }
+            ],
+            "idealTimeSamples": [
+                {
+                    "weightKg": 17.25,
+                    "idealTimeContinuousSeconds": 1,
+                    "idealTimeSeconds": 1
+                },
+                {
+                    "weightKg": 15,
+                    "idealTimeContinuousSeconds": 5,
+                    "idealTimeSeconds": 5
+                },
+                {
+                    "weightKg": 10,
+                    "idealTimeContinuousSeconds": 33.14845909921071,
+                    "idealTimeSeconds": 33
+                },
+                {
+                    "weightKg": 8.636364,
+                    "idealTimeContinuousSeconds": 43.326056701007545,
+                    "idealTimeSeconds": 43
+                },
+                {
+                    "weightKg": 5.984848,
+                    "idealTimeContinuousSeconds": 68.78686062276336,
+                    "idealTimeSeconds": 69
+                },
+                {
+                    "weightKg": 4.393939,
+                    "idealTimeContinuousSeconds": 90.23879378198673,
+                    "idealTimeSeconds": 90
+                },
+                {
+                    "weightKg": 3.409091,
+                    "idealTimeContinuousSeconds": 107.8568999817837,
+                    "idealTimeSeconds": 108
+                },
+                {
+                    "weightKg": 1,
+                    "idealTimeContinuousSeconds": 193,
+                    "idealTimeSeconds": 193
+                },
+                {
+                    "weightKg": 0.5,
+                    "idealTimeContinuousSeconds": 241.12010866424532,
+                    "idealTimeSeconds": 241
+                }
+            ]
+        },
+        {
+            "benchmarkWeightKg": 25,
+            "balancedPowerWeightKg": 16.666666666666664,
+            "minWeightKg": 1,
+            "k": 0.017121679919511704,
+            "weightAtTimeSamples": [
+                {
+                    "tSeconds": 5,
+                    "weightKg": 25
+                },
+                {
+                    "tSeconds": 10,
+                    "weightKg": 22.94884079641247
+                },
+                {
+                    "tSeconds": 20,
+                    "weightKg": 19.33758528197304
+                },
+                {
+                    "tSeconds": 30,
+                    "weightKg": 16.29460101514312
+                },
+                {
+                    "tSeconds": 40,
+                    "weightKg": 13.730464190387906
+                },
+                {
+                    "tSeconds": 56,
+                    "weightKg": 10.440266917866367
+                },
+                {
+                    "tSeconds": 75,
+                    "weightKg": 7.541025875340986
+                },
+                {
+                    "tSeconds": 101,
+                    "weightKg": 4.831681542857664
+                },
+                {
+                    "tSeconds": 146,
+                    "weightKg": 2.2360679774997902
+                },
+                {
+                    "tSeconds": 193,
+                    "weightKg": 1.0000000000000004
+                }
+            ],
+            "idealTimeSamples": [
+                {
+                    "weightKg": 28.749999999999996,
+                    "idealTimeContinuousSeconds": 1,
+                    "idealTimeSeconds": 1
+                },
+                {
+                    "weightKg": 25,
+                    "idealTimeContinuousSeconds": 5,
+                    "idealTimeSeconds": 5
+                },
+                {
+                    "weightKg": 16.666666666666664,
+                    "idealTimeContinuousSeconds": 28.68138582278369,
+                    "idealTimeSeconds": 29
+                },
+                {
+                    "weightKg": 14.393939999999997,
+                    "idealTimeContinuousSeconds": 37.24383020766822,
+                    "idealTimeSeconds": 37
+                },
+                {
+                    "weightKg": 9.974746666666666,
+                    "idealTimeContinuousSeconds": 58.66408340533791,
+                    "idealTimeSeconds": 59
+                },
+                {
+                    "weightKg": 7.323231666666666,
+                    "idealTimeContinuousSeconds": 76.7116612140422,
+                    "idealTimeSeconds": 77
+                },
+                {
+                    "weightKg": 5.681818333333333,
+                    "idealTimeContinuousSeconds": 91.53382852748734,
+                    "idealTimeSeconds": 92
+                },
+                {
+                    "weightKg": 1,
+                    "idealTimeContinuousSeconds": 193.00000000000003,
+                    "idealTimeSeconds": 193
+                },
+                {
+                    "weightKg": 0.5,
+                    "idealTimeContinuousSeconds": 233.48359645889897,
+                    "idealTimeSeconds": 233
+                }
+            ]
+        },
+        {
+            "benchmarkWeightKg": 40,
+            "balancedPowerWeightKg": 26.666666666666664,
+            "minWeightKg": 1,
+            "k": 0.0196216992240103,
+            "weightAtTimeSamples": [
+                {
+                    "tSeconds": 5,
+                    "weightKg": 40
+                },
+                {
+                    "tSeconds": 10,
+                    "weightKg": 36.26202164806755
+                },
+                {
+                    "tSeconds": 20,
+                    "weightKg": 29.801358083769433
+                },
+                {
+                    "tSeconds": 30,
+                    "weightKg": 24.49176585510033
+                },
+                {
+                    "tSeconds": 40,
+                    "weightKg": 20.12816305266805
+                },
+                {
+                    "tSeconds": 56,
+                    "weightKg": 14.704782686460941
+                },
+                {
+                    "tSeconds": 75,
+                    "weightKg": 10.12857369686978
+                },
+                {
+                    "tSeconds": 101,
+                    "weightKg": 6.081165238040952
+                },
+                {
+                    "tSeconds": 146,
+                    "weightKg": 2.5148668593658705
+                },
+                {
+                    "tSeconds": 193,
+                    "weightKg": 1
+                }
+            ],
+            "idealTimeSamples": [
+                {
+                    "weightKg": 46,
+                    "idealTimeContinuousSeconds": 1,
+                    "idealTimeSeconds": 1
+                },
+                {
+                    "weightKg": 40,
+                    "idealTimeContinuousSeconds": 5,
+                    "idealTimeSeconds": 5
+                },
+                {
+                    "weightKg": 26.666666666666664,
+                    "idealTimeContinuousSeconds": 25.664117999118687,
+                    "idealTimeSeconds": 26
+                },
+                {
+                    "weightKg": 23.030303999999997,
+                    "idealTimeContinuousSeconds": 33.13561322554742,
+                    "idealTimeSeconds": 33
+                },
+                {
+                    "weightKg": 15.959594666666666,
+                    "idealTimeContinuousSeconds": 51.82669165144742,
+                    "idealTimeSeconds": 52
+                },
+                {
+                    "weightKg": 11.717170666666666,
+                    "idealTimeContinuousSeconds": 67.57481045784519,
+                    "idealTimeSeconds": 68
+                },
+                {
+                    "weightKg": 9.090909333333332,
+                    "idealTimeContinuousSeconds": 80.50847137869529,
+                    "idealTimeSeconds": 81
+                },
+                {
+                    "weightKg": 1,
+                    "idealTimeContinuousSeconds": 193,
+                    "idealTimeSeconds": 193
+                },
+                {
+                    "weightKg": 0.5,
+                    "idealTimeContinuousSeconds": 228.3255430453122,
+                    "idealTimeSeconds": 228
+                }
+            ]
+        },
+        {
+            "benchmarkWeightKg": 50,
+            "balancedPowerWeightKg": 33.33333333333333,
+            "minWeightKg": 1.3636366666666664,
+            "k": 0.019158871568628243,
+            "weightAtTimeSamples": [
+                {
+                    "tSeconds": 5,
+                    "weightKg": 50
+                },
+                {
+                    "tSeconds": 10,
+                    "weightKg": 45.43254268892978
+                },
+                {
+                    "tSeconds": 20,
+                    "weightKg": 37.51121413601214
+                },
+                {
+                    "tSeconds": 30,
+                    "weightKg": 30.97099793845818
+                },
+                {
+                    "tSeconds": 40,
+                    "weightKg": 25.571092149297055
+                },
+                {
+                    "tSeconds": 56,
+                    "weightKg": 18.820007928319484
+                },
+                {
+                    "tSeconds": 75,
+                    "weightKg": 13.077615074156828
+                },
+                {
+                    "tSeconds": 101,
+                    "weightKg": 7.946815916884674
+                },
+                {
+                    "tSeconds": 146,
+                    "weightKg": 3.3555715522214813
+                },
+                {
+                    "tSeconds": 193,
+                    "weightKg": 1.363636666666666
+                }
+            ],
+            "idealTimeSamples": [
+                {
+                    "weightKg": 57.49999999999999,
+                    "idealTimeContinuousSeconds": 1,
+                    "idealTimeSeconds": 1
+                },
+                {
+                    "weightKg": 50,
+                    "idealTimeContinuousSeconds": 5,
+                    "idealTimeSeconds": 5
+                },
+                {
+                    "weightKg": 33.33333333333333,
+                    "idealTimeContinuousSeconds": 26.163308426373856,
+                    "idealTimeSeconds": 26
+                },
+                {
+                    "weightKg": 28.787879999999994,
+                    "idealTimeContinuousSeconds": 33.81529521283311,
+                    "idealTimeSeconds": 34
+                },
+                {
+                    "weightKg": 19.949493333333333,
+                    "idealTimeContinuousSeconds": 52.957900649258434,
+                    "idealTimeSeconds": 53
+                },
+                {
+                    "weightKg": 14.646463333333331,
+                    "idealTimeContinuousSeconds": 69.08645234690111,
+                    "idealTimeSeconds": 69
+                },
+                {
+                    "weightKg": 11.363636666666666,
+                    "idealTimeContinuousSeconds": 82.33255630167736,
+                    "idealTimeSeconds": 82
+                },
+                {
+                    "weightKg": 1.3636366666666664,
+                    "idealTimeContinuousSeconds": 193,
+                    "idealTimeSeconds": 193
+                },
+                {
+                    "weightKg": 0.6818183333333332,
+                    "idealTimeContinuousSeconds": 229.17891471723948,
+                    "idealTimeSeconds": 229
+                }
+            ]
+        },
+        {
+            "benchmarkWeightKg": 60,
+            "balancedPowerWeightKg": 40,
+            "minWeightKg": 3.6363640000000004,
+            "k": 0.014911490855885851,
+            "weightAtTimeSamples": [
+                {
+                    "tSeconds": 5,
+                    "weightKg": 60
+                },
+                {
+                    "tSeconds": 10,
+                    "weightKg": 55.68924876596249
+                },
+                {
+                    "tSeconds": 20,
+                    "weightKg": 47.97462375706046
+                },
+                {
+                    "tSeconds": 30,
+                    "weightKg": 41.32870483320716
+                },
+                {
+                    "tSeconds": 40,
+                    "weightKg": 35.603444267532886
+                },
+                {
+                    "tSeconds": 56,
+                    "weightKg": 28.046350837109625
+                },
+                {
+                    "tSeconds": 75,
+                    "weightKg": 21.126754061855337
+                },
+                {
+                    "tSeconds": 101,
+                    "weightKg": 14.336968914448908
+                },
+                {
+                    "tSeconds": 146,
+                    "weightKg": 7.328892049011306
+                },
+                {
+                    "tSeconds": 193,
+                    "weightKg": 3.636364
+                }
+            ],
+            "idealTimeSamples": [
+                {
+                    "weightKg": 69,
+                    "idealTimeContinuousSeconds": 1,
+                    "idealTimeSeconds": 1
+                },
+                {
+                    "weightKg": 60,
+                    "idealTimeContinuousSeconds": 5,
+                    "idealTimeSeconds": 5
+                },
+                {
+                    "weightKg": 40,
+                    "idealTimeContinuousSeconds": 32.19145335814089,
+                    "idealTimeSeconds": 32
+                },
+                {
+                    "weightKg": 34.545456,
+                    "idealTimeContinuousSeconds": 42.02302777973844,
+                    "idealTimeSeconds": 42
+                },
+                {
+                    "weightKg": 23.939392,
+                    "idealTimeContinuousSeconds": 66.61820223881233,
+                    "idealTimeSeconds": 67
+                },
+                {
+                    "weightKg": 17.575756,
+                    "idealTimeContinuousSeconds": 87.34080157844491,
+                    "idealTimeSeconds": 87
+                },
+                {
+                    "weightKg": 13.636364,
+                    "idealTimeContinuousSeconds": 104.35991837279848,
+                    "idealTimeSeconds": 104
+                },
+                {
+                    "weightKg": 3.6363640000000004,
+                    "idealTimeContinuousSeconds": 193,
+                    "idealTimeSeconds": 193
+                },
+                {
+                    "weightKg": 1.8181820000000002,
+                    "idealTimeContinuousSeconds": 239.48409654399828,
+                    "idealTimeSeconds": 239
+                }
+            ]
+        },
+        {
+            "benchmarkWeightKg": 75,
+            "balancedPowerWeightKg": 50,
+            "minWeightKg": 7.0454550000000005,
+            "k": 0.012580347794996026,
+            "weightAtTimeSamples": [
+                {
+                    "tSeconds": 5,
+                    "weightKg": 75
+                },
+                {
+                    "tSeconds": 10,
+                    "weightKg": 70.42768048277244
+                },
+                {
+                    "tSeconds": 20,
+                    "weightKg": 62.10229200872338
+                },
+                {
+                    "tSeconds": 30,
+                    "weightKg": 54.7610633532102
+                },
+                {
+                    "tSeconds": 40,
+                    "weightKg": 48.28765513442032
+                },
+                {
+                    "tSeconds": 56,
+                    "weightKg": 39.483796635649675
+                },
+                {
+                    "tSeconds": 75,
+                    "weightKg": 31.089301845076122
+                },
+                {
+                    "tSeconds": 101,
+                    "weightKg": 22.415994073704447
+                },
+                {
+                    "tSeconds": 146,
+                    "weightKg": 12.72615181739311
+                },
+                {
+                    "tSeconds": 193,
+                    "weightKg": 7.0454550000000005
+                }
+            ],
+            "idealTimeSamples": [
+                {
+                    "weightKg": 86.25,
+                    "idealTimeContinuousSeconds": 1,
+                    "idealTimeSeconds": 1
+                },
+                {
+                    "weightKg": 75,
+                    "idealTimeContinuousSeconds": 5,
+                    "idealTimeSeconds": 5
+                },
+                {
+                    "weightKg": 50,
+                    "idealTimeContinuousSeconds": 37.23003963924135,
+                    "idealTimeSeconds": 37
+                },
+                {
+                    "weightKg": 43.18182,
+                    "idealTimeContinuousSeconds": 48.88340840738672,
+                    "idealTimeSeconds": 49
+                },
+                {
+                    "weightKg": 29.92424,
+                    "idealTimeContinuousSeconds": 78.03607771524773,
+                    "idealTimeSeconds": 78
+                },
+                {
+                    "weightKg": 21.969695,
+                    "idealTimeContinuousSeconds": 102.59858231357268,
+                    "idealTimeSeconds": 103
+                },
+                {
+                    "weightKg": 17.045455,
+                    "idealTimeContinuousSeconds": 122.77134769253946,
+                    "idealTimeSeconds": 123
+                },
+                {
+                    "weightKg": 7.0454550000000005,
+                    "idealTimeContinuousSeconds": 193,
+                    "idealTimeSeconds": 193
+                },
+                {
+                    "weightKg": 3.5227275000000002,
+                    "idealTimeContinuousSeconds": 248.09761668398804,
+                    "idealTimeSeconds": 248
+                }
+            ]
+        },
+        {
+            "benchmarkWeightKg": 90,
+            "balancedPowerWeightKg": 60,
+            "minWeightKg": 10.454546,
+            "k": 0.011450918949954647,
+            "weightAtTimeSamples": [
+                {
+                    "tSeconds": 5,
+                    "weightKg": 90
+                },
+                {
+                    "tSeconds": 10,
+                    "weightKg": 84.99182501580992
+                },
+                {
+                    "tSeconds": 20,
+                    "weightKg": 75.79602768628112
+                },
+                {
+                    "tSeconds": 30,
+                    "weightKg": 67.59518120655511
+                },
+                {
+                    "tSeconds": 40,
+                    "weightKg": 60.28163561893385
+                },
+                {
+                    "tSeconds": 56,
+                    "weightKg": 50.189849441053596
+                },
+                {
+                    "tSeconds": 75,
+                    "weightKg": 40.37639547659904
+                },
+                {
+                    "tSeconds": 101,
+                    "weightKg": 29.97972893586124
+                },
+                {
+                    "tSeconds": 146,
+                    "weightKg": 17.9076876515302
+                },
+                {
+                    "tSeconds": 193,
+                    "weightKg": 10.454546000000002
+                }
+            ],
+            "idealTimeSamples": [
+                {
+                    "weightKg": 103.49999999999999,
+                    "idealTimeContinuousSeconds": 1,
+                    "idealTimeSeconds": 1
+                },
+                {
+                    "weightKg": 90,
+                    "idealTimeContinuousSeconds": 5,
+                    "idealTimeSeconds": 5
+                },
+                {
+                    "weightKg": 60,
+                    "idealTimeContinuousSeconds": 40.40895799544283,
+                    "idealTimeSeconds": 40
+                },
+                {
+                    "weightKg": 51.818183999999995,
+                    "idealTimeContinuousSeconds": 53.211723671047736,
+                    "idealTimeSeconds": 53
+                },
+                {
+                    "weightKg": 35.909088000000004,
+                    "idealTimeContinuousSeconds": 85.23978365891885,
+                    "idealTimeSeconds": 85
+                },
+                {
+                    "weightKg": 26.363634,
+                    "idealTimeContinuousSeconds": 112.224941087209,
+                    "idealTimeSeconds": 112
+                },
+                {
+                    "weightKg": 20.454546,
+                    "idealTimeContinuousSeconds": 134.38738984467417,
+                    "idealTimeSeconds": 134
+                },
+                {
+                    "weightKg": 10.454546,
+                    "idealTimeContinuousSeconds": 193,
+                    "idealTimeSeconds": 193
+                },
+                {
+                    "weightKg": 5.227273,
+                    "idealTimeContinuousSeconds": 253.5320135081989,
+                    "idealTimeSeconds": 254
+                }
+            ]
+        },
+        {
+            "benchmarkWeightKg": 100,
+            "balancedPowerWeightKg": 66.66666666666666,
+            "minWeightKg": 12.727273333333333,
+            "k": 0.010965015896585698,
+            "weightAtTimeSamples": [
+                {
+                    "tSeconds": 5,
+                    "weightKg": 100
+                },
+                {
+                    "tSeconds": 10,
+                    "weightKg": 94.66507221057003
+                },
+                {
+                    "tSeconds": 20,
+                    "weightKg": 84.83387628679928
+                },
+                {
+                    "tSeconds": 30,
+                    "weightKg": 76.023673756205
+                },
+                {
+                    "tSeconds": 40,
+                    "weightKg": 68.12843199396794
+                },
+                {
+                    "tSeconds": 56,
+                    "weightKg": 57.16571755492013
+                },
+                {
+                    "tSeconds": 75,
+                    "weightKg": 46.41483245956713
+                },
+                {
+                    "tSeconds": 101,
+                    "weightKg": 34.90145992222573
+                },
+                {
+                    "tSeconds": 146,
+                    "weightKg": 21.308433739722886
+                },
+                {
+                    "tSeconds": 193,
+                    "weightKg": 12.727273333333333
+                }
+            ],
+            "idealTimeSamples": [
+                {
+                    "weightKg": 114.99999999999999,
+                    "idealTimeContinuousSeconds": 1,
+                    "idealTimeSeconds": 1
+                },
+                {
+                    "weightKg": 100,
+                    "idealTimeContinuousSeconds": 5,
+                    "idealTimeSeconds": 5
+                },
+                {
+                    "weightKg": 66.66666666666666,
+                    "idealTimeContinuousSeconds": 41.97806842527414,
+                    "idealTimeSeconds": 42
+                },
+                {
+                    "weightKg": 57.57575999999999,
+                    "idealTimeContinuousSeconds": 55.34817508715894,
+                    "idealTimeSeconds": 55
+                },
+                {
+                    "weightKg": 39.898986666666666,
+                    "idealTimeContinuousSeconds": 88.79552459438555,
+                    "idealTimeSeconds": 89
+                },
+                {
+                    "weightKg": 29.292926666666663,
+                    "idealTimeContinuousSeconds": 116.97650066203863,
+                    "idealTimeSeconds": 117
+                },
+                {
+                    "weightKg": 22.727273333333333,
+                    "idealTimeContinuousSeconds": 140.12105483758518,
+                    "idealTimeSeconds": 140
+                },
+                {
+                    "weightKg": 12.727273333333333,
+                    "idealTimeContinuousSeconds": 193,
+                    "idealTimeSeconds": 193
+                },
+                {
+                    "weightKg": 6.363636666666666,
+                    "idealTimeContinuousSeconds": 256.2144255053728,
+                    "idealTimeSeconds": 256
+                }
+            ]
+        },
+        {
+            "benchmarkWeightKg": 120,
+            "balancedPowerWeightKg": 80,
+            "minWeightKg": 17.272728,
+            "k": 0.010310440964439725,
+            "weightAtTimeSamples": [
+                {
+                    "tSeconds": 5,
+                    "weightKg": 120
+                },
+                {
+                    "tSeconds": 10,
+                    "weightKg": 113.97048803109332
+                },
+                {
+                    "tSeconds": 20,
+                    "weightKg": 102.80511702761254
+                },
+                {
+                    "tSeconds": 30,
+                    "weightKg": 92.733586296285
+                },
+                {
+                    "tSeconds": 40,
+                    "weightKg": 83.64873535488299
+                },
+                {
+                    "tSeconds": 56,
+                    "weightKg": 70.9275727021419
+                },
+                {
+                    "tSeconds": 75,
+                    "weightKg": 58.30925772059377
+                },
+                {
+                    "tSeconds": 101,
+                    "weightKg": 44.59801762623113
+                },
+                {
+                    "tSeconds": 146,
+                    "weightKg": 28.042453737170653
+                },
+                {
+                    "tSeconds": 193,
+                    "weightKg": 17.272727999999997
+                }
+            ],
+            "idealTimeSamples": [
+                {
+                    "weightKg": 138,
+                    "idealTimeContinuousSeconds": 1,
+                    "idealTimeSeconds": 1
+                },
+                {
+                    "weightKg": 120,
+                    "idealTimeContinuousSeconds": 5,
+                    "idealTimeSeconds": 5
+                },
+                {
+                    "weightKg": 80,
+                    "idealTimeContinuousSeconds": 44.32568058985997,
+                    "idealTimeSeconds": 44
+                },
+                {
+                    "weightKg": 69.090912,
+                    "idealTimeContinuousSeconds": 58.544609983107286,
+                    "idealTimeSeconds": 59
+                },
+                {
+                    "weightKg": 47.878784,
+                    "idealTimeContinuousSeconds": 94.11541828415913,
+                    "idealTimeSeconds": 94
+                },
+                {
+                    "weightKg": 35.151512,
+                    "idealTimeContinuousSeconds": 124.08550895524313,
+                    "idealTimeSeconds": 124
+                },
+                {
+                    "weightKg": 27.272728,
+                    "idealTimeContinuousSeconds": 148.69943238776503,
+                    "idealTimeSeconds": 149
+                },
+                {
+                    "weightKg": 17.272728,
+                    "idealTimeContinuousSeconds": 193,
+                    "idealTimeSeconds": 193
+                },
+                {
+                    "weightKg": 8.636364,
+                    "idealTimeContinuousSeconds": 260.2276950084463,
+                    "idealTimeSeconds": 260
+                }
+            ]
+        },
+        {
+            "benchmarkWeightKg": 150,
+            "balancedPowerWeightKg": 100,
+            "minWeightKg": 24.09091,
+            "k": 0.009727663314747635,
+            "weightAtTimeSamples": [
+                {
+                    "tSeconds": 5,
+                    "weightKg": 150
+                },
+                {
+                    "tSeconds": 10,
+                    "weightKg": 142.8788370178748
+                },
+                {
+                    "tSeconds": 20,
+                    "weightKg": 129.63468047456487
+                },
+                {
+                    "tSeconds": 30,
+                    "weightKg": 117.61819127657184
+                },
+                {
+                    "tSeconds": 40,
+                    "weightKg": 106.71557077572744
+                },
+                {
+                    "tSeconds": 56,
+                    "weightKg": 91.3341231256886
+                },
+                {
+                    "tSeconds": 75,
+                    "weightKg": 75.92142030659527
+                },
+                {
+                    "tSeconds": 101,
+                    "weightKg": 58.95530508417997
+                },
+                {
+                    "tSeconds": 146,
+                    "weightKg": 38.05508695567861
+                },
+                {
+                    "tSeconds": 193,
+                    "weightKg": 24.090910000000008
+                }
+            ],
+            "idealTimeSamples": [
+                {
+                    "weightKg": 172.5,
+                    "idealTimeContinuousSeconds": 1,
+                    "idealTimeSeconds": 1
+                },
+                {
+                    "weightKg": 150,
+                    "idealTimeContinuousSeconds": 5,
+                    "idealTimeSeconds": 5
+                },
+                {
+                    "weightKg": 100,
+                    "idealTimeContinuousSeconds": 46.681655191895736,
+                    "idealTimeSeconds": 47
+                },
+                {
+                    "weightKg": 86.36364,
+                    "idealTimeContinuousSeconds": 61.752430910906774,
+                    "idealTimeSeconds": 62
+                },
+                {
+                    "weightKg": 59.84848,
+                    "idealTimeContinuousSeconds": 99.45426198573281,
+                    "idealTimeSeconds": 99
+                },
+                {
+                    "weightKg": 43.93939,
+                    "idealTimeContinuousSeconds": 131.2198402715941,
+                    "idealTimeSeconds": 131
+                },
+                {
+                    "weightKg": 34.09091,
+                    "idealTimeContinuousSeconds": 157.30836700642803,
+                    "idealTimeSeconds": 157
+                },
+                {
+                    "weightKg": 24.09091,
+                    "idealTimeContinuousSeconds": 193,
+                    "idealTimeSeconds": 193
+                },
+                {
+                    "weightKg": 12.045455,
+                    "idealTimeContinuousSeconds": 264.2552601927637,
+                    "idealTimeSeconds": 264
+                }
+            ]
+        }
+    ],
+    "deriveBenchmarkWeight": [
+        {
+            "label": "standard-40kg-40s",
+            "weightKg": 40,
+            "timeHeldSeconds": 40,
+            "expectedBenchmarkWeightKg": 65.03134240219043
+        },
+        {
+            "label": "standard-30kg-101s",
+            "weightKg": 30,
+            "timeHeldSeconds": 101,
+            "expectedBenchmarkWeightKg": 90.04088614415511
+        },
+        {
+            "label": "standard-20kg-193s",
+            "weightKg": 20,
+            "timeHeldSeconds": 193,
+            "expectedBenchmarkWeightKg": 131.9999964800001
+        },
+        {
+            "label": "standard-50kg-15s",
+            "weightKg": 50,
+            "timeHeldSeconds": 15,
+            "expectedBenchmarkWeightKg": 58.29909430255347
+        },
+        {
+            "label": "standard-60kg-60s",
+            "weightKg": 60,
+            "timeHeldSeconds": 60,
+            "expectedBenchmarkWeightKg": 107.88672662502151
+        },
+        {
+            "label": "standard-80kg-25s",
+            "weightKg": 80,
+            "timeHeldSeconds": 25,
+            "expectedBenchmarkWeightKg": 99.64603771166878
+        },
+        {
+            "label": "edge-at-5s",
+            "weightKg": 50,
+            "timeHeldSeconds": 5,
+            "expectedBenchmarkWeightKg": 50
+        },
+        {
+            "label": "edge-under-5s",
+            "weightKg": 50,
+            "timeHeldSeconds": 3,
+            "expectedBenchmarkWeightKg": 50
+        },
+        {
+            "label": "edge-zero-weight",
+            "weightKg": 0,
+            "timeHeldSeconds": 40,
+            "expectedBenchmarkWeightKg": 0
+        },
+        {
+            "label": "edge-negative-weight",
+            "weightKg": -5,
+            "timeHeldSeconds": 20,
+            "expectedBenchmarkWeightKg": -5
+        },
+        {
+            "label": "roundtrip-w5-40-t-20",
+            "weightKg": 29.801358083769433,
+            "timeHeldSeconds": 20,
+            "sourceBenchmarkWeightKg": 40,
+            "expectedBenchmarkWeightKg": 40
+        },
+        {
+            "label": "roundtrip-w5-60-t-56",
+            "weightKg": 28.046350837109625,
+            "timeHeldSeconds": 56,
+            "sourceBenchmarkWeightKg": 60,
+            "expectedBenchmarkWeightKg": 60
+        },
+        {
+            "label": "roundtrip-w5-90-t-101",
+            "weightKg": 29.97972893586124,
+            "timeHeldSeconds": 101,
+            "sourceBenchmarkWeightKg": 90,
+            "expectedBenchmarkWeightKg": 90.00000000000003
+        },
+        {
+            "label": "roundtrip-w5-120-t-146",
+            "weightKg": 28.042453737170653,
+            "timeHeldSeconds": 146,
+            "sourceBenchmarkWeightKg": 120,
+            "expectedBenchmarkWeightKg": 120
+        },
+        {
+            "label": "roundtrip-w5-100-t-193",
+            "weightKg": 12.727273333333333,
+            "timeHeldSeconds": 193,
+            "sourceBenchmarkWeightKg": 100,
+            "expectedBenchmarkWeightKg": 100.00000000000003
+        }
+    ],
+    "sectionClassification": {
+        "byBenchmarkWeight": [
+            {
+                "usedWeightKg": 50,
+                "maxPowerBenchmarkKg": 0,
+                "expectedSection": "Power"
+            },
+            {
+                "usedWeightKg": 50,
+                "maxPowerBenchmarkKg": -10,
+                "expectedSection": "Power"
+            },
+            {
+                "usedWeightKg": 0,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Endurance"
+            },
+            {
+                "usedWeightKg": -5,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Endurance"
+            },
+            {
+                "usedWeightKg": 20.454546,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Endurance"
+            },
+            {
+                "usedWeightKg": 23.40909,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Endurance"
+            },
+            {
+                "usedWeightKg": 23.409149999999997,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Strength/Endurance"
+            },
+            {
+                "usedWeightKg": 26.363634,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Strength/Endurance"
+            },
+            {
+                "usedWeightKg": 31.136361,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Strength/Endurance"
+            },
+            {
+                "usedWeightKg": 31.136421000000002,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Strength"
+            },
+            {
+                "usedWeightKg": 35.909088000000004,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Strength"
+            },
+            {
+                "usedWeightKg": 43.863636,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Strength"
+            },
+            {
+                "usedWeightKg": 43.863696,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Power/Strength"
+            },
+            {
+                "usedWeightKg": 51.818183999999995,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Power/Strength"
+            },
+            {
+                "usedWeightKg": 55.909091999999994,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Power/Strength"
+            },
+            {
+                "usedWeightKg": 55.909152,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Power"
+            },
+            {
+                "usedWeightKg": 60,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Power"
+            },
+            {
+                "usedWeightKg": 90,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Power"
+            },
+            {
+                "usedWeightKg": 110,
+                "maxPowerBenchmarkKg": 90,
+                "expectedSection": "Power"
+            },
+            {
+                "usedWeightKg": 25,
+                "maxPowerBenchmarkKg": 100,
+                "expectedSection": "Endurance"
+            },
+            {
+                "usedWeightKg": 40,
+                "maxPowerBenchmarkKg": 100,
+                "expectedSection": "Strength"
+            },
+            {
+                "usedWeightKg": 66.67,
+                "maxPowerBenchmarkKg": 100,
+                "expectedSection": "Power"
+            }
+        ],
+        "byNormalizedX": [
+            {
+                "normalizedX": -0.2,
+                "expectedSection": "Endurance"
+            },
+            {
+                "normalizedX": 0,
+                "expectedSection": "Endurance"
+            },
+            {
+                "normalizedX": 0.199999,
+                "expectedSection": "Endurance"
+            },
+            {
+                "normalizedX": 0.2,
+                "expectedSection": "Strength/Endurance"
+            },
+            {
+                "normalizedX": 0.399999,
+                "expectedSection": "Strength/Endurance"
+            },
+            {
+                "normalizedX": 0.4,
+                "expectedSection": "Strength"
+            },
+            {
+                "normalizedX": 0.599999,
+                "expectedSection": "Strength"
+            },
+            {
+                "normalizedX": 0.6,
+                "expectedSection": "Power/Strength"
+            },
+            {
+                "normalizedX": 0.799999,
+                "expectedSection": "Power/Strength"
+            },
+            {
+                "normalizedX": 0.8,
+                "expectedSection": "Power"
+            },
+            {
+                "normalizedX": 1,
+                "expectedSection": "Power"
+            },
+            {
+                "normalizedX": 1.2,
+                "expectedSection": "Power"
+            }
+        ],
+        "getCurveSection": [
+            {
+                "usedWeightKg": 35,
+                "benchmarkWeightKg": 90,
+                "weightMin": 20,
+                "weightMax": 90,
+                "expectedSection": "Strength"
+            },
+            {
+                "usedWeightKg": 35,
+                "benchmarkWeightKg": null,
+                "weightMin": 20,
+                "weightMax": 70,
+                "expectedSection": "Strength/Endurance"
+            },
+            {
+                "usedWeightKg": 45,
+                "benchmarkWeightKg": 0,
+                "weightMin": 20,
+                "weightMax": 70,
+                "expectedSection": "Strength"
+            },
+            {
+                "usedWeightKg": 25,
+                "benchmarkWeightKg": null,
+                "weightMin": null,
+                "weightMax": null,
+                "expectedSection": "Power"
+            },
+            {
+                "usedWeightKg": 13,
+                "benchmarkWeightKg": null,
+                "weightMin": null,
+                "weightMax": 25,
+                "expectedSection": "Strength"
+            },
+            {
+                "usedWeightKg": 1,
+                "benchmarkWeightKg": null,
+                "weightMin": null,
+                "weightMax": 50,
+                "expectedSection": "Endurance"
+            }
+        ],
+        "sectionProgress": [
+            {
+                "section": "Endurance",
+                "expectedProgress": 0
+            },
+            {
+                "section": "Strength/Endurance",
+                "expectedProgress": 0.25
+            },
+            {
+                "section": "Strength",
+                "expectedProgress": 0.5
+            },
+            {
+                "section": "Power/Strength",
+                "expectedProgress": 0.75
+            },
+            {
+                "section": "Power",
+                "expectedProgress": 1
+            }
+        ],
+        "sectionBoundsAndSuggestions": [
+            {
+                "benchmarkWeightKg": 40,
+                "balancedPowerWeightKg": 26.666666666666664,
+                "minWeightKg": 1,
+                "sections": [
+                    {
+                        "section": "Endurance",
+                        "suggestedWeightKg": 9.09,
+                        "lowerBoundaryWeightKg": 1,
+                        "upperBoundaryWeightKg": 10.404039999999998
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "suggestedWeightKg": 11.72,
+                        "lowerBoundaryWeightKg": 10.404039999999998,
+                        "upperBoundaryWeightKg": 13.838382666666666
+                    },
+                    {
+                        "section": "Strength",
+                        "suggestedWeightKg": 15.96,
+                        "lowerBoundaryWeightKg": 13.838382666666666,
+                        "upperBoundaryWeightKg": 19.49494933333333
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "suggestedWeightKg": 23.03,
+                        "lowerBoundaryWeightKg": 19.49494933333333,
+                        "upperBoundaryWeightKg": 24.84848533333333
+                    },
+                    {
+                        "section": "Power",
+                        "suggestedWeightKg": 26.67,
+                        "lowerBoundaryWeightKg": 24.84848533333333,
+                        "upperBoundaryWeightKg": 40
+                    }
+                ]
+            },
+            {
+                "benchmarkWeightKg": 60,
+                "balancedPowerWeightKg": 40,
+                "minWeightKg": 3.6363640000000004,
+                "sections": [
+                    {
+                        "section": "Endurance",
+                        "suggestedWeightKg": 13.64,
+                        "lowerBoundaryWeightKg": 3.6363640000000004,
+                        "upperBoundaryWeightKg": 15.60606
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "suggestedWeightKg": 17.58,
+                        "lowerBoundaryWeightKg": 15.60606,
+                        "upperBoundaryWeightKg": 20.757574
+                    },
+                    {
+                        "section": "Strength",
+                        "suggestedWeightKg": 23.94,
+                        "lowerBoundaryWeightKg": 20.757574,
+                        "upperBoundaryWeightKg": 29.242424
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "suggestedWeightKg": 34.55,
+                        "lowerBoundaryWeightKg": 29.242424,
+                        "upperBoundaryWeightKg": 37.272728
+                    },
+                    {
+                        "section": "Power",
+                        "suggestedWeightKg": 40,
+                        "lowerBoundaryWeightKg": 37.272728,
+                        "upperBoundaryWeightKg": 60
+                    }
+                ]
+            },
+            {
+                "benchmarkWeightKg": 75,
+                "balancedPowerWeightKg": 50,
+                "minWeightKg": 7.0454550000000005,
+                "sections": [
+                    {
+                        "section": "Endurance",
+                        "suggestedWeightKg": 17.05,
+                        "lowerBoundaryWeightKg": 7.0454550000000005,
+                        "upperBoundaryWeightKg": 19.507575
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "suggestedWeightKg": 21.97,
+                        "lowerBoundaryWeightKg": 19.507575,
+                        "upperBoundaryWeightKg": 25.9469675
+                    },
+                    {
+                        "section": "Strength",
+                        "suggestedWeightKg": 29.92,
+                        "lowerBoundaryWeightKg": 25.9469675,
+                        "upperBoundaryWeightKg": 36.55303
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "suggestedWeightKg": 43.18,
+                        "lowerBoundaryWeightKg": 36.55303,
+                        "upperBoundaryWeightKg": 46.590909999999994
+                    },
+                    {
+                        "section": "Power",
+                        "suggestedWeightKg": 50,
+                        "lowerBoundaryWeightKg": 46.590909999999994,
+                        "upperBoundaryWeightKg": 75
+                    }
+                ]
+            },
+            {
+                "benchmarkWeightKg": 90,
+                "balancedPowerWeightKg": 60,
+                "minWeightKg": 10.454546,
+                "sections": [
+                    {
+                        "section": "Endurance",
+                        "suggestedWeightKg": 20.45,
+                        "lowerBoundaryWeightKg": 10.454546,
+                        "upperBoundaryWeightKg": 23.40909
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "suggestedWeightKg": 26.36,
+                        "lowerBoundaryWeightKg": 23.40909,
+                        "upperBoundaryWeightKg": 31.136361
+                    },
+                    {
+                        "section": "Strength",
+                        "suggestedWeightKg": 35.91,
+                        "lowerBoundaryWeightKg": 31.136361,
+                        "upperBoundaryWeightKg": 43.863636
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "suggestedWeightKg": 51.82,
+                        "lowerBoundaryWeightKg": 43.863636,
+                        "upperBoundaryWeightKg": 55.909091999999994
+                    },
+                    {
+                        "section": "Power",
+                        "suggestedWeightKg": 60,
+                        "lowerBoundaryWeightKg": 55.909091999999994,
+                        "upperBoundaryWeightKg": 90
+                    }
+                ]
+            },
+            {
+                "benchmarkWeightKg": 120,
+                "balancedPowerWeightKg": 80,
+                "minWeightKg": 17.272728,
+                "sections": [
+                    {
+                        "section": "Endurance",
+                        "suggestedWeightKg": 27.27,
+                        "lowerBoundaryWeightKg": 17.272728,
+                        "upperBoundaryWeightKg": 31.21212
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "suggestedWeightKg": 35.15,
+                        "lowerBoundaryWeightKg": 31.21212,
+                        "upperBoundaryWeightKg": 41.515148
+                    },
+                    {
+                        "section": "Strength",
+                        "suggestedWeightKg": 47.88,
+                        "lowerBoundaryWeightKg": 41.515148,
+                        "upperBoundaryWeightKg": 58.484848
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "suggestedWeightKg": 69.09,
+                        "lowerBoundaryWeightKg": 58.484848,
+                        "upperBoundaryWeightKg": 74.545456
+                    },
+                    {
+                        "section": "Power",
+                        "suggestedWeightKg": 80,
+                        "lowerBoundaryWeightKg": 74.545456,
+                        "upperBoundaryWeightKg": 120
+                    }
+                ]
+            }
+        ]
+    },
+    "repTargetsPerSection": {
+        "sectionModels": [
+            {
+                "section": "Endurance",
+                "cases": [
+                    {
+                        "firstHangTarget": 193,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 193
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 55
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 43
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 39
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 39
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 39
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 39
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 39
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 90,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 90
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 26
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 20
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 18
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 18
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 18
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 18
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 18
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 60,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 60
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 17
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 13
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 12
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 12
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 12
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 12
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 12
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 120,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 120
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 34
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 27
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 24
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 24
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 24
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 24
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 24
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "section": "Strength/Endurance",
+                "cases": [
+                    {
+                        "firstHangTarget": 146,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 146
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 50
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 43
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 35
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 35
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 35
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 35
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 35
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 72,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 72
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 25
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 21
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 17
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 17
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 17
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 17
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 17
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 60,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 60
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 21
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 18
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 14
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 14
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 14
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 14
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 14
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 120,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 120
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 41
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 35
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 29
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 29
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 29
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 29
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 29
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "section": "Strength",
+                "cases": [
+                    {
+                        "firstHangTarget": 101,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 101
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 36
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 29
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 26
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 23
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 23
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 23
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 23
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 56,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 56
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 20
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 16
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 14
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 13
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 13
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 13
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 13
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 60,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 60
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 21
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 17
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 15
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 14
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 14
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 14
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 14
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 120,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 120
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 43
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 34
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 31
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 27
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 27
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 27
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 27
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "section": "Power/Strength",
+                "cases": [
+                    {
+                        "firstHangTarget": 56,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 56
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 20
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 13
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 12
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 11
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 11
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 11
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 11
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 42,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 42
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 15
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 10
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 9
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 8
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 8
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 8
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 8
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 60,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 60
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 21
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 14
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 13
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 12
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 12
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 12
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 12
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 120,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 120
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 43
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 28
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 26
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 24
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 24
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 24
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 24
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "section": "Power",
+                "cases": [
+                    {
+                        "firstHangTarget": 40,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 40
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 15
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 10
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 9
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 8
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 8
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 8
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 8
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 30,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 30
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 11
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 8
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 7
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 6
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 6
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 6
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 6
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 60,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 60
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 23
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 15
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 14
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 12
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 12
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 12
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 12
+                            }
+                        ]
+                    },
+                    {
+                        "firstHangTarget": 120,
+                        "reps": [
+                            {
+                                "rep": 1,
+                                "targetTimeSeconds": 120
+                            },
+                            {
+                                "rep": 2,
+                                "targetTimeSeconds": 45
+                            },
+                            {
+                                "rep": 3,
+                                "targetTimeSeconds": 30
+                            },
+                            {
+                                "rep": 4,
+                                "targetTimeSeconds": 27
+                            },
+                            {
+                                "rep": 5,
+                                "targetTimeSeconds": 24
+                            },
+                            {
+                                "rep": 6,
+                                "targetTimeSeconds": 24
+                            },
+                            {
+                                "rep": 7,
+                                "targetTimeSeconds": 24
+                            },
+                            {
+                                "rep": 8,
+                                "targetTimeSeconds": 24
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "manualEnergyCurve": {
+        "sliderBounds": {
+            "powerEnduranceMin": [
+                {
+                    "endurance": 0.01,
+                    "expectedMin": 0.17
+                },
+                {
+                    "endurance": 0.05,
+                    "expectedMin": 0.17
+                },
+                {
+                    "endurance": 0.1,
+                    "expectedMin": 0.18
+                },
+                {
+                    "endurance": 0.15,
+                    "expectedMin": 0.19
+                },
+                {
+                    "endurance": 0.2,
+                    "expectedMin": 0.2
+                },
+                {
+                    "endurance": 0.25,
+                    "expectedMin": 0.2
+                }
+            ],
+            "powerMin": [
+                {
+                    "powerEndurance": 0.15,
+                    "expectedMin": 0.22
+                },
+                {
+                    "powerEndurance": 0.17,
+                    "expectedMin": 0.22
+                },
+                {
+                    "powerEndurance": 0.2,
+                    "expectedMin": 0.22
+                },
+                {
+                    "powerEndurance": 0.25,
+                    "expectedMin": 0.27
+                },
+                {
+                    "powerEndurance": 0.31,
+                    "expectedMin": 0.34
+                },
+                {
+                    "powerEndurance": 0.37,
+                    "expectedMin": 0.4
+                },
+                {
+                    "powerEndurance": 0.4,
+                    "expectedMin": 0.4
+                }
+            ],
+            "powerMax": [
+                {
+                    "powerEndurance": 0.15,
+                    "expectedMax": 0.73
+                },
+                {
+                    "powerEndurance": 0.17,
+                    "expectedMax": 0.73
+                },
+                {
+                    "powerEndurance": 0.2,
+                    "expectedMax": 0.75
+                },
+                {
+                    "powerEndurance": 0.25,
+                    "expectedMax": 0.78
+                },
+                {
+                    "powerEndurance": 0.31,
+                    "expectedMax": 0.81
+                },
+                {
+                    "powerEndurance": 0.37,
+                    "expectedMax": 0.85
+                },
+                {
+                    "powerEndurance": 0.4,
+                    "expectedMax": 0.85
+                }
+            ]
+        },
+        "repTargetCases": [
+            {
+                "label": "template-Endurance",
+                "firstHangTarget": 90,
+                "power": 0.74,
+                "powerEndurance": 0.37,
+                "endurance": 0.2,
+                "reps": [
+                    {
+                        "rep": 1,
+                        "targetTimeSeconds": 90
+                    },
+                    {
+                        "rep": 2,
+                        "targetTimeSeconds": 68
+                    },
+                    {
+                        "rep": 3,
+                        "targetTimeSeconds": 67
+                    },
+                    {
+                        "rep": 4,
+                        "targetTimeSeconds": 66
+                    },
+                    {
+                        "rep": 5,
+                        "targetTimeSeconds": 66
+                    },
+                    {
+                        "rep": 6,
+                        "targetTimeSeconds": 65
+                    },
+                    {
+                        "rep": 7,
+                        "targetTimeSeconds": 65
+                    },
+                    {
+                        "rep": 8,
+                        "targetTimeSeconds": 65
+                    }
+                ]
+            },
+            {
+                "label": "template-Strength/Endurance",
+                "firstHangTarget": 72,
+                "power": 0.62,
+                "powerEndurance": 0.31,
+                "endurance": 0.17,
+                "reps": [
+                    {
+                        "rep": 1,
+                        "targetTimeSeconds": 72
+                    },
+                    {
+                        "rep": 2,
+                        "targetTimeSeconds": 46
+                    },
+                    {
+                        "rep": 3,
+                        "targetTimeSeconds": 41
+                    },
+                    {
+                        "rep": 4,
+                        "targetTimeSeconds": 38
+                    },
+                    {
+                        "rep": 5,
+                        "targetTimeSeconds": 37
+                    },
+                    {
+                        "rep": 6,
+                        "targetTimeSeconds": 36
+                    },
+                    {
+                        "rep": 7,
+                        "targetTimeSeconds": 35
+                    },
+                    {
+                        "rep": 8,
+                        "targetTimeSeconds": 35
+                    }
+                ]
+            },
+            {
+                "label": "template-Strength",
+                "firstHangTarget": 56,
+                "power": 0.52,
+                "powerEndurance": 0.27,
+                "endurance": 0.15,
+                "reps": [
+                    {
+                        "rep": 1,
+                        "targetTimeSeconds": 56
+                    },
+                    {
+                        "rep": 2,
+                        "targetTimeSeconds": 30
+                    },
+                    {
+                        "rep": 3,
+                        "targetTimeSeconds": 25
+                    },
+                    {
+                        "rep": 4,
+                        "targetTimeSeconds": 23
+                    },
+                    {
+                        "rep": 5,
+                        "targetTimeSeconds": 22
+                    },
+                    {
+                        "rep": 6,
+                        "targetTimeSeconds": 21
+                    },
+                    {
+                        "rep": 7,
+                        "targetTimeSeconds": 21
+                    },
+                    {
+                        "rep": 8,
+                        "targetTimeSeconds": 20
+                    }
+                ]
+            },
+            {
+                "label": "template-Power/Strength",
+                "firstHangTarget": 42,
+                "power": 0.41,
+                "powerEndurance": 0.22,
+                "endurance": 0.12,
+                "reps": [
+                    {
+                        "rep": 1,
+                        "targetTimeSeconds": 42
+                    },
+                    {
+                        "rep": 2,
+                        "targetTimeSeconds": 18
+                    },
+                    {
+                        "rep": 3,
+                        "targetTimeSeconds": 14
+                    },
+                    {
+                        "rep": 4,
+                        "targetTimeSeconds": 12
+                    },
+                    {
+                        "rep": 5,
+                        "targetTimeSeconds": 11
+                    },
+                    {
+                        "rep": 6,
+                        "targetTimeSeconds": 11
+                    },
+                    {
+                        "rep": 7,
+                        "targetTimeSeconds": 10
+                    },
+                    {
+                        "rep": 8,
+                        "targetTimeSeconds": 10
+                    }
+                ]
+            },
+            {
+                "label": "template-Power",
+                "firstHangTarget": 30,
+                "power": 0.3,
+                "powerEndurance": 0.17,
+                "endurance": 0.05,
+                "reps": [
+                    {
+                        "rep": 1,
+                        "targetTimeSeconds": 30
+                    },
+                    {
+                        "rep": 2,
+                        "targetTimeSeconds": 10
+                    },
+                    {
+                        "rep": 3,
+                        "targetTimeSeconds": 7
+                    },
+                    {
+                        "rep": 4,
+                        "targetTimeSeconds": 6
+                    },
+                    {
+                        "rep": 5,
+                        "targetTimeSeconds": 6
+                    },
+                    {
+                        "rep": 6,
+                        "targetTimeSeconds": 6
+                    },
+                    {
+                        "rep": 7,
+                        "targetTimeSeconds": 5
+                    },
+                    {
+                        "rep": 8,
+                        "targetTimeSeconds": 5
+                    }
+                ]
+            },
+            {
+                "label": "defaults",
+                "firstHangTarget": 40,
+                "power": 0.4,
+                "powerEndurance": 0.25,
+                "endurance": 0.15,
+                "reps": [
+                    {
+                        "rep": 1,
+                        "targetTimeSeconds": 40
+                    },
+                    {
+                        "rep": 2,
+                        "targetTimeSeconds": 17
+                    },
+                    {
+                        "rep": 3,
+                        "targetTimeSeconds": 15
+                    },
+                    {
+                        "rep": 4,
+                        "targetTimeSeconds": 14
+                    },
+                    {
+                        "rep": 5,
+                        "targetTimeSeconds": 13
+                    },
+                    {
+                        "rep": 6,
+                        "targetTimeSeconds": 13
+                    },
+                    {
+                        "rep": 7,
+                        "targetTimeSeconds": 13
+                    },
+                    {
+                        "rep": 8,
+                        "targetTimeSeconds": 13
+                    }
+                ]
+            },
+            {
+                "label": "high-tail-endurance",
+                "firstHangTarget": 120,
+                "power": 0.7,
+                "powerEndurance": 0.37,
+                "endurance": 0.2,
+                "reps": [
+                    {
+                        "rep": 1,
+                        "targetTimeSeconds": 120
+                    },
+                    {
+                        "rep": 2,
+                        "targetTimeSeconds": 85
+                    },
+                    {
+                        "rep": 3,
+                        "targetTimeSeconds": 86
+                    },
+                    {
+                        "rep": 4,
+                        "targetTimeSeconds": 86
+                    },
+                    {
+                        "rep": 5,
+                        "targetTimeSeconds": 86
+                    },
+                    {
+                        "rep": 6,
+                        "targetTimeSeconds": 86
+                    },
+                    {
+                        "rep": 7,
+                        "targetTimeSeconds": 86
+                    },
+                    {
+                        "rep": 8,
+                        "targetTimeSeconds": 86
+                    }
+                ]
+            },
+            {
+                "label": "low-tail-power",
+                "firstHangTarget": 35,
+                "power": 0.3,
+                "powerEndurance": 0.17,
+                "endurance": 0.05,
+                "reps": [
+                    {
+                        "rep": 1,
+                        "targetTimeSeconds": 35
+                    },
+                    {
+                        "rep": 2,
+                        "targetTimeSeconds": 12
+                    },
+                    {
+                        "rep": 3,
+                        "targetTimeSeconds": 9
+                    },
+                    {
+                        "rep": 4,
+                        "targetTimeSeconds": 7
+                    },
+                    {
+                        "rep": 5,
+                        "targetTimeSeconds": 7
+                    },
+                    {
+                        "rep": 6,
+                        "targetTimeSeconds": 7
+                    },
+                    {
+                        "rep": 7,
+                        "targetTimeSeconds": 6
+                    },
+                    {
+                        "rep": 8,
+                        "targetTimeSeconds": 6
+                    }
+                ]
+            }
+        ]
+    },
+    "chartAxisAndCoverage": [
+        {
+            "label": "standard-points-with-benchmark",
+            "benchmarkWeightKg": 90,
+            "points": [
+                {
+                    "id": "p1",
+                    "weightKg": 20,
+                    "timeSeconds": 193
+                },
+                {
+                    "id": "p2",
+                    "weightKg": 60,
+                    "timeSeconds": 40
+                },
+                {
+                    "id": "p3",
+                    "weightKg": 36,
+                    "timeSeconds": 101
+                }
+            ],
+            "expected": {
+                "points": [
+                    {
+                        "id": "p1",
+                        "weightKg": 20,
+                        "timeSeconds": 193,
+                        "section": "Endurance"
+                    },
+                    {
+                        "id": "p2",
+                        "weightKg": 60,
+                        "timeSeconds": 40,
+                        "section": "Power"
+                    },
+                    {
+                        "id": "p3",
+                        "weightKg": 36,
+                        "timeSeconds": 101,
+                        "section": "Strength"
+                    }
+                ],
+                "weightMin": 10.454546,
+                "weightMax": 90,
+                "timeMin": 40,
+                "timeMax": 193,
+                "coverage": [
+                    {
+                        "section": "Endurance",
+                        "count": 1
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength",
+                        "count": 1
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power",
+                        "count": 1
+                    }
+                ]
+            }
+        },
+        {
+            "label": "light-rehab-below-curve-floor",
+            "benchmarkWeightKg": 90,
+            "points": [
+                {
+                    "id": "r1",
+                    "weightKg": 5,
+                    "timeSeconds": 180
+                },
+                {
+                    "id": "r2",
+                    "weightKg": 25,
+                    "timeSeconds": 120
+                }
+            ],
+            "expected": {
+                "points": [
+                    {
+                        "id": "r1",
+                        "weightKg": 5,
+                        "timeSeconds": 180,
+                        "section": "Endurance"
+                    },
+                    {
+                        "id": "r2",
+                        "weightKg": 25,
+                        "timeSeconds": 120,
+                        "section": "Strength/Endurance"
+                    }
+                ],
+                "weightMin": 5,
+                "weightMax": 90,
+                "timeMin": 120,
+                "timeMax": 180,
+                "coverage": [
+                    {
+                        "section": "Endurance",
+                        "count": 1
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "count": 1
+                    },
+                    {
+                        "section": "Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power",
+                        "count": 0
+                    }
+                ]
+            }
+        },
+        {
+            "label": "low-benchmark-rehab-tool-1kg-floor",
+            "benchmarkWeightKg": 30,
+            "points": [
+                {
+                    "id": "lt1",
+                    "weightKg": 4,
+                    "timeSeconds": 160
+                },
+                {
+                    "id": "lt2",
+                    "weightKg": 15,
+                    "timeSeconds": 80
+                },
+                {
+                    "id": "lt3",
+                    "weightKg": 22,
+                    "timeSeconds": 45
+                }
+            ],
+            "expected": {
+                "points": [
+                    {
+                        "id": "lt1",
+                        "weightKg": 4,
+                        "timeSeconds": 160,
+                        "section": "Endurance"
+                    },
+                    {
+                        "id": "lt2",
+                        "weightKg": 15,
+                        "timeSeconds": 80,
+                        "section": "Power/Strength"
+                    },
+                    {
+                        "id": "lt3",
+                        "weightKg": 22,
+                        "timeSeconds": 45,
+                        "section": "Power"
+                    }
+                ],
+                "weightMin": 1,
+                "weightMax": 30,
+                "timeMin": 45,
+                "timeMax": 160,
+                "coverage": [
+                    {
+                        "section": "Endurance",
+                        "count": 1
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "count": 1
+                    },
+                    {
+                        "section": "Power",
+                        "count": 1
+                    }
+                ]
+            }
+        },
+        {
+            "label": "heavier-workout-than-benchmark",
+            "benchmarkWeightKg": 75,
+            "points": [
+                {
+                    "id": "h1",
+                    "weightKg": 30,
+                    "timeSeconds": 90
+                },
+                {
+                    "id": "h2",
+                    "weightKg": 85,
+                    "timeSeconds": 12
+                }
+            ],
+            "expected": {
+                "points": [
+                    {
+                        "id": "h1",
+                        "weightKg": 30,
+                        "timeSeconds": 90,
+                        "section": "Strength"
+                    },
+                    {
+                        "id": "h2",
+                        "weightKg": 85,
+                        "timeSeconds": 12,
+                        "section": "Power"
+                    }
+                ],
+                "weightMin": 7.0454550000000005,
+                "weightMax": 85,
+                "timeMin": 12,
+                "timeMax": 90,
+                "coverage": [
+                    {
+                        "section": "Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength",
+                        "count": 1
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power",
+                        "count": 1
+                    }
+                ]
+            }
+        },
+        {
+            "label": "no-benchmark-normalized-fallback",
+            "benchmarkWeightKg": null,
+            "points": [
+                {
+                    "id": "nb1",
+                    "weightKg": 20,
+                    "timeSeconds": 120
+                },
+                {
+                    "id": "nb2",
+                    "weightKg": 45,
+                    "timeSeconds": 70
+                },
+                {
+                    "id": "nb3",
+                    "weightKg": 70,
+                    "timeSeconds": 35
+                }
+            ],
+            "expected": {
+                "points": [
+                    {
+                        "id": "nb1",
+                        "weightKg": 20,
+                        "timeSeconds": 120,
+                        "section": "Strength/Endurance"
+                    },
+                    {
+                        "id": "nb2",
+                        "weightKg": 45,
+                        "timeSeconds": 70,
+                        "section": "Power/Strength"
+                    },
+                    {
+                        "id": "nb3",
+                        "weightKg": 70,
+                        "timeSeconds": 35,
+                        "section": "Power"
+                    }
+                ],
+                "weightMin": 1,
+                "weightMax": 70,
+                "timeMin": 35,
+                "timeMax": 120,
+                "coverage": [
+                    {
+                        "section": "Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "count": 1
+                    },
+                    {
+                        "section": "Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "count": 1
+                    },
+                    {
+                        "section": "Power",
+                        "count": 1
+                    }
+                ]
+            }
+        },
+        {
+            "label": "empty-points-with-benchmark",
+            "benchmarkWeightKg": 90,
+            "points": [],
+            "expected": {
+                "points": [],
+                "weightMin": 10.454546,
+                "weightMax": 90,
+                "timeMin": 20,
+                "timeMax": 120,
+                "coverage": [
+                    {
+                        "section": "Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power",
+                        "count": 0
+                    }
+                ]
+            }
+        },
+        {
+            "label": "empty-points-no-benchmark",
+            "benchmarkWeightKg": null,
+            "points": [],
+            "expected": {
+                "points": [],
+                "weightMin": 1,
+                "weightMax": 80,
+                "timeMin": 20,
+                "timeMax": 120,
+                "coverage": [
+                    {
+                        "section": "Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power",
+                        "count": 0
+                    }
+                ]
+            }
+        },
+        {
+            "label": "per-point-benchmark-override",
+            "benchmarkWeightKg": 90,
+            "points": [
+                {
+                    "id": "ov1",
+                    "weightKg": 20,
+                    "timeSeconds": 193,
+                    "benchmarkWeightKg": 50
+                },
+                {
+                    "id": "ov2",
+                    "weightKg": 60,
+                    "timeSeconds": 40
+                }
+            ],
+            "expected": {
+                "points": [
+                    {
+                        "id": "ov1",
+                        "weightKg": 20,
+                        "timeSeconds": 193,
+                        "benchmarkWeightKg": 50,
+                        "section": "Strength"
+                    },
+                    {
+                        "id": "ov2",
+                        "weightKg": 60,
+                        "timeSeconds": 40,
+                        "section": "Power"
+                    }
+                ],
+                "weightMin": 10.454546,
+                "weightMax": 90,
+                "timeMin": 40,
+                "timeMax": 193,
+                "coverage": [
+                    {
+                        "section": "Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength",
+                        "count": 1
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power",
+                        "count": 1
+                    }
+                ]
+            }
+        }
+    ],
+    "forceCurveDataset": [
+        {
+            "label": "empty-history",
+            "opengripsSpecific": true,
+            "workoutHistory": [],
+            "maxPowerBenchmarks": [],
+            "expected": {
+                "points": [],
+                "weightMin": 1,
+                "weightMax": 80,
+                "timeMin": 20,
+                "timeMax": 120,
+                "coverage": [
+                    {
+                        "section": "Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power",
+                        "count": 0
+                    }
+                ]
+            }
+        },
+        {
+            "label": "kg-workouts-and-benchmark-resolution",
+            "opengripsSpecific": true,
+            "workoutHistory": [
+                {
+                    "id": "w1",
+                    "used_weight": 20,
+                    "target_times": [
+                        190,
+                        55,
+                        42,
+                        38
+                    ],
+                    "actual_result_times": [
+                        193,
+                        55,
+                        43,
+                        39
+                    ],
+                    "training_tool_type_id": "edge-20mm",
+                    "workout_date": "2026-01-10",
+                    "hand_side": "Right"
+                },
+                {
+                    "id": "w2",
+                    "used_weight": "60",
+                    "target_times": [
+                        40,
+                        15,
+                        10,
+                        9,
+                        8,
+                        8
+                    ],
+                    "actual_result_times": [],
+                    "training_tool_type_id": "edge-20mm",
+                    "workout_date": "2026-01-12",
+                    "hand_side": "Right"
+                },
+                {
+                    "id": "w3",
+                    "used_weight": 36,
+                    "target_times": [
+                        100,
+                        35,
+                        28,
+                        25,
+                        22
+                    ],
+                    "actual_result_times": [
+                        101,
+                        36,
+                        29,
+                        26,
+                        23
+                    ],
+                    "training_tool_type_id": "pinch-block",
+                    "workout_date": "2026-01-15",
+                    "hand_side": "Left"
+                },
+                {
+                    "id": "w4-invalid-weight",
+                    "used_weight": 0,
+                    "target_times": [
+                        40
+                    ],
+                    "actual_result_times": [
+                        40
+                    ],
+                    "training_tool_type_id": "edge-20mm",
+                    "workout_date": "2026-01-16"
+                },
+                {
+                    "id": "w5-invalid-times",
+                    "used_weight": 40,
+                    "target_times": [],
+                    "actual_result_times": [
+                        -1,
+                        0
+                    ],
+                    "training_tool_type_id": "edge-20mm",
+                    "workout_date": "2026-01-17"
+                }
+            ],
+            "maxPowerBenchmarks": [
+                {
+                    "id": "b1",
+                    "training_tool_type_id": "edge-20mm",
+                    "used_weight": 85,
+                    "hand_side": "Right",
+                    "created_at": "2026-01-01T00:00:00Z"
+                },
+                {
+                    "id": "b2",
+                    "training_tool_type_id": "edge-20mm",
+                    "used_weight": 90,
+                    "hand_side": "Right",
+                    "created_at": "2026-01-05T00:00:00Z"
+                }
+            ],
+            "expected": {
+                "points": [
+                    {
+                        "id": "w1",
+                        "weightKg": 20,
+                        "avgTimeSeconds": 83,
+                        "firstRepActualTimeSeconds": 193,
+                        "trainingToolTypeId": "edge-20mm",
+                        "workoutDate": "2026-01-10",
+                        "handSide": "Right",
+                        "section": "Endurance"
+                    },
+                    {
+                        "id": "w2",
+                        "weightKg": 60,
+                        "avgTimeSeconds": 15,
+                        "firstRepActualTimeSeconds": 40,
+                        "trainingToolTypeId": "edge-20mm",
+                        "workoutDate": "2026-01-12",
+                        "handSide": "Right",
+                        "section": "Power"
+                    },
+                    {
+                        "id": "w3",
+                        "weightKg": 36,
+                        "avgTimeSeconds": 43,
+                        "firstRepActualTimeSeconds": 101,
+                        "trainingToolTypeId": "pinch-block",
+                        "workoutDate": "2026-01-15",
+                        "handSide": "Left",
+                        "section": "Strength"
+                    }
+                ],
+                "weightMin": 10.454546,
+                "weightMax": 90,
+                "timeMin": 15,
+                "timeMax": 83,
+                "coverage": [
+                    {
+                        "section": "Endurance",
+                        "count": 1
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength",
+                        "count": 1
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power",
+                        "count": 1
+                    }
+                ]
+            }
+        },
+        {
+            "label": "no-benchmarks-normalized-fallback",
+            "opengripsSpecific": true,
+            "workoutHistory": [
+                {
+                    "id": "n1",
+                    "used_weight": 20,
+                    "target_times": [
+                        120
+                    ],
+                    "actual_result_times": [
+                        120
+                    ],
+                    "training_tool_type_id": "edge-20mm",
+                    "workout_date": "2026-02-01",
+                    "hand_side": null
+                },
+                {
+                    "id": "n2",
+                    "used_weight": 45,
+                    "target_times": [
+                        70
+                    ],
+                    "actual_result_times": [
+                        70
+                    ],
+                    "training_tool_type_id": "edge-20mm",
+                    "workout_date": "2026-02-02",
+                    "hand_side": null
+                },
+                {
+                    "id": "n3",
+                    "used_weight": 70,
+                    "target_times": [
+                        35
+                    ],
+                    "actual_result_times": [
+                        35
+                    ],
+                    "training_tool_type_id": "edge-20mm",
+                    "workout_date": "2026-02-03",
+                    "hand_side": null
+                }
+            ],
+            "maxPowerBenchmarks": [],
+            "expected": {
+                "points": [
+                    {
+                        "id": "n1",
+                        "weightKg": 20,
+                        "avgTimeSeconds": 120,
+                        "firstRepActualTimeSeconds": 120,
+                        "trainingToolTypeId": "edge-20mm",
+                        "workoutDate": "2026-02-01",
+                        "handSide": null,
+                        "section": "Strength/Endurance"
+                    },
+                    {
+                        "id": "n2",
+                        "weightKg": 45,
+                        "avgTimeSeconds": 70,
+                        "firstRepActualTimeSeconds": 70,
+                        "trainingToolTypeId": "edge-20mm",
+                        "workoutDate": "2026-02-02",
+                        "handSide": null,
+                        "section": "Power/Strength"
+                    },
+                    {
+                        "id": "n3",
+                        "weightKg": 70,
+                        "avgTimeSeconds": 35,
+                        "firstRepActualTimeSeconds": 35,
+                        "trainingToolTypeId": "edge-20mm",
+                        "workoutDate": "2026-02-03",
+                        "handSide": null,
+                        "section": "Power"
+                    }
+                ],
+                "weightMin": 1,
+                "weightMax": 70,
+                "timeMin": 35,
+                "timeMax": 120,
+                "coverage": [
+                    {
+                        "section": "Endurance",
+                        "count": 0
+                    },
+                    {
+                        "section": "Strength/Endurance",
+                        "count": 1
+                    },
+                    {
+                        "section": "Strength",
+                        "count": 0
+                    },
+                    {
+                        "section": "Power/Strength",
+                        "count": 1
+                    },
+                    {
+                        "section": "Power",
+                        "count": 1
+                    }
+                ]
+            }
+        }
+    ]
+}
