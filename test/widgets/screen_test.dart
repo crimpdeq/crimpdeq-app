@@ -1279,6 +1279,9 @@ void main() {
   });
 
   testWidgets('schedules reminders and the end of the rest', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
     final notifications = FakeNotifications();
     await _pumpScreen(
       tester,
@@ -1304,11 +1307,23 @@ void main() {
       'request',
       'reminders Photon [1, 3, 5] 10:0, Spark [1, 3, 5] 10:0',
     ]);
+    // Each gripper's name on one line, on a 360 dp phone.
+    for (final element in find.text('Photon').evaluate()) {
+      final name = element.renderObject! as RenderParagraph;
+      expect(
+        name.getBoxesForSelection(
+          const TextSelection(baseOffset: 0, extentOffset: 6),
+        ),
+        hasLength(1),
+      );
+    }
 
     notifications.calls.clear();
     await tester.tap(find.text('Tue').first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Delete reminder').last);
+    final delete = find.byTooltip('Delete reminder').last;
+    await tester.ensureVisible(delete);
+    await tester.tap(delete);
     await tester.pumpAndSettle();
     expect(notifications.calls, [
       'reminders Photon [1, 2, 3, 5] 10:0, Spark [1, 3, 5] 10:0',
@@ -1316,7 +1331,9 @@ void main() {
     ]);
 
     notifications.calls.clear();
-    await tester.tap(find.text('Notify when the rest is over'));
+    final notify = find.text('Notify when the rest is over');
+    await tester.ensureVisible(notify);
+    await tester.tap(notify);
     await tester.pumpAndSettle();
     expect(notifications.calls, ['request', 'cancel rest']);
     expect(

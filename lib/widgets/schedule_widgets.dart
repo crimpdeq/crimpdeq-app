@@ -211,17 +211,16 @@ class _ReminderTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // The whole width, so each gripper's name fits on one line.
+            ToolAndHand(
+              tools: trainingTools,
+              tool: reminder.tool,
+              onToolChanged: (tool) => onChanged(reminder.copyWith(tool: tool)),
+            ),
+            const SizedBox(height: 8),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: ToolAndHand(
-                    tools: trainingTools,
-                    tool: reminder.tool,
-                    onToolChanged: (tool) =>
-                        onChanged(reminder.copyWith(tool: tool)),
-                  ),
-                ),
-                const SizedBox(width: 8),
                 OutlinedButton.icon(
                   onPressed: () => _pickTime(context),
                   icon: const Icon(Icons.schedule),
