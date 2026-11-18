@@ -333,6 +333,7 @@ class _EntriesState extends ConsumerState<_Entries> {
   @override
   Widget build(BuildContext context) {
     final benchmarks = widget.benchmarks;
+    final bodyWeights = ref.watch(bodyWeightsProvider).value ?? const [];
     final shown = [
       for (final benchmark in benchmarks.reversed)
         if (_tool == null || benchmark.tool == _tool) benchmark,
@@ -356,6 +357,7 @@ class _EntriesState extends ConsumerState<_Entries> {
           for (final benchmark in shown)
             _Entry(
               benchmark: benchmark,
+              bodyKg: bodyWeightOn(bodyWeights, benchmark.date),
               comparison: _compare(benchmark, benchmarks),
               onDelete: () async {
                 if (await confirm(
@@ -407,11 +409,15 @@ const _personalBestColor = Color(0xFFEAB308);
 class _Entry extends StatelessWidget {
   const _Entry({
     required this.benchmark,
+    required this.bodyKg,
     required this.comparison,
     required this.onDelete,
   });
 
   final Benchmark benchmark;
+
+  /// Body weight on the benchmark's day, null without one.
+  final double? bodyKg;
   final ({double? vsPrevious, double vsBest, bool isBest}) comparison;
   final VoidCallback onDelete;
 
@@ -419,6 +425,7 @@ class _Entry extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final vsPrevious = comparison.vsPrevious;
+    final bodyKg = this.bodyKg;
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(
@@ -428,7 +435,8 @@ class _Entry extends StatelessWidget {
             : textTheme.bodySmall?.color,
       ),
       title: Text(
-        formatKg(benchmark.forceKg),
+        '${formatKg(benchmark.forceKg)}'
+        '${bodyKg == null ? '' : ' · ${formatBodyWeightShare(benchmark.forceKg, bodyKg)}'}',
         style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
       ),
       subtitle: Text(

@@ -38,6 +38,9 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
   before a workout with the other gripper, optionally with a notification when it is over; and
   weekly reminders per gripper, such as Spark at 10:00 and Photon at 15:00 on Monday, Wednesday
   and Friday (Android, iOS and macOS)
+- Body weight, in the app bar menu: an optional log, one weight per day, stored on the device.
+  Benchmarks and workout details show their force as a share of the latest body weight on or
+  before their day, such as 64% BW
 - Device tools, in the app bar menu: calibration and measurements
 - Compatible with Tindeq Progressor API
 - Cross-platform support (Android, macOS, Windows, Linux, Web)
@@ -165,7 +168,8 @@ test/                  # Unit and widget tests
 - `flutter_riverpod`: State management
 - `fl_chart`: Data visualization
 - `permission_handler`: Opening the app settings
-- `shared_preferences`: Storing the training benchmarks, workouts and readiness checks
+- `shared_preferences`: Storing the training benchmarks, workouts, readiness checks and body
+  weights
 - `audioplayers`: Workout sound cues (needs GStreamer to build for Linux)
 - `wakelock_plus`: Keeping the screen on during a workout
 - `flutter_local_notifications`, `timezone`, `flutter_timezone`: Training reminders and the end

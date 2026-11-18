@@ -765,6 +765,32 @@ void main() {
     addTearDown(reloaded.dispose);
     expect(await reloaded.read(holdThresholdProvider.future), 3.5);
   });
+
+  testWidgets('stores one body weight per day, in day order', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(bodyWeightsProvider.notifier);
+    final later = BodyWeight(day: DateTime(2026, 10, 26), kg: 68);
+    // Overlapping, so neither drops the other.
+    await Future.wait([
+      notifier.add(later),
+      notifier.add(BodyWeight(day: DateTime(2026, 10, 20), kg: 70)),
+    ]);
+    await notifier.add(BodyWeight(day: DateTime(2026, 10, 20), kg: 71));
+    await notifier.delete(later);
+    await notifier.add(later);
+
+    final reloaded = ProviderContainer();
+    addTearDown(reloaded.dispose);
+    expect(
+      [
+        for (final weight in await reloaded.read(bodyWeightsProvider.future))
+          (weight.day, weight.kg),
+      ],
+      [(DateTime(2026, 10, 20), 71.0), (DateTime(2026, 10, 26), 68.0)],
+    );
+  });
   testWidgets('ends each warm-up hold at its target or release', (
     tester,
   ) async {

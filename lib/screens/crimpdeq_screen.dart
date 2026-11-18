@@ -8,6 +8,7 @@ import '../providers/training_provider.dart';
 import '../providers/warmup_provider.dart';
 import '../theme.dart';
 import '../widgets/benchmark_widgets.dart';
+import '../widgets/body_weight_widgets.dart';
 import '../widgets/calibration_widgets.dart';
 import '../widgets/connection_widgets.dart';
 import '../widgets/history_widgets.dart';
@@ -130,6 +131,19 @@ class ScheduleScreen extends StatelessWidget {
   }
 }
 
+/// The body weight log.
+class BodyWeightScreen extends StatelessWidget {
+  const BodyWeightScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Body weight')),
+      body: const _AppBody(child: BodyWeightTab()),
+    );
+  }
+}
+
 /// The background and the low battery warning around a page.
 class _AppBody extends ConsumerWidget {
   const _AppBody({required this.child});
@@ -188,7 +202,7 @@ class _AppBody extends ConsumerWidget {
   }
 }
 
-enum _MenuAction { schedule, deviceTools, theme }
+enum _MenuAction { schedule, bodyWeight, deviceTools, theme }
 
 class _CrimpdeqAppBar extends ConsumerWidget implements PreferredSizeWidget {
   const _CrimpdeqAppBar();
@@ -237,6 +251,11 @@ class _CrimpdeqAppBar extends ConsumerWidget implements PreferredSizeWidget {
                 builder: (context) => const ScheduleScreen(),
               ),
             ),
+            _MenuAction.bodyWeight => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => const BodyWeightScreen(),
+              ),
+            ),
             _MenuAction.deviceTools => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (context) => const DeviceToolsScreen(),
@@ -252,6 +271,14 @@ class _CrimpdeqAppBar extends ConsumerWidget implements PreferredSizeWidget {
                 leading: Icon(Icons.alarm),
                 title: Text('Schedule'),
                 subtitle: Text('Reminders and rest between grippers'),
+              ),
+            ),
+            const PopupMenuItem(
+              value: _MenuAction.bodyWeight,
+              child: ListTile(
+                leading: Icon(Icons.monitor_weight_outlined),
+                title: Text('Body weight'),
+                subtitle: Text('Strength to weight'),
               ),
             ),
             const PopupMenuItem(

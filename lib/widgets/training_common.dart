@@ -10,6 +10,10 @@ import '../providers/workout_feedback_provider.dart';
 
 String formatKg(double kg) => '${kg.toStringAsFixed(1)} kg';
 
+/// [forceKg] as a share of [bodyKg]: "64% BW".
+String formatBodyWeightShare(double forceKg, double bodyKg) =>
+    '${(forceKg / bodyKg * 100).round()}% BW';
+
 String formatClock(int seconds) =>
     '${(seconds ~/ 60).toString().padLeft(2, '0')}:'
     '${(seconds % 60).toString().padLeft(2, '0')}';

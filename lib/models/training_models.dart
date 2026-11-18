@@ -63,6 +63,27 @@ Benchmark? bestBenchmark(List<Benchmark> benchmarks, String tool, Hand hand) {
   return best;
 }
 
+/// Body weight logged for a local day, which the forces of that day and the
+/// next ones, until another weight, compare with.
+class BodyWeight {
+  const BodyWeight({required this.day, required this.kg});
+
+  BodyWeight.fromJson(Map<String, Object?> json)
+    : day = DateTime.parse(json['day']! as String),
+      kg = (json['kg']! as num).toDouble();
+
+  /// Local midnight.
+  final DateTime day;
+  final double kg;
+
+  Map<String, Object?> toJson() => {'day': day.toIso8601String(), 'kg': kg};
+}
+
+/// The body weight of the latest day of [weights], in day order, on or before
+/// [date]. Null before the first one.
+double? bodyWeightOn(List<BodyWeight> weights, DateTime date) =>
+    weights.where((weight) => !weight.day.isAfter(date)).lastOrNull?.kg;
+
 /// One hand's pull of a readiness check: the best 5 s of a maximal pull, and
 /// the benchmark it compares with.
 typedef ReadinessPull = ({Hand hand, double forceKg, double benchmarkKg});

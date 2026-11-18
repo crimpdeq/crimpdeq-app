@@ -296,6 +296,10 @@ class _Details extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final forceKg = workout.forceKg;
+    final bodyKg = bodyWeightOn(
+      ref.watch(bodyWeightsProvider).value ?? const [],
+      workout.date,
+    );
     return AlertDialog(
       title: Text('${workout.tool} · ${workout.section.label}'),
       content: SingleChildScrollView(
@@ -306,8 +310,9 @@ class _Details extends ConsumerWidget {
             Text(formatDate(workout.date)),
             Text('Hand: ${workout.hand.label}'),
             Text(
-              'Force: ${forceKg == null ? '—' : formatKg(forceKg)} '
-              '(target ${formatKg(workout.targetForceKg)})',
+              'Force: ${forceKg == null ? '—' : formatKg(forceKg)}'
+              '${forceKg == null || bodyKg == null ? '' : ', ${formatBodyWeightShare(forceKg, bodyKg)}'}'
+              ' (target ${formatKg(workout.targetForceKg)})',
             ),
             Text('RPE: ${workout.perceivedExertion}/10'),
             Text('Avg Δ: ${formatDelta(workout.meanDeltaSeconds, 's')}'),
