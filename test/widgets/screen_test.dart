@@ -1250,17 +1250,27 @@ void main() {
     expect(find.text('No body weights yet.'), findsOne);
   });
 
-  testWidgets('shows the workout history with each rep', (tester) async {
-    String workout(String date, List<num> actual) =>
-        '{"date":"$date","tool":"Photon","hand":"right",'
-        '"section":"strength","targetForceKg":11.97,"forceKg":12.1,'
+  testWidgets('shows each workout with its hands and reps', (tester) async {
+    String workout(
+      String date,
+      String hand,
+      double forceKg,
+      List<num> actual, {
+      String details = '',
+    }) =>
+        '{"date":"$date","tool":"Photon","hand":"$hand",'
+        '"section":"strength","targetForceKg":11.97,"forceKg":$forceKg,'
         '"restSeconds":20,"targetSeconds":[50,36],"actualSeconds":$actual,'
-        '"perceivedExertion":7,"notes":"Felt good"}';
+        '$details"perceivedExertion":7,"notes":"Felt good"}';
+    const tuesday = '2026-10-27T10:00:00.000';
     SharedPreferences.setMockInitialValues({
       'training.benchmarks': '[$_benchmark]',
+      // The first one is from before the rep forces and durations were
+      // stored; the next one trained both hands.
       'training.workouts':
-          '[${workout('2026-10-26T10:00:00.000', [40, 30])},'
-          '${workout('2026-10-27T10:00:00.000', [46, 36])}]',
+          '[${workout('2026-10-26T10:00:00.000', 'right', 11.8, [40, 30])},'
+          '${workout(tuesday, 'right', 12.1, [46, 36], details: '"repForcesKg":[12.3,11.9],"durationSeconds":754,')},'
+          '${workout(tuesday, 'left', 8, [50, 36], details: '"repForcesKg":[8.1,7.9],"durationSeconds":754,')}]',
       'training.bodyWeights': '[{"day":"2026-10-27T00:00:00.000","kg":60.5}]',
     });
     await _pumpScreen(
@@ -1270,29 +1280,61 @@ void main() {
     );
     await _openPage(tester, 'History');
 
-    // Mean deltas of -2 s and -8 s.
-    expect(find.text('-2.0 s'), findsOne);
+    // One card per workout, with the totals of its hands.
+    expect(find.text('Photon · #1 this month'), findsOne);
+    expect(find.text('Photon · #2 this month'), findsOne);
+    expect(find.text('Right hand'), findsNWidgets(2));
+    expect(find.text('Left hand'), findsOne);
+    expect(find.text('12:34'), findsOne);
+    expect(find.text('2:48'), findsOne);
+    expect(find.text('1680 kg·s'), findsOne);
+    // Without a stored duration.
+    expect(find.text('—'), findsOne);
+    expect(find.text('826 kg·s'), findsOne);
+    // Mean deltas of -8 s and -2 s for the right hand, 0 s for the left.
     expect(find.text('-8.0 s'), findsOne);
-    // Only the latest has a previous workout to compare with.
+    expect(find.text('-2.0 s'), findsOne);
+    expect(find.text('0.0 s'), findsOne);
+    // Only the latest right hand has a previous workout to compare with.
     expect(find.text('+6.0 s vs previous'), findsOne);
-    expect(find.text('2 of 2 reps held'), findsNWidgets(2));
 
     final latest = find.text('Tue 27 Oct · 10:00');
     await tester.ensureVisible(latest);
     await tester.tap(latest);
     await tester.pumpAndSettle();
-    expect(find.text('Notes: Felt good'), findsOneWidget);
+    expect(find.text('Strength · Photon'), findsOne);
+    expect(find.text('Tue 27 Oct · 10:00 · Photon · #2 this month'), findsOne);
+    expect(find.text('Felt good'), findsOne);
     expect(
-      find.text('Force: 12.1 kg, 20% BW (target 12.0 kg)'),
-      findsOneWidget,
+      find.text('20% BW · 20 s rest · under load 1:22 · 992 kg·s'),
+      findsOne,
     );
-    expect(find.text('-4.0 s'), findsOneWidget);
+    expect(
+      find.text(
+        'vs Mon 26 Oct · 10:00: force +0.3 kg, Avg Δ +6.0 s, '
+        'workload +166 kg·s',
+      ),
+      findsOne,
+    );
+    // The force of each rep.
+    for (final kg in ['12.3 kg', '11.9 kg', '8.1 kg', '7.9 kg']) {
+      expect(find.text(kg), findsOne);
+    }
+    expect(find.text('-4.0 s'), findsOne);
+
+    await tester.tap(find.byTooltip('Delete'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'The results of both hands leave the history and the force curve.',
+      ),
+      findsOne,
+    );
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
-    expect(find.text('Delete the workout?'), findsOneWidget);
-    await tester.tap(find.text('Delete').last);
-    await tester.pumpAndSettle();
     expect(latest, findsNothing);
+    expect(find.text('Photon · #1 this month'), findsOne);
+    expect(find.text('Left hand'), findsNothing);
   });
 
   testWidgets('counts the rest down before the other gripper', (tester) async {
@@ -1596,6 +1638,8 @@ void main() {
               phase: WorkoutPhase.done,
               actualSeconds: const [98, 34, 30, 22, 20],
               repForcesKg: const [12, 12, 12, 12, 12],
+              startedAt: DateTime(2026, 10, 27, 10),
+              endedAt: DateTime(2026, 10, 27, 10, 6, 40),
             ),
           ),
         ),
@@ -1612,7 +1656,8 @@ void main() {
 
     await tester.tap(find.text('View History'));
     await tester.pumpAndSettle();
-    expect(find.text('Photon · Right hand'), findsOneWidget);
+    expect(find.text('Photon · #1 this month'), findsOne);
+    expect(find.text('6:40'), findsOne);
   });
 
   testWidgets('starts a workout of both hands at their benchmarks', (

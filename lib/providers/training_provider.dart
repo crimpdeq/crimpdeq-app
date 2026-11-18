@@ -71,10 +71,14 @@ class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
     ),
   );
 
-  Future<void> deleteWorkout(WorkoutRecord workout) => _update(
+  /// Deletes [workouts], such as the hands of one workout.
+  Future<void> deleteWorkouts(List<WorkoutRecord> workouts) => _update(
     (log) => (
       benchmarks: log.benchmarks,
-      workouts: [...log.workouts]..remove(workout),
+      workouts: [
+        for (final workout in log.workouts)
+          if (!workouts.contains(workout)) workout,
+      ],
       readiness: log.readiness,
     ),
   );
@@ -505,7 +509,11 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
               .read(progressorProvider.notifier)
               .sampleBatches
               .listen(addSamples);
-          state = WorkoutState(plans: plans, alternating: alternating);
+          state = WorkoutState(
+            plans: plans,
+            alternating: alternating,
+            startedAt: DateTime.now(),
+          );
           _restedSeconds.updateAll((_, _) => 0);
           _startTicker();
           _next();
@@ -590,7 +598,11 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     _startedMeasurement = false;
     state = state.actualSeconds.isEmpty
         ? const WorkoutState()
-        : state.copyWith(phase: WorkoutPhase.done, endedEarly: reason);
+        : state.copyWith(
+            phase: WorkoutPhase.done,
+            endedEarly: reason,
+            endedAt: DateTime.now(),
+          );
   }
 
   /// Saves the finished workout, one record per hand with reps done. The
@@ -618,6 +630,10 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
               restSeconds: plan.restSeconds,
               targetSeconds: _savedTargets(workout, index),
               actualSeconds: workout.actualSecondsOf(index),
+              repForcesKg: workout.repForcesKgOf(index),
+              durationSeconds: workout.endedAt!
+                  .difference(workout.startedAt!)
+                  .inSeconds,
               perceivedExertion: perceivedExertion,
               notes: notes,
             ),
@@ -728,6 +744,7 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
       phase: last ? WorkoutPhase.done : WorkoutPhase.hold,
       actualSeconds: [...state.actualSeconds, heldSeconds],
       repForcesKg: [...state.repForcesKg, forceKg],
+      endedAt: last ? DateTime.now() : null,
     );
     if (!last) {
       _next();

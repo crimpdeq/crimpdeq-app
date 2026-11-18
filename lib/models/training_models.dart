@@ -140,6 +140,8 @@ class WorkoutRecord {
     required this.restSeconds,
     required this.targetSeconds,
     required this.actualSeconds,
+    required this.repForcesKg,
+    required this.durationSeconds,
     required this.perceivedExertion,
     required this.notes,
   });
@@ -157,6 +159,11 @@ class WorkoutRecord {
         for (final seconds in json['actualSeconds']! as List)
           (seconds as num).toDouble(),
       ],
+      repForcesKg = switch (json['repForcesKg'] as List?) {
+        final forces? => [for (final kg in forces) (kg as num?)?.toDouble()],
+        null => null,
+      },
+      durationSeconds = json['durationSeconds'] as int?,
       perceivedExertion = json['perceivedExertion']! as int,
       notes = json['notes']! as String;
 
@@ -174,6 +181,14 @@ class WorkoutRecord {
   final List<int> targetSeconds;
   final List<double> actualSeconds;
 
+  /// Mean force of each rep, null for a rep not held. Null for the workouts
+  /// saved by app 4.0.0, which kept only [forceKg].
+  final List<double?>? repForcesKg;
+
+  /// From the start of the workout to the end of its last rep, shared by the
+  /// hands trained together. Null for the workouts saved by app 4.0.0.
+  final int? durationSeconds;
+
   /// 1 (easy) to 10 (extreme).
   final int perceivedExertion;
   final String notes;
@@ -188,6 +203,8 @@ class WorkoutRecord {
     'restSeconds': restSeconds,
     'targetSeconds': targetSeconds,
     'actualSeconds': actualSeconds,
+    'repForcesKg': repForcesKg,
+    'durationSeconds': durationSeconds,
     'perceivedExertion': perceivedExertion,
     'notes': notes,
   };
@@ -212,6 +229,15 @@ class WorkoutRecord {
   /// Mean of each rep's actual minus target hang.
   double get meanDeltaSeconds => meanActualSeconds - meanTargetSeconds;
 
+  int get repsHeld => actualSeconds.where((seconds) => seconds > 0).length;
+
+  /// Time under load over the reps.
+  double get heldSeconds => actualSeconds.reduce((a, b) => a + b);
+
+  /// Force times time held over the reps, the isometric workload: [forceKg]
+  /// is their mean weighted by the time held.
+  double get workloadKgS => (forceKg ?? 0) * heldSeconds;
+
   double get meanHangSeconds =>
       _hangSeconds.reduce((a, b) => a + b) / _hangSeconds.length;
 
@@ -228,6 +254,31 @@ class WorkoutRecord {
     null => null,
   };
 }
+
+/// [workouts] in order, grouped by the workout they were trained in: one
+/// record per hand, saved together at one date.
+List<List<WorkoutRecord>> workoutSessions(List<WorkoutRecord> workouts) {
+  final sessions = <List<WorkoutRecord>>[];
+  for (final workout in workouts) {
+    final last = sessions.lastOrNull;
+    if (last != null && last.first.date == workout.date) {
+      last.add(workout);
+    } else {
+      sessions.add([workout]);
+    }
+  }
+  return sessions;
+}
+
+/// The latest workout before [workout] in [workouts] with its tool and hand,
+/// which OpenGrips compares it with. Null for the first one.
+WorkoutRecord? previousWorkout(
+  List<WorkoutRecord> workouts,
+  WorkoutRecord workout,
+) => workouts
+    .take(workouts.indexOf(workout))
+    .where((other) => other.tool == workout.tool && other.hand == workout.hand)
+    .lastOrNull;
 
 /// When the rest after the latest workout, with another tool than [tool],
 /// ends: HoG Academy sets an hour between gripper workouts. Null without a
@@ -559,6 +610,10 @@ sealed class WorkoutState with _$WorkoutState {
 
     /// Set when the workout ended before its last rep.
     WorkoutEnd? endedEarly,
+
+    /// When the workout started, and once done, when its last rep ended.
+    DateTime? startedAt,
+    DateTime? endedAt,
   }) = _WorkoutState;
 
   bool get isRunning =>
@@ -586,6 +641,10 @@ sealed class WorkoutState with _$WorkoutState {
 
   List<double> actualSecondsOf(int plan) => [
     for (final index in _repsDoneOf(plan)) actualSeconds[index],
+  ];
+
+  List<double?> repForcesKgOf(int plan) => [
+    for (final index in _repsDoneOf(plan)) repForcesKg[index],
   ];
 
   /// Targets of plan [plan], adapted to its first hang once it is over.

@@ -171,6 +171,16 @@ void main() {
       4,
     ]);
     expect(saved.single.perceivedExertion, 7);
+    expect(saved.single.repForcesKg, [
+      closeTo(12, 1e-9),
+      closeTo(14, 1e-9),
+      null,
+    ]);
+    // From the start to the last rep, in real time: the test fakes the timers.
+    expect(
+      saved.single.durationSeconds,
+      state().endedAt!.difference(state().startedAt!).inSeconds,
+    );
 
     // A new container reads the workout back from the storage.
     final reloaded = ProviderContainer();
@@ -407,9 +417,7 @@ void main() {
 
     // Deleting the workout cancels its notice.
     notifications.calls.clear();
-    await container
-        .read(trainingLogProvider.notifier)
-        .deleteWorkout(saved.single);
+    await container.read(trainingLogProvider.notifier).deleteWorkouts(saved);
     expect(notifications.calls, ['cancel rest']);
 
     // Both grippers are trained today.

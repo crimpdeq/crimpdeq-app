@@ -32,6 +32,8 @@ void main() {
       restSeconds: 6,
       targetSeconds: const [10],
       actualSeconds: const [10],
+      repForcesKg: const [24],
+      durationSeconds: 10,
       perceivedExertion: 5,
       notes: '',
     );
@@ -54,6 +56,62 @@ void main() {
       expect(toolsLeftToday([yesterday, photon], trainingTools, photon.date), [
         'Spark',
       ]);
+    });
+  });
+
+  group('Workout history', () {
+    WorkoutRecord workout(DateTime date, Hand hand) => WorkoutRecord(
+      date: date,
+      tool: 'Photon',
+      hand: hand,
+      section: CurveSection.strength,
+      targetForceKg: 12,
+      forceKg: 12.5,
+      restSeconds: 20,
+      targetSeconds: const [50, 36, 30],
+      actualSeconds: const [46, 34, 0],
+      repForcesKg: const [12.6, 12.4, null],
+      durationSeconds: 150,
+      perceivedExertion: 7,
+      notes: '',
+    );
+    final monday = DateTime(2026, 10, 26, 10);
+    final tuesday = DateTime(2026, 10, 27, 10);
+    final first = workout(monday, Hand.right);
+    final right = workout(tuesday, Hand.right);
+    final left = workout(tuesday, Hand.left);
+
+    test('groups the hands saved together into one workout', () {
+      expect(workoutSessions([first, right, left]), [
+        [first],
+        [right, left],
+      ]);
+    });
+
+    test('compares a workout with the previous one of its hand', () {
+      expect(previousWorkout([first, right, left], right), first);
+      expect(previousWorkout([first, right, left], left), isNull);
+      expect(previousWorkout([first, right, left], first), isNull);
+    });
+
+    test('sums the time under load and the workload of the reps', () {
+      expect(right.repsHeld, 2);
+      expect(right.heldSeconds, 80);
+      // The mean force is weighted by the time held.
+      expect(right.workloadKgS, 12.5 * 80);
+    });
+
+    test('reads a workout saved without rep forces or a duration', () {
+      final json = right.toJson()
+        ..remove('repForcesKg')
+        ..remove('durationSeconds');
+      final read = WorkoutRecord.fromJson(json);
+      expect(read.repForcesKg, isNull);
+      expect(read.durationSeconds, isNull);
+      expect(
+        WorkoutRecord.fromJson(right.toJson()).repForcesKg,
+        right.repForcesKg,
+      );
     });
   });
 
