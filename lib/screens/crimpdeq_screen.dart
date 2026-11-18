@@ -12,6 +12,7 @@ import '../widgets/calibration_widgets.dart';
 import '../widgets/connection_widgets.dart';
 import '../widgets/history_widgets.dart';
 import '../widgets/measurement_widgets.dart';
+import '../widgets/schedule_widgets.dart';
 import '../widgets/warmup_widgets.dart';
 import '../widgets/workout_widgets.dart';
 
@@ -116,6 +117,19 @@ class DeviceToolsScreen extends ConsumerWidget {
   }
 }
 
+/// The rest between grippers and the training reminders.
+class ScheduleScreen extends StatelessWidget {
+  const ScheduleScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Schedule')),
+      body: const _AppBody(child: ScheduleTab()),
+    );
+  }
+}
+
 /// The background and the low battery warning around a page.
 class _AppBody extends ConsumerWidget {
   const _AppBody({required this.child});
@@ -174,7 +188,7 @@ class _AppBody extends ConsumerWidget {
   }
 }
 
-enum _MenuAction { deviceTools, theme }
+enum _MenuAction { schedule, deviceTools, theme }
 
 class _CrimpdeqAppBar extends ConsumerWidget implements PreferredSizeWidget {
   const _CrimpdeqAppBar();
@@ -218,6 +232,11 @@ class _CrimpdeqAppBar extends ConsumerWidget implements PreferredSizeWidget {
         PopupMenuButton<_MenuAction>(
           tooltip: 'More',
           onSelected: (action) => switch (action) {
+            _MenuAction.schedule => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => const ScheduleScreen(),
+              ),
+            ),
             _MenuAction.deviceTools => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (context) => const DeviceToolsScreen(),
@@ -227,6 +246,14 @@ class _CrimpdeqAppBar extends ConsumerWidget implements PreferredSizeWidget {
               ref.read(themeModeProvider.notifier).setDarkMode(!isDarkMode),
           },
           itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: _MenuAction.schedule,
+              child: ListTile(
+                leading: Icon(Icons.alarm),
+                title: Text('Schedule'),
+                subtitle: Text('Reminders and rest between grippers'),
+              ),
+            ),
             const PopupMenuItem(
               value: _MenuAction.deviceTools,
               child: ListTile(

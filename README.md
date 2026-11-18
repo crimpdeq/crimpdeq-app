@@ -33,6 +33,11 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
     still rests as planned. Each hand saves its own workout
   - Benchmarks: 5-second-max pulls, with the same live graph, or held weights, with personal bests
   - History: workouts on the force curve with their per-rep results, stored on the device
+- Schedule, in the app bar menu: the rest between gripper workouts (1 h by default, as HoG
+  Academy sets for the first 30 sessions on each gripper), which the Workout page counts down
+  before a workout with the other gripper, optionally with a notification when it is over; and
+  weekly reminders per gripper, such as Spark at 10:00 and Photon at 15:00 on Monday, Wednesday
+  and Friday (Android, iOS and macOS)
 - Device tools, in the app bar menu: calibration and measurements
 - Compatible with Tindeq Progressor API
 - Cross-platform support (Android, macOS, Windows, Linux, Web)
@@ -103,7 +108,8 @@ dart run build_runner build --delete-conflicting-outputs
 - Minimum SDK version: 24
 - Target SDK version: 36
 - Compile SDK version: 37 (Android SDK Platform 37 must be installed)
-- Required permissions are automatically handled
+- Required permissions are automatically handled. Notifications, and exact alarms so they
+  arrive on time, are requested when you add a reminder or turn on the rest notification
 
 ##### Web
 
@@ -162,6 +168,8 @@ test/                  # Unit and widget tests
 - `shared_preferences`: Storing the training benchmarks, workouts and readiness checks
 - `audioplayers`: Workout sound cues (needs GStreamer to build for Linux)
 - `wakelock_plus`: Keeping the screen on during a workout
+- `flutter_local_notifications`, `timezone`, `flutter_timezone`: Training reminders and the end
+  of the rest between grippers, at local time
 - `freezed`: Code generation for immutable classes
 
 The Inter and Space Grotesk fonts are bundled in `assets/fonts/` (SIL Open Font License), so the

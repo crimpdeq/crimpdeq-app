@@ -208,6 +208,87 @@ class WorkoutRecord {
   };
 }
 
+/// When the rest after the latest workout, with another tool than [tool],
+/// ends: HoG Academy sets an hour between gripper workouts. Null without a
+/// rest, such as after a workout with [tool], which a workout of the other
+/// hand continues.
+DateTime? gripperRestEnd(
+  List<WorkoutRecord> workouts,
+  String tool,
+  Duration rest,
+) {
+  final latest = workouts.lastOrNull;
+  if (latest == null || latest.tool == tool || rest == Duration.zero) {
+    return null;
+  }
+  return latest.date.add(rest);
+}
+
+/// The tools of [tools] without a workout on the local day of [now]: a grip
+/// day trains both grippers.
+List<String> toolsLeftToday(
+  List<WorkoutRecord> workouts,
+  List<String> tools,
+  DateTime now,
+) {
+  DateTime day(DateTime date) {
+    final local = date.toLocal();
+    return DateTime(local.year, local.month, local.day);
+  }
+
+  final today = day(now);
+  return [
+    for (final tool in tools)
+      if (!workouts.any(
+        (workout) => workout.tool == tool && day(workout.date) == today,
+      ))
+        tool,
+  ];
+}
+
+/// A weekly reminder to train [tool] on [weekdays] at [hour]:[minute], local
+/// time.
+class Reminder {
+  const Reminder({
+    required this.tool,
+    required this.weekdays,
+    required this.hour,
+    required this.minute,
+  });
+
+  Reminder.fromJson(Map<String, Object?> json)
+    : tool = json['tool']! as String,
+      weekdays = (json['weekdays']! as List).cast<int>(),
+      hour = json['hour']! as int,
+      minute = json['minute']! as int;
+
+  final String tool;
+
+  /// [DateTime.monday] to [DateTime.sunday], in order.
+  final List<int> weekdays;
+  final int hour;
+  final int minute;
+
+  Reminder copyWith({
+    String? tool,
+    List<int>? weekdays,
+    int? hour,
+    int? minute,
+  }) => Reminder(
+    tool: tool ?? this.tool,
+    weekdays: weekdays ?? this.weekdays,
+    hour: hour ?? this.hour,
+    minute: minute ?? this.minute,
+  );
+
+  Map<String, Object?> toJson() => {
+    'tool': tool,
+    'weekdays': weekdays,
+    'hour': hour,
+    'minute': minute,
+  };
+}
+
 @freezed
 sealed class WorkoutPlan with _$WorkoutPlan {
   const WorkoutPlan._();

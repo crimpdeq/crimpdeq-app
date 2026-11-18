@@ -11,6 +11,7 @@ import '../analysis/opengrips_curve.dart';
 import '../models/progressor_models.dart';
 import '../models/training_models.dart';
 import 'progressor_provider.dart';
+import 'schedule_provider.dart';
 import 'warmup_provider.dart';
 import 'workout_feedback_provider.dart';
 
@@ -571,6 +572,7 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
       ]);
       // Leaving the results meanwhile starts over with another workout.
       if (identical(state, workout)) state = state.copyWith(saved: true);
+      await ref.read(gripperRestProvider.notifier).notifyRestOver();
     } finally {
       _saving = false;
     }

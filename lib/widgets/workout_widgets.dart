@@ -8,6 +8,7 @@ import '../providers/progressor_provider.dart';
 import '../providers/training_provider.dart';
 import '../theme.dart';
 import 'connection_widgets.dart';
+import 'schedule_widgets.dart';
 import 'training_charts.dart';
 import 'training_common.dart';
 
@@ -177,6 +178,7 @@ class _WorkoutSetup extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        GripperRestCard(workouts: log.workouts, tool: tool),
         TitledCard(
           title: 'Next workout',
           trailing: info,
