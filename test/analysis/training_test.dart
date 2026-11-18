@@ -271,6 +271,10 @@ void main() {
       expect(idealForceKg(191, 30), closeTo(1.0368, 1e-4));
     });
 
+    test('keeps a force axis under a benchmark below the floor', () {
+      expect(forceAxisKg(0.5, []), (min: 1, max: 2));
+    });
+
     test('predicts the ideal first hang', () {
       expect(idealFirstHangSeconds(13.96, 35), 54);
       expect(idealFirstHangSeconds(35, 35), 5);

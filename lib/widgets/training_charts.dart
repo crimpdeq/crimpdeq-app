@@ -315,9 +315,7 @@ class LiveForceGraph extends StatelessWidget {
 }
 
 /// Past workouts by force and first hold, against the ideal force curve.
-/// With a [section], also its force range and the target force. The force
-/// axis spans the whole curve and every workout, even one outside the curve,
-/// such as a lighter tool's under the strongest benchmark.
+/// With a [section], also its force range and the target force.
 class ForceCurveGraph extends StatelessWidget {
   const ForceCurveGraph({
     super.key,
@@ -337,10 +335,10 @@ class ForceCurveGraph extends StatelessWidget {
     final section = this.section;
     final targetForceKg = this.targetForceKg;
     final floorKg = curveFloorKg(benchmarkKg);
-    final balancedKg = benchmarkKg * balancedRatio;
-    final forces = [for (final workout in workouts) workout.forceKg];
-    final minKg = [floorKg, ...forces].reduce(min);
-    final maxKg = [benchmarkKg, ...forces].reduce(max);
+    final axisKg = forceAxisKg(benchmarkKg, [
+      for (final workout in workouts) workout.forceKg,
+    ]);
+    final sectionKg = section?.rangeKg(benchmarkKg);
     final maxSeconds = [
       CurveSection.endurance.firstRepSeconds.toDouble(),
       for (final workout in workouts) workout.firstHangSeconds,
@@ -359,28 +357,18 @@ class ForceCurveGraph extends StatelessWidget {
           child: LineChart(
             duration: Duration.zero,
             LineChartData(
-              minX: minKg,
-              maxX: maxKg,
+              minX: axisKg.min,
+              maxX: axisKg.max,
               minY: 0,
               // Headroom, so the longest first hang's dot is not cut.
               maxY: maxSeconds * 1.1,
               clipData: const FlClipData.all(),
               rangeAnnotations: RangeAnnotations(
                 verticalRangeAnnotations: [
-                  if (section != null)
+                  if (sectionKg != null)
                     VerticalRangeAnnotation(
-                      x1: section == CurveSection.values.first
-                          ? floorKg
-                          : (balancedKg * section.bottomRatio).clamp(
-                              floorKg,
-                              benchmarkKg,
-                            ),
-                      x2: section == CurveSection.values.last
-                          ? benchmarkKg
-                          : (balancedKg * section.topRatio).clamp(
-                              floorKg,
-                              benchmarkKg,
-                            ),
+                      x1: sectionKg.min,
+                      x2: sectionKg.max,
                       color: sectionColors[section]!.withValues(alpha: 0.15),
                     ),
                 ],
