@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
@@ -249,8 +251,92 @@ sealed class WorkoutPlan with _$WorkoutPlan {
     energySystems: energySystems,
   );
 
-  int get totalSeconds =>
-      targets().reduce((a, b) => a + b) + (reps - 1) * restSeconds;
+  /// Rest of the hand since its previous rep: the first rep starts rested.
+  int restBefore(int rep) => rep == 1 ? 0 : restSeconds;
+}
+
+/// Which hands a workout trains: the selected one, or both, starting with it.
+enum WorkoutHands {
+  one('One hand'),
+
+  /// Every rep of the first hand, then of the other.
+  inTurn('Both in turn'),
+
+  /// Each rep with the first hand, then the other: the other hand holds
+  /// during each rest, which [alternateRestSeconds] keeps long enough.
+  alternating('Alternate');
+
+  const WorkoutHands(this.label);
+
+  final String label;
+}
+
+/// One rep of a workout: the index of its plan, and the rep, 1-based.
+typedef WorkoutRep = ({int plan, int rep});
+
+/// The reps of [plans] in order: each plan's reps in turn, or with
+/// [alternating], every plan's rep before the next rep.
+List<WorkoutRep> workoutSchedule(
+  List<WorkoutPlan> plans, {
+  required bool alternating,
+}) {
+  if (!alternating) {
+    return [
+      for (final (index, plan) in plans.indexed)
+        for (var rep = 1; rep <= plan.reps; rep++) (plan: index, rep: rep),
+    ];
+  }
+  final reps = plans.map((plan) => plan.reps).reduce(max);
+  return [
+    for (var rep = 1; rep <= reps; rep++)
+      for (final (index, plan) in plans.indexed)
+        if (rep <= plan.reps) (plan: index, rep: rep),
+  ];
+}
+
+/// Time to change to the other hand and back during a rest between reps.
+const alternateMarginSeconds = 2 * handChangeSeconds;
+
+/// Shortest rest between reps that alternating with [other] needs: its
+/// longest hold and [alternateMarginSeconds]. A shorter rest would be over
+/// before the other hand's hold, so the hand would rest longer than planned.
+int alternateRestSeconds(WorkoutPlan other) =>
+    other.targets().reduce(max) + alternateMarginSeconds;
+
+/// Estimated time of a workout of [plans] at the planned targets.
+int workoutSeconds(List<WorkoutPlan> plans, {required bool alternating}) =>
+    holdsSeconds([
+      for (final (:plan, :rep) in workoutSchedule(
+        plans,
+        alternating: alternating,
+      ))
+        (
+          hand: plans[plan].hand,
+          seconds: plans[plan].targets()[rep - 1],
+          restSeconds: plans[plan].restBefore(rep),
+        ),
+    ]);
+
+/// Time to change hands or tools, for the estimated totals: each hold waits
+/// for the pull.
+const handChangeSeconds = 5;
+
+/// A hold of [hand] for [seconds], once the hand has rested [restSeconds]
+/// since its previous hold or the start.
+typedef TimedHold = ({Hand hand, int seconds, int restSeconds});
+
+/// Estimated time of [holds] in order, with [handChangeSeconds] between the
+/// holds and the rests that the other hand's holds do not cover.
+int holdsSeconds(List<TimedHold> holds) {
+  var seconds = 0;
+  final restedFrom = {for (final hand in Hand.values) hand: 0};
+  for (final (index, hold) in holds.indexed) {
+    final ready = restedFrom[hold.hand]! + hold.restSeconds;
+    final changed = index == 0 ? 0 : seconds + handChangeSeconds;
+    seconds = max(changed, ready) + hold.seconds;
+    restedFrom[hold.hand] = seconds;
+  }
+  return seconds;
 }
 
 /// The workout setup choices, kept while switching tabs. Null follows the
@@ -261,6 +347,7 @@ sealed class WorkoutSetup with _$WorkoutSetup {
   const factory WorkoutSetup({
     String? tool,
     Hand? hand,
+    @Default(WorkoutHands.one) WorkoutHands hands,
     CurveSection? section,
     WorkoutPlan? plan,
   }) = _WorkoutSetup;
@@ -340,11 +427,14 @@ sealed class WorkoutState with _$WorkoutState {
   const WorkoutState._();
 
   const factory WorkoutState({
-    WorkoutPlan? plan,
+    /// One plan per hand, in the order of their first reps.
+    @Default([]) List<WorkoutPlan> plans,
+
+    /// The hands take turns rep by rep, instead of plan by plan.
+    @Default(false) bool alternating,
     @Default(WorkoutPhase.idle) WorkoutPhase phase,
 
-    /// Current rep, or the last one during a rest. 1-based.
-    @Default(1) int rep,
+    /// The rest the current rep's hand still needs.
     @Default(0) int restRemainingSeconds,
     @Default(false) bool paused,
 
@@ -357,9 +447,11 @@ sealed class WorkoutState with _$WorkoutState {
 
     /// The latest force of the workout, through the holds and rests.
     @Default([]) List<FlSpot> forceTrace,
+
+    /// Time held in each rep done, in the [schedule] order.
     @Default([]) List<double> actualSeconds,
 
-    /// Mean force of each rep, null for a rep not held.
+    /// Mean force of each rep done, null for a rep not held.
     @Default([]) List<double?> repForcesKg,
     @Default(false) bool saved,
 
@@ -370,17 +462,43 @@ sealed class WorkoutState with _$WorkoutState {
   bool get isRunning =>
       phase != WorkoutPhase.idle && phase != WorkoutPhase.done;
 
-  /// Targets, adapted to the first hang once it is over.
-  List<int> get targets => plan!.targets(actualSeconds.firstOrNull);
+  List<WorkoutRep> get schedule =>
+      workoutSchedule(plans, alternating: alternating);
 
-  /// Mean force over every hang, weighted by its duration.
-  double? get meanForceKg {
+  /// The rep after those done: the current one, or the next one during a
+  /// rest.
+  WorkoutRep get current => schedule[actualSeconds.length];
+
+  WorkoutPlan get plan => plans[current.plan];
+
+  int get rep => current.rep;
+
+  /// The current rep's target.
+  int get target => targetsOf(current.plan)[rep - 1];
+
+  /// Indexes of the reps done with plan [plan].
+  Iterable<int> _repsDoneOf(int plan) => [
+    for (final (index, rep) in schedule.take(actualSeconds.length).indexed)
+      if (rep.plan == plan) index,
+  ];
+
+  List<double> actualSecondsOf(int plan) => [
+    for (final index in _repsDoneOf(plan)) actualSeconds[index],
+  ];
+
+  /// Targets of plan [plan], adapted to its first hang once it is over.
+  List<int> targetsOf(int plan) =>
+      plans[plan].targets(actualSecondsOf(plan).firstOrNull);
+
+  /// Mean force over the hangs of plan [plan], weighted by their duration.
+  double? meanForceKgOf(int plan) {
     var seconds = 0.0;
     var kgSeconds = 0.0;
-    for (final (rep, forceKg) in repForcesKg.indexed) {
+    for (final index in _repsDoneOf(plan)) {
+      final forceKg = repForcesKg[index];
       if (forceKg == null) continue;
-      seconds += actualSeconds[rep];
-      kgSeconds += forceKg * actualSeconds[rep];
+      seconds += actualSeconds[index];
+      kgSeconds += forceKg * actualSeconds[index];
     }
     return seconds == 0 ? null : kgSeconds / seconds;
   }

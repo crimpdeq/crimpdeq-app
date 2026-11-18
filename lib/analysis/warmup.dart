@@ -11,10 +11,6 @@ typedef _Level = ({double ratio, int seconds});
 /// hold usually covers it.
 const warmupRestSeconds = 15;
 
-/// Time to change hands or tools, for the estimated total: each hold waits
-/// for the pull.
-const handChangeSeconds = 5;
-
 /// Before gripper training: a ramp on the tool to train.
 const _trainingRamp = <_Level>[
   (ratio: 0.3, seconds: 20),
@@ -123,16 +119,8 @@ List<WarmupStep> readinessCheck(List<Benchmark> benchmarks) => [
     ),
 ];
 
-/// Estimated time of [steps], with [handChangeSeconds] between the holds and
-/// the rests that the other hand's holds do not cover.
-int warmupSeconds(List<WarmupStep> steps) {
-  var seconds = 0;
-  final restedFrom = {for (final hand in Hand.values) hand: 0};
-  for (final (index, step) in steps.indexed) {
-    final ready = restedFrom[step.hand]! + step.restSeconds;
-    final changed = index == 0 ? 0 : seconds + handChangeSeconds;
-    seconds = (changed > ready ? changed : ready) + step.seconds;
-    restedFrom[step.hand] = seconds;
-  }
-  return seconds;
-}
+/// Estimated time of [steps].
+int warmupSeconds(List<WarmupStep> steps) => holdsSeconds([
+  for (final step in steps)
+    (hand: step.hand, seconds: step.seconds, restSeconds: step.restSeconds),
+]);

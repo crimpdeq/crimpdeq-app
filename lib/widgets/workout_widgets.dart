@@ -48,7 +48,13 @@ String _howWorkoutsWork(double thresholdKg) =>
     'Change the threshold in Customize. Pull close to the target force: the '
     'force you actually pull is what the workout records.\n\n'
     'If the first hold misses its target by more than 3 s, the later targets '
-    'scale with it.';
+    'scale with it.\n\n'
+    'Both hands train the same plan, each at its own benchmark, starting '
+    'with the selected hand. In turn does every rep of one hand, then of the '
+    'other. Alternate switches hands after each rep and holds the other hand '
+    'during each rest, so it needs a rest longer than the longest hold, with '
+    '${alternateMarginSeconds ~/ 2} s to change hands each way. Then each '
+    'hand rests as planned.';
 
 class _WorkoutSetup extends ConsumerWidget {
   const _WorkoutSetup({required this.log});
@@ -140,8 +146,30 @@ class _WorkoutSetup extends ConsumerWidget {
         if (CurveSection.of(point.forceKg, benchmark.forceKg) == section)
           workout,
     ];
+    final otherHand = Hand.values.firstWhere((other) => other != hand);
+    final otherBenchmark = bestBenchmark(log.benchmarks, tool, otherHand);
+    final bothHands = setup.hands != WorkoutHands.one;
+    final alternating = setup.hands == WorkoutHands.alternating;
+    // Both hands train the plan, each at its own benchmark.
+    final plans = [
+      plan,
+      if (bothHands && otherBenchmark != null)
+        plan.copyWith(hand: otherHand, benchmarkKg: otherBenchmark.forceKg),
+    ];
+    final missingOtherHand = bothHands && otherBenchmark == null;
+    // Both hands share the targets and the rest.
+    final alternateRest = alternateRestSeconds(plan);
+    final canAlternate = plan.restSeconds >= alternateRest;
+    final alternateBlocked = alternating && !canAlternate;
+    final benchmarks = plans.length == 1
+        ? '${formatKg(benchmark.forceKg)} benchmark'
+        : '${[for (final plan in plans) '${plan.hand.label} ${formatKg(plan.benchmarkKg)}'].join(' and ')} '
+              'benchmarks';
     // A hold only counts above the threshold, which a light target is not.
-    final holdsCount = plan.targetForceKg > thresholdKg;
+    final lightestKg = plans
+        .map((plan) => plan.targetForceKg)
+        .reduce((a, b) => a < b ? a : b);
+    final holdsCount = lightestKg > thresholdKg;
     final benchmarkRecording = ref.watch(
       benchmarkRecorderProvider.select((recording) => recording.recording),
     );
@@ -156,6 +184,50 @@ class _WorkoutSetup extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               toolAndHand,
+              const SizedBox(height: 12),
+              SegmentedButton<WorkoutHands>(
+                segments: [
+                  for (final hands in WorkoutHands.values)
+                    ButtonSegment(
+                      value: hands,
+                      label: Text(hands.label),
+                      enabled:
+                          hands != WorkoutHands.alternating || canAlternate,
+                    ),
+                ],
+                selected: {setup.hands},
+                showSelectedIcon: false,
+                onSelectionChanged: (selection) =>
+                    setupNotifier.selectHands(selection.single),
+              ),
+              if (bothHands) ...[
+                const SizedBox(height: 4),
+                Text(
+                  alternating
+                      ? 'Each rep with the ${hand.label} hand, then the '
+                            '${otherHand.label}: the other hand holds during '
+                            'each rest.'
+                      : 'Every rep with the ${hand.label} hand, then with '
+                            'the ${otherHand.label}.',
+                  style: textTheme.bodySmall,
+                ),
+                if (!canAlternate) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Alternate needs at least $alternateRest s of rest '
+                    'between reps: the other hand\'s longest hold, '
+                    '${formatDuration(alternateRest - alternateMarginSeconds)}, '
+                    'and ${alternateMarginSeconds ~/ 2} s to change hands '
+                    'each way. Raise the rest or shorten the first hold in '
+                    'Customize.',
+                    style: alternateBlocked
+                        ? textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.error,
+                          )
+                        : textTheme.bodySmall,
+                  ),
+                ],
+              ],
               const SizedBox(height: 16),
               Wrap(
                 spacing: 8,
@@ -200,24 +272,46 @@ class _WorkoutSetup extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               StatRow([
-                StatTile(label: 'Force', value: formatKg(plan.targetForceKg)),
+                for (final plan in plans)
+                  StatTile(
+                    label: plans.length > 1
+                        ? '${plan.hand.label} force'
+                        : 'Force',
+                    value: formatKg(plan.targetForceKg),
+                  ),
                 StatTile(
                   label: 'First hold',
                   value: formatDuration(plan.firstHangSeconds),
                 ),
-                StatTile(label: 'Reps', value: '${plan.reps}'),
-                StatTile(label: 'Total', value: formatClock(plan.totalSeconds)),
+                StatTile(
+                  label: 'Reps',
+                  value: plans.length > 1 ? '2 × ${plan.reps}' : '${plan.reps}',
+                ),
+                StatTile(
+                  label: 'Total',
+                  value: formatClock(
+                    workoutSeconds(plans, alternating: alternating),
+                  ),
+                ),
               ]),
               const SizedBox(height: 4),
               Text(
                 '${(plan.targetForceKg / benchmark.forceKg * 100).round()}% '
-                'of your ${formatKg(benchmark.forceKg)} benchmark.',
+                'of your $benchmarks.',
                 style: textTheme.bodySmall,
               ),
+              if (missingOtherHand) ...[
+                const SizedBox(height: 12),
+                RecordBenchmark(
+                  message:
+                      'Record a benchmark for $tool with the '
+                      '${otherHand.label} hand to train both hands.',
+                ),
+              ],
               if (!holdsCount) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'The ${formatKg(plan.targetForceKg)} target is too light to '
+                  'The ${formatKg(lightestKg)} target is too light to '
                   'start a hold above ${formatKg(thresholdKg)}. Choose a '
                   'heavier workout type or a lower threshold.',
                   style: textTheme.bodyMedium?.copyWith(
@@ -235,10 +329,13 @@ class _WorkoutSetup extends ConsumerWidget {
                       onPressed:
                           benchmarkRecording ||
                               !holdsCount ||
+                              missingOtherHand ||
+                              alternateBlocked ||
                               !watchConnected(ref)
                           ? null
-                          : () =>
-                                ref.read(workoutProvider.notifier).start(plan),
+                          : () => ref
+                                .read(workoutProvider.notifier)
+                                .start(plans, alternating: alternating),
                       icon: const Icon(Icons.play_arrow),
                       label: const Text('Start Workout'),
                       style: FilledButton.styleFrom(
@@ -493,8 +590,10 @@ class _WorkoutTimer extends ConsumerWidget {
     );
     final thresholdKg = watchHoldThreshold(ref);
     final notifier = ref.read(workoutProvider.notifier);
-    final plan = workout.plan!;
-    final targets = workout.targets;
+    final plan = workout.plan;
+    final targets = workout.targetsOf(workout.current.plan);
+    final bothHands = workout.plans.length > 1;
+    final hand = bothHands ? '${plan.hand.label} hand · ' : '';
     final holdPhase = workout.phase == WorkoutPhase.hold;
     final phaseColor = holdPhase ? gainColor : colorScheme.primary;
 
@@ -505,10 +604,10 @@ class _WorkoutTimer extends ConsumerWidget {
     final Widget instruction;
     final Widget? warning;
     if (holdPhase) {
-      final target = targets[workout.rep - 1];
+      final target = workout.target;
       final remaining = target - workout.heldSeconds;
       phase = 'Hold';
-      reps = 'Rep ${workout.rep} of ${plan.reps}';
+      reps = '${hand}Rep ${workout.rep} of ${plan.reps}';
       // Counts down from the target while pulling, then up past it.
       clock = remaining >= 0
           ? formatClock(remaining.ceil())
@@ -519,6 +618,9 @@ class _WorkoutTimer extends ConsumerWidget {
             ? 'Hold ${formatClock(target)} at ${formatKg(plan.targetForceKg)}'
             : workout.waitingForRelease
             ? 'Release the Crimpdeq, then pull to start the timer'
+            : bothHands
+            ? '${plan.hand.label} hand: pull more than '
+                  '${formatKg(thresholdKg)} to start the timer'
             : 'Pull more than ${formatKg(thresholdKg)} to start the timer',
         style: workout.holding
             ? textTheme.bodyLarge
@@ -527,15 +629,16 @@ class _WorkoutTimer extends ConsumerWidget {
       );
       warning = null;
     } else {
-      final upcoming = workout.rep + 1;
-      final target = targets[upcoming - 1];
+      final upcoming = workout.rep;
+      final target = workout.target;
       final planned = plan.targets()[upcoming - 1];
       phase = 'Rest';
-      reps = 'Rep ${workout.rep} of ${plan.reps} done';
+      reps = '${hand}Rep ${upcoming - 1} of ${plan.reps} done';
       clock = formatClock(workout.restRemainingSeconds);
       progress = 1 - workout.restRemainingSeconds / plan.restSeconds;
       instruction = Text(
-        'Next: rep $upcoming, ${formatClock(target)} at '
+        'Next: ${bothHands ? '${plan.hand.label} hand, ' : ''}'
+        'rep $upcoming, ${formatClock(target)} at '
         '${formatKg(plan.targetForceKg)}'
         '${target == planned ? '' : ' (planned ${formatClock(planned)})'}',
         style: textTheme.bodyLarge,
@@ -615,7 +718,7 @@ class _WorkoutTimer extends ConsumerWidget {
             RepBars(
               targets: targets,
               actual: [
-                ...workout.actualSeconds,
+                ...workout.actualSecondsOf(workout.current.plan),
                 if (holdPhase) workout.heldSeconds,
               ],
               color: sectionColors[plan.section]!,
@@ -627,7 +730,7 @@ class _WorkoutTimer extends ConsumerWidget {
                 onPressed: notifier.finishRep,
                 style: bigButton,
                 child: Text(
-                  workout.heldSeconds < targets[workout.rep - 1]
+                  workout.heldSeconds < workout.target
                       ? 'Failed Early'
                       : 'Finished Now',
                 ),
@@ -738,14 +841,7 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
     final textTheme = theme.textTheme;
     final workout = ref.watch(workoutProvider);
     final notifier = ref.read(workoutProvider.notifier);
-    final plan = workout.plan!;
-    final targets = workout.targets;
-    final actual = workout.actualSeconds;
-    final meanForceKg = workout.meanForceKg;
-    final meanActual = actual.reduce((a, b) => a + b) / actual.length;
-    final meanTarget =
-        targets.take(actual.length).reduce((a, b) => a + b) / actual.length;
-    final meanDelta = meanActual - meanTarget;
+    final reps = workout.actualSeconds.length;
 
     return TitledCard(
       title: workout.endedEarly == null
@@ -759,7 +855,7 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
               'The Crimpdeq ${switch (end) {
                 WorkoutEnd.disconnected => 'disconnected',
                 WorkoutEnd.measurementFailed => 'stopped measuring',
-              }} after rep ${actual.length} of ${plan.reps}. You can '
+              }} after rep $reps of ${workout.schedule.length}. You can '
               'still save the reps done.',
               style: textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.error,
@@ -767,77 +863,16 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
             ),
             const SizedBox(height: 8),
           ],
-          Text(
-            '${plan.section.label} · ${plan.tool} · ${plan.hand.label} hand',
-            style: textTheme.titleSmall?.copyWith(
-              color: sectionTextColor(context, plan.section),
-            ),
-          ),
-          const SizedBox(height: 12),
-          StatRow([
-            StatTile(
-              label: 'Force',
-              value: meanForceKg == null ? '—' : formatKg(meanForceKg),
-            ),
-            StatTile(
-              label: 'Hold',
-              value: '${meanActual.round()} / ${meanTarget.round()} s',
-            ),
-            StatTile(
-              label: 'Avg Δ',
-              value: formatDelta(meanDelta, 's'),
-              color: deltaColor(meanDelta),
-            ),
-            StatTile(
-              label: 'Held',
-              value:
-                  '${actual.where((seconds) => seconds > 0).length}'
-                  '/${actual.length}',
-            ),
-          ]),
-          Text(
-            meanForceKg == null
-                ? 'No rep held.'
-                : 'Target force ${formatKg(plan.targetForceKg)}.',
-            style: textTheme.bodySmall,
-          ),
-          const SizedBox(height: 12),
-          RepResultsGraph(
-            targets: targets,
-            actual: actual,
-            section: plan.section,
-          ),
-          const SizedBox(height: 8),
-          Table(
-            columnWidths: const {0: FlexColumnWidth(1.2)},
-            children: [
-              TableRow(
-                children: [
-                  for (final label in ['Rep', 'Target', 'Actual', 'Δ'])
-                    Text(label, style: textTheme.bodySmall),
-                ],
+          for (final (index, plan) in workout.plans.indexed)
+            if (workout.actualSecondsOf(index).isNotEmpty) ...[
+              if (index > 0) const SizedBox(height: 16),
+              _HandResults(
+                plan: plan,
+                targets: workout.targetsOf(index),
+                actual: workout.actualSecondsOf(index),
+                meanForceKg: workout.meanForceKgOf(index),
               ),
-              for (final (rep, seconds) in actual.indexed)
-                TableRow(
-                  children: [
-                    Text('${rep + 1}'),
-                    Text('${targets[rep]} s'),
-                    Text('${seconds.round()} s'),
-                    Text(
-                      formatDelta(
-                        (seconds.round() - targets[rep]).toDouble(),
-                        's',
-                      ),
-                      style: TextStyle(
-                        color: deltaColor(
-                          (seconds.round() - targets[rep]).toDouble(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
             ],
-          ),
           const SizedBox(height: 16),
           Text(
             'Effort: $_exertion/10 · ${_effort[_exertion - 1]}',
@@ -919,6 +954,109 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// One hand's reps against their targets.
+class _HandResults extends StatelessWidget {
+  const _HandResults({
+    required this.plan,
+    required this.targets,
+    required this.actual,
+    required this.meanForceKg,
+  });
+
+  final WorkoutPlan plan;
+  final List<int> targets;
+
+  /// At least one rep.
+  final List<double> actual;
+  final double? meanForceKg;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final meanForceKg = this.meanForceKg;
+    final meanActual = actual.reduce((a, b) => a + b) / actual.length;
+    final meanTarget =
+        targets.take(actual.length).reduce((a, b) => a + b) / actual.length;
+    final meanDelta = meanActual - meanTarget;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '${plan.section.label} · ${plan.tool} · ${plan.hand.label} hand',
+          style: textTheme.titleSmall?.copyWith(
+            color: sectionTextColor(context, plan.section),
+          ),
+        ),
+        const SizedBox(height: 12),
+        StatRow([
+          StatTile(
+            label: 'Force',
+            value: meanForceKg == null ? '—' : formatKg(meanForceKg),
+          ),
+          StatTile(
+            label: 'Hold',
+            value: '${meanActual.round()} / ${meanTarget.round()} s',
+          ),
+          StatTile(
+            label: 'Avg Δ',
+            value: formatDelta(meanDelta, 's'),
+            color: deltaColor(meanDelta),
+          ),
+          StatTile(
+            label: 'Held',
+            value:
+                '${actual.where((seconds) => seconds > 0).length}'
+                '/${actual.length}',
+          ),
+        ]),
+        Text(
+          meanForceKg == null
+              ? 'No rep held.'
+              : 'Target force ${formatKg(plan.targetForceKg)}.',
+          style: textTheme.bodySmall,
+        ),
+        const SizedBox(height: 12),
+        RepResultsGraph(
+          targets: targets,
+          actual: actual,
+          section: plan.section,
+        ),
+        const SizedBox(height: 8),
+        Table(
+          columnWidths: const {0: FlexColumnWidth(1.2)},
+          children: [
+            TableRow(
+              children: [
+                for (final label in ['Rep', 'Target', 'Actual', 'Δ'])
+                  Text(label, style: textTheme.bodySmall),
+              ],
+            ),
+            for (final (rep, seconds) in actual.indexed)
+              TableRow(
+                children: [
+                  Text('${rep + 1}'),
+                  Text('${targets[rep]} s'),
+                  Text('${seconds.round()} s'),
+                  Text(
+                    formatDelta(
+                      (seconds.round() - targets[rep]).toDouble(),
+                      's',
+                    ),
+                    style: TextStyle(
+                      color: deltaColor(
+                        (seconds.round() - targets[rep]).toDouble(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

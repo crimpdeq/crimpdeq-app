@@ -110,6 +110,19 @@ class _FixedWorkout extends WorkoutNotifier {
   void set(WorkoutState workout) => state = workout;
 }
 
+/// An idle workout that records its starts instead of measuring.
+class _StartedWorkout extends _FixedWorkout {
+  _StartedWorkout() : super(const WorkoutState());
+
+  final starts = <({List<WorkoutPlan> plans, bool alternating})>[];
+
+  @override
+  Future<void> start(
+    List<WorkoutPlan> plans, {
+    bool alternating = false,
+  }) async => starts.add((plans: plans, alternating: alternating));
+}
+
 /// A warm-up in a fixed state.
 class _FixedWarmup extends WarmupNotifier {
   _FixedWarmup(this.initialState);
@@ -1318,9 +1331,8 @@ void main() {
         workoutProvider.overrideWith(
           () => _FixedWorkout(
             WorkoutState(
-              plan: strength,
+              plans: [strength],
               phase: WorkoutPhase.hold,
-              rep: 2,
               actualSeconds: const [101],
               // The latest 15 s, 72.3 s into the workout.
               forceTrace: [
@@ -1362,7 +1374,7 @@ void main() {
     );
     // The start awaits the device, meanwhile the user opens another page.
     await _openPage(tester, 'Benchmarks');
-    workout.set(WorkoutState(plan: strength, phase: WorkoutPhase.hold));
+    workout.set(WorkoutState(plans: [strength], phase: WorkoutPhase.hold));
     await tester.pump();
 
     expect(find.byType(NavigationBar), findsNothing);
@@ -1378,9 +1390,8 @@ void main() {
         workoutProvider.overrideWith(
           () => _FixedWorkout(
             WorkoutState(
-              plan: strength,
+              plans: [strength],
               phase: WorkoutPhase.done,
-              rep: 5,
               actualSeconds: const [98, 34, 30, 22, 20],
               repForcesKg: const [12, 12, 12, 12, 12],
             ),
@@ -1419,9 +1430,8 @@ void main() {
         workoutProvider.overrideWith(
           () => _FixedWorkout(
             WorkoutState(
-              plan: strength,
+              plans: [strength],
               phase: WorkoutPhase.done,
-              rep: 5,
               actualSeconds: const [98, 34, 30, 22, 20],
               repForcesKg: const [12, 12, 12, 12, 12],
             ),
@@ -1441,6 +1451,145 @@ void main() {
     await tester.tap(find.text('View History'));
     await tester.pumpAndSettle();
     expect(find.text('Photon · Right hand'), findsOneWidget);
+  });
+
+  testWidgets('starts a workout of both hands at their benchmarks', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+    });
+    final workout = _StartedWorkout();
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+      overrides: [workoutProvider.overrideWith(() => workout)],
+    );
+    await tester.pumpAndSettle();
+    final start = find.widgetWithText(FilledButton, 'Start Workout');
+
+    await _select(tester, 'Both in turn');
+    expect(
+      find.text(
+        'Record a benchmark for Photon with the Left hand to train both '
+        'hands.',
+      ),
+      findsOne,
+    );
+    expect(tester.widget<FilledButton>(start).onPressed, isNull);
+
+    await ProviderScope.containerOf(tester.element(find.byType(CrimpdeqScreen)))
+        .read(trainingLogProvider.notifier)
+        .addBenchmark(
+          Benchmark(
+            date: DateTime(2026, 10, 25),
+            tool: 'Photon',
+            hand: Hand.left,
+            forceKg: 20,
+          ),
+        );
+    await tester.pumpAndSettle();
+    // The new benchmark is the latest, which moves the default hand.
+    await _select(tester, 'Right');
+    // The 193 s Endurance first hold does not fit in the 20 s rest.
+    bool alternateEnabled() => tester
+        .widget<SegmentedButton<WorkoutHands>>(
+          find.byType(SegmentedButton<WorkoutHands>),
+        )
+        .segments
+        .last
+        .enabled;
+    expect(alternateEnabled(), isFalse);
+    expect(find.textContaining('Alternate needs at least 203 s'), findsOne);
+
+    final setup = ProviderScope.containerOf(
+      tester.element(find.byType(CrimpdeqScreen)),
+    ).read(workoutSetupProvider.notifier);
+    final fits = WorkoutPlan.forSection(
+      tool: 'Photon',
+      hand: Hand.right,
+      section: CurveSection.endurance,
+      benchmarkKg: 30,
+    ).copyWith(firstHangSeconds: 40, restSeconds: 50);
+    setup.updatePlan(fits);
+    await tester.pumpAndSettle();
+    expect(alternateEnabled(), isTrue);
+    await _select(tester, 'Alternate');
+    expect(
+      find.text(
+        'Each rep with the Right hand, then the Left: the other hand holds '
+        'during each rest.',
+      ),
+      findsOne,
+    );
+    // The Endurance targets of 30 and 20 kg benchmarks.
+    expect(find.text('Right force'), findsOne);
+    expect(find.text('6.8 kg'), findsOne);
+    expect(find.text('4.5 kg'), findsOne);
+    expect(
+      find.text('23% of your Right 30.0 kg and Left 20.0 kg benchmarks.'),
+      findsOne,
+    );
+
+    // A rest that no longer fits blocks the start.
+    setup.updatePlan(fits.copyWith(restSeconds: 49));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Alternate needs at least 50 s'), findsOne);
+    expect(tester.widget<FilledButton>(start).onPressed, isNull);
+
+    setup.updatePlan(fits);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(start);
+    await tester.tap(start);
+    final started = workout.starts.single;
+    expect(started.alternating, isTrue);
+    expect(
+      [for (final plan in started.plans) plan.hand],
+      [Hand.right, Hand.left],
+    );
+    expect(started.plans.last.benchmarkKg, 20);
+  });
+
+  testWidgets('shows each hand of a workout of both hands', (tester) async {
+    // A rest that fits the 101 s first hold.
+    final right = strength.copyWith(restSeconds: 120);
+    final left = right.copyWith(hand: Hand.left, benchmarkKg: 20);
+    final workout = _FixedWorkout(
+      WorkoutState(
+        plans: [right, left],
+        alternating: true,
+        phase: WorkoutPhase.rest,
+        restRemainingSeconds: 3,
+        actualSeconds: const [101, 90],
+        repForcesKg: const [12, 8],
+      ),
+    );
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+      overrides: [workoutProvider.overrideWith(() => workout)],
+    );
+    expect(find.text('Right hand · Rep 1 of 5 done'), findsOne);
+    expect(find.textContaining('Next: Right hand, rep 2,'), findsOne);
+
+    workout.set(
+      workout.state.copyWith(
+        phase: WorkoutPhase.done,
+        actualSeconds: const [101, 90, 34],
+        repForcesKg: const [12, 8, 12],
+        endedEarly: WorkoutEnd.disconnected,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('after rep 3 of 10.'), findsOne);
+    for (final hand in ['Right', 'Left']) {
+      expect(find.text('Strength · Photon · $hand hand'), findsOne);
+    }
   });
 
   testWidgets('stores the theme choice', (tester) async {

@@ -106,7 +106,7 @@ void main() {
     WorkoutState state() => container.read(workoutProvider);
 
     // The first hold, without a rest before it.
-    await workout.start(plan);
+    await workout.start([plan]);
     expect(state().phase, WorkoutPhase.hold);
     expect(state().rep, 1);
 
@@ -117,7 +117,7 @@ void main() {
     expect(state().phase, WorkoutPhase.rest);
     expect(state().actualSeconds.single, closeTo(14.9, 1e-9));
     // 4.9 s over the 10 s target, so the later targets scale.
-    expect(state().targets, [10, 5, 4]);
+    expect(state().targetsOf(0), [10, 5, 4]);
 
     await tester.pump(const Duration(seconds: 5));
     expect(state().restRemainingSeconds, 1);
@@ -142,13 +142,13 @@ void main() {
     workout.skip();
     expect(state().phase, WorkoutPhase.done);
     expect(state().actualSeconds, [closeTo(14.9, 1e-9), closeTo(2.9, 1e-9), 0]);
-    expect(state().meanForceKg, closeTo(12 + 2 * 2.9 / 17.8, 1e-9));
+    expect(state().meanForceKgOf(0), closeTo(12 + 2 * 2.9 / 17.8, 1e-9));
 
     await workout.save(perceivedExertion: 7, notes: 'Felt good');
     expect(state().saved, isTrue);
     final saved = (await container.read(trainingLogProvider.future)).workouts;
     expect(saved.single.targetSeconds, [
-      idealFirstHangSeconds(state().meanForceKg!, 30),
+      idealFirstHangSeconds(state().meanForceKgOf(0)!, 30),
       5,
       4,
     ]);
@@ -159,6 +159,122 @@ void main() {
     addTearDown(reloaded.dispose);
     final workouts = (await reloaded.read(trainingLogProvider.future)).workouts;
     expect(workouts.single.toJson(), saved.single.toJson());
+  });
+
+  testWidgets('alternates the hands, each resting while the other holds', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final workout = container.read(workoutProvider.notifier);
+    WorkoutState state() => container.read(workoutProvider);
+    // The longest hold, 10 s, and 10 s to change hands fit in the rest.
+    final right = plan.copyWith(restSeconds: 20);
+    final left = right.copyWith(hand: Hand.left, benchmarkKg: 28);
+    (Hand, int, WorkoutPhase) now() =>
+        (state().plan.hand, state().rep, state().phase);
+
+    // A rest a second shorter would be over before the other hand's hold.
+    await expectLater(
+      () => workout.start([
+        right.copyWith(restSeconds: 19),
+        left,
+      ], alternating: true),
+      throwsArgumentError,
+    );
+    await workout.start([right, left], alternating: true);
+    expect(now(), (Hand.right, 1, WorkoutPhase.hold));
+    workout.addSamples([
+      ..._pull(0, 1, 0),
+      ..._pull(12, 10, 1000),
+      ..._pull(0, 1.1, 11000),
+    ]);
+    // The left hand has rested since the start, so it holds at once.
+    expect(now(), (Hand.left, 1, WorkoutPhase.hold));
+
+    // The left hold covers 4 s of the right hand's 20 s rest.
+    await tester.pump(const Duration(seconds: 4));
+    workout.addSamples([
+      ..._pull(0, 1, 12100),
+      ..._pull(11, 4, 13100),
+      ..._pull(0, 1.1, 17100),
+    ]);
+    expect(now(), (Hand.right, 2, WorkoutPhase.rest));
+    expect(state().restRemainingSeconds, 16);
+    await tester.pump(const Duration(seconds: 16));
+    expect(now(), (Hand.right, 2, WorkoutPhase.hold));
+
+    final order = <(Hand, int)>[];
+    while (state().isRunning) {
+      if (state().phase == WorkoutPhase.hold) {
+        order.add((state().plan.hand, state().rep));
+      }
+      workout.skip();
+    }
+    expect(order, [
+      (Hand.right, 2),
+      (Hand.left, 2),
+      (Hand.right, 3),
+      (Hand.left, 3),
+    ]);
+    expect(state().actualSecondsOf(0), [closeTo(9.9, 1e-9), 0, 0]);
+    expect(state().actualSecondsOf(1), [closeTo(3.9, 1e-9), 0, 0]);
+
+    // One record per hand, at its own benchmark.
+    await workout.save(perceivedExertion: 6, notes: '');
+    final saved = (await container.read(trainingLogProvider.future)).workouts;
+    expect([for (final record in saved) record.hand], [Hand.right, Hand.left]);
+    expect(saved.last.forceKg, closeTo(11, 1e-9));
+    expect(saved.last.targetForceKg, left.targetForceKg);
+    expect(saved.last.targetSeconds.first, idealFirstHangSeconds(11, 28));
+  });
+
+  testWidgets('trains the other hand once the first is done', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final workout = container.read(workoutProvider.notifier);
+    WorkoutState state() => container.read(workoutProvider);
+    final left = plan.copyWith(hand: Hand.left, reps: 2);
+
+    await workout.start([plan.copyWith(reps: 2), left]);
+    for (var i = 0; i < 2; i++) {
+      workout.skip();
+    }
+    expect((state().plan.hand, state().rep), (Hand.right, 2));
+
+    // Ended while still pulling: the left hold waits for the release.
+    workout.addSamples([..._pull(0, 1, 0), ..._pull(12, 2, 1000)]);
+    workout.finishRep();
+    expect((state().plan.hand, state().rep), (Hand.left, 1));
+    expect(state().phase, WorkoutPhase.hold);
+    workout.addSamples(_pull(12, 1, 3000));
+    expect(state().waitingForRelease, isTrue);
+    expect(state().holding, isFalse);
+    workout.addSamples([..._pull(0, 0.5, 4000), ..._pull(12, 1, 4500)]);
+    expect(state().holding, isTrue);
+
+    await workout.stop();
+    expect(state().phase, WorkoutPhase.idle);
+  });
+
+  testWidgets('saves only the hands with reps done', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final workout = container.read(workoutProvider.notifier);
+    final device =
+        container.read(progressorProvider.notifier) as _MeasuringProgressor;
+
+    await workout.start([plan, plan.copyWith(hand: Hand.left)]);
+    device.link();
+    workout.skip();
+    device.drop();
+    expect(container.read(workoutProvider).endedEarly, WorkoutEnd.disconnected);
+    await workout.save(perceivedExertion: 5, notes: '');
+    final saved = (await container.read(trainingLogProvider.future)).workouts;
+    expect(saved.single.hand, Hand.right);
   });
 
   testWidgets('stores every one of overlapping log updates', (tester) async {
@@ -193,7 +309,7 @@ void main() {
     final workout = container.read(workoutProvider.notifier);
 
     // Both holds and the rest between them.
-    await workout.start(plan.copyWith(reps: 2));
+    await workout.start([plan.copyWith(reps: 2)]);
     for (var i = 0; i < 3; i++) {
       workout.skip();
     }
@@ -207,7 +323,7 @@ void main() {
 
     // Leaving before the save is stored keeps the next workout unsaved.
     workout.reset();
-    await workout.start(plan.copyWith(reps: 2));
+    await workout.start([plan.copyWith(reps: 2)]);
     for (var i = 0; i < 3; i++) {
       workout.skip();
     }
@@ -254,7 +370,7 @@ void main() {
         container.read(progressorProvider.notifier) as _MeasuringProgressor;
     WorkoutState state() => container.read(workoutProvider);
 
-    await workout.start(plan);
+    await workout.start([plan]);
     device.link();
     workout.addSamples([
       ..._pull(0, 1, 0),
@@ -287,7 +403,7 @@ void main() {
     final device =
         container.read(progressorProvider.notifier) as _MeasuringProgressor;
 
-    await container.read(workoutProvider.notifier).start(plan);
+    await container.read(workoutProvider.notifier).start([plan]);
     device.link();
     device.drop();
     expect(container.read(workoutProvider).phase, WorkoutPhase.idle);
@@ -302,7 +418,7 @@ void main() {
     final device =
         container.read(progressorProvider.notifier) as _MeasuringProgressor;
 
-    await container.read(workoutProvider.notifier).start(plan);
+    await container.read(workoutProvider.notifier).start([plan]);
     device.link();
     device.setMeasuring(false);
     expect(device.starts, 1);
@@ -323,7 +439,7 @@ void main() {
     final recorder = container.read(benchmarkRecorderProvider.notifier);
     WorkoutState state() => container.read(workoutProvider);
 
-    await workout.start(plan);
+    await workout.start([plan]);
     device.link();
     workout.addSamples([
       ..._pull(0, 1, 0),
@@ -358,7 +474,7 @@ void main() {
     final workout = container.read(workoutProvider.notifier);
     final events = feedback.events;
 
-    await workout.start(plan.copyWith(restSeconds: 6, reps: 2));
+    await workout.start([plan.copyWith(restSeconds: 6, reps: 2)]);
     expect(events, ['screen true', 'go']);
     events.clear();
 
@@ -377,7 +493,7 @@ void main() {
 
     await container.read(soundsMutedProvider.notifier).toggle();
     events.clear();
-    await workout.start(plan);
+    await workout.start([plan]);
     workout.skip();
     await tester.pump(const Duration(seconds: 6));
     expect(events, ['screen true']);
@@ -392,7 +508,7 @@ void main() {
     addTearDown(container.dispose);
     final workout = container.read(workoutProvider.notifier);
 
-    await workout.start(plan);
+    await workout.start([plan]);
     expect(container.read(workoutProvider).phase, WorkoutPhase.hold);
     expect(feedback.events, ['screen true']);
     await workout.stop();
@@ -434,7 +550,10 @@ void main() {
     // A tap while the measurement starts must not subscribe again, or the
     // stop leaves a subscription behind.
     device.setMeasuring(false);
-    await Future.wait([workout.start(plan), workout.start(plan)]);
+    await Future.wait([
+      workout.start([plan]),
+      workout.start([plan]),
+    ]);
     await workout.stop();
     expect(device.samples.hasListener, isFalse);
 
@@ -456,7 +575,7 @@ void main() {
       WorkoutState state() => container.read(workoutProvider);
 
       // The 10 s rest after the first rep, loaded for its last seconds.
-      await workout.start(plan.copyWith(restSeconds: 10));
+      await workout.start([plan.copyWith(restSeconds: 10)]);
       workout.skip();
       final loadedFromMs = ((10 - loadedSeconds) * 1000).round();
       workout.addSamples([
@@ -480,7 +599,7 @@ void main() {
     final workout = container.read(workoutProvider.notifier);
     WorkoutState state() => container.read(workoutProvider);
 
-    await workout.start(plan);
+    await workout.start([plan]);
     // Until a sample shows the load, nothing is reported.
     expect(state().waitingForRelease, isFalse);
     workout.addSamples(_pull(5, 2, 0));
@@ -502,7 +621,7 @@ void main() {
     final workout = container.read(workoutProvider.notifier);
     WorkoutState state() => container.read(workoutProvider);
 
-    await workout.start(plan.copyWith(restSeconds: 6));
+    await workout.start([plan.copyWith(restSeconds: 6)]);
     workout.skip();
     await tester.pump(const Duration(seconds: 6));
     expect(state().phase, WorkoutPhase.hold);
@@ -814,7 +933,7 @@ void main() {
     for (final workoutFirst in [true, false]) {
       device.setMeasuring(false);
       final starts = [
-        () => workout.start(plan),
+        () => workout.start([plan]),
         () => warmup.start(WarmupKind.training, steps),
       ];
       await Future.wait([
@@ -840,7 +959,7 @@ void main() {
 
     // A running warm-up keeps the workout and the pull from starting.
     await warmup.start(WarmupKind.training, steps);
-    await workout.start(plan);
+    await workout.start([plan]);
     await recorder.start();
     expect(container.read(workoutProvider).phase, WorkoutPhase.idle);
     expect(container.read(benchmarkRecorderProvider).recording, isFalse);

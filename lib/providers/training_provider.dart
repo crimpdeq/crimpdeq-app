@@ -61,10 +61,10 @@ class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
     ),
   );
 
-  Future<void> addWorkout(WorkoutRecord workout) => _update(
+  Future<void> addWorkouts(List<WorkoutRecord> workouts) => _update(
     (log) => (
       benchmarks: log.benchmarks,
-      workouts: [...log.workouts, workout],
+      workouts: [...log.workouts, ...workouts],
       readiness: log.readiness,
     ),
   );
@@ -145,10 +145,12 @@ class WorkoutSetupNotifier extends Notifier<WorkoutSetup> {
 
   /// Another tool or hand has its own suggestion and template.
   void selectTool(String? tool) =>
-      state = WorkoutSetup(tool: tool, hand: state.hand);
+      state = WorkoutSetup(tool: tool, hand: state.hand, hands: state.hands);
 
   void selectHand(Hand? hand) =>
-      state = WorkoutSetup(tool: state.tool, hand: hand);
+      state = WorkoutSetup(tool: state.tool, hand: hand, hands: state.hands);
+
+  void selectHands(WorkoutHands hands) => state = state.copyWith(hands: hands);
 
   void selectSection(CurveSection section) =>
       state = state.copyWith(section: section, plan: null);
@@ -330,7 +332,9 @@ class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
 
 /// The OpenGrips workout timer, with the Crimpdeq as the weight: holds at the
 /// target force separated by rests. Each hold waits for the pull above the
-/// threshold, and the rests count down.
+/// threshold, and the rests count down. With both hands, each hand rests
+/// since its own previous hold, so alternating holds the other hand during
+/// the rest.
 final workoutProvider = NotifierProvider<WorkoutNotifier, WorkoutState>(
   WorkoutNotifier.new,
 );
@@ -338,7 +342,10 @@ final workoutProvider = NotifierProvider<WorkoutNotifier, WorkoutState>(
 class WorkoutNotifier extends Notifier<WorkoutState> {
   late WorkoutFeedback _feedback;
   bool _screenKeptOn = false;
-  Timer? _restTimer;
+  // Counts each hand's rest through the workout.
+  Timer? _ticker;
+  // Since each hand's previous hold, or the start.
+  final _restedSeconds = {for (final hand in Hand.values) hand: 0};
   StreamSubscription<List<WeightMeasurement>>? _samples;
   HoldTracker? _hold;
   ForceTrace _trace = ForceTrace();
@@ -402,7 +409,29 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     _endEarly(WorkoutEnd.measurementFailed);
   }
 
-  Future<void> start(WorkoutPlan plan) async {
+  /// Starts a workout of [plans], one per hand.
+  Future<void> start(
+    List<WorkoutPlan> plans, {
+    bool alternating = false,
+  }) async {
+    final hands = {for (final plan in plans) plan.hand};
+    if (plans.isEmpty || hands.length != plans.length) {
+      throw ArgumentError('A workout needs one plan per hand, not $plans.');
+    }
+    // Alternating fits the other hand's holds in each hand's rests.
+    if (alternating) {
+      for (final plan in plans) {
+        for (final other in plans.where((other) => other.hand != plan.hand)) {
+          final needed = alternateRestSeconds(other);
+          if (plan.restSeconds < needed) {
+            throw ArgumentError(
+              'Alternating needs ${plan.hand.label} hand rests of at least '
+              '$needed s, not ${plan.restSeconds} s.',
+            );
+          }
+        }
+      }
+    }
     if (state.isRunning || _starting) return;
     _starting = true;
     try {
@@ -423,8 +452,10 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
               .read(progressorProvider.notifier)
               .sampleBatches
               .listen(addSamples);
-          state = WorkoutState(plan: plan);
-          _startRep(1);
+          state = WorkoutState(plans: plans, alternating: alternating);
+          _restedSeconds.updateAll((_, _) => 0);
+          _startTicker();
+          _next();
         },
       );
     } finally {
@@ -458,7 +489,7 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     }
     // Publish at the displayed resolution, a tenth of a second.
     final heldSeconds = (hold.heldSeconds * 10).floor() / 10;
-    final target = state.targets[state.rep - 1];
+    final target = state.target;
     if (state.heldSeconds < target && heldSeconds >= target) {
       _cue(WorkoutCue.go);
     }
@@ -482,13 +513,13 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
       case WorkoutPhase.hold:
         _endRep(0, null);
       case WorkoutPhase.rest:
-        _startRep(state.rep + 1);
+        _startHold(afterRest: true);
       case WorkoutPhase.idle || WorkoutPhase.done:
         return;
     }
   }
 
-  /// Pauses or resumes the rest countdown. Holds follow the force.
+  /// Pauses or resumes the rests. Holds follow the force.
   void togglePause() => state = state.copyWith(paused: !state.paused);
 
   /// Abandons the workout.
@@ -509,8 +540,9 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
         : state.copyWith(phase: WorkoutPhase.done, endedEarly: reason);
   }
 
-  /// Saves the finished workout. The first target becomes the one the ideal
-  /// force curve predicts at the measured force, like OpenGrips does.
+  /// Saves the finished workout, one record per hand with reps done. The
+  /// first target becomes the one the ideal force curve predicts at the
+  /// measured force, like OpenGrips does.
   Future<void> save({
     required int perceivedExertion,
     required String notes,
@@ -518,30 +550,25 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     if (state.saved || _saving) return;
     _saving = true;
     final workout = state;
+    final date = DateTime.now();
     try {
-      final plan = state.plan!;
-      final forceKg = state.meanForceKg;
-      final targets = [...state.targets];
-      if (forceKg != null && forceKg > 0) {
-        targets[0] = idealFirstHangSeconds(forceKg, plan.benchmarkKg);
-      }
-      await ref
-          .read(trainingLogProvider.notifier)
-          .addWorkout(
+      await ref.read(trainingLogProvider.notifier).addWorkouts([
+        for (final (index, plan) in workout.plans.indexed)
+          if (workout.actualSecondsOf(index).isNotEmpty)
             WorkoutRecord(
-              date: DateTime.now(),
+              date: date,
               tool: plan.tool,
               hand: plan.hand,
               section: plan.section,
               targetForceKg: plan.targetForceKg,
-              forceKg: forceKg,
+              forceKg: workout.meanForceKgOf(index),
               restSeconds: plan.restSeconds,
-              targetSeconds: targets,
-              actualSeconds: state.actualSeconds,
+              targetSeconds: _savedTargets(workout, index),
+              actualSeconds: workout.actualSecondsOf(index),
               perceivedExertion: perceivedExertion,
               notes: notes,
             ),
-          );
+      ]);
       // Leaving the results meanwhile starts over with another workout.
       if (identical(state, workout)) state = state.copyWith(saved: true);
     } finally {
@@ -549,28 +576,61 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     }
   }
 
+  static List<int> _savedTargets(WorkoutState workout, int plan) {
+    final targets = [...workout.targetsOf(plan)];
+    final forceKg = workout.meanForceKgOf(plan);
+    if (forceKg != null && forceKg > 0) {
+      targets[0] = idealFirstHangSeconds(
+        forceKg,
+        workout.plans[plan].benchmarkKg,
+      );
+    }
+    return targets;
+  }
+
   /// Returns to the setup after the results.
   void reset() => state = const WorkoutState();
 
-  void _rest(int seconds) {
+  /// Counts each hand's rest in whole seconds from now, so the hand that
+  /// just held rests its full seconds, the other one up to a second more.
+  void _startTicker() {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+  }
+
+  /// The rest the current rep's hand still needs.
+  int get _restLeft =>
+      state.plan.restBefore(state.rep) - _restedSeconds[state.plan.hand]!;
+
+  /// Counts each hand's rest, and the current rest down to its hold.
+  void _tick() {
+    if (state.paused) return;
+    _restedSeconds.updateAll((_, seconds) => seconds + 1);
+    if (state.phase != WorkoutPhase.rest) return;
+    final remaining = _restLeft;
+    if (remaining <= 0) {
+      _startHold(afterRest: true);
+      return;
+    }
+    state = state.copyWith(restRemainingSeconds: remaining);
+    _restCue(remaining);
+  }
+
+  /// Rests before the current rep until its hand has rested enough, or with
+  /// both hands, holds at once when the other hand's holds covered it.
+  void _next() {
     _hold = null;
+    final remaining = _restLeft;
+    if (remaining <= 0) {
+      _startHold(afterRest: false);
+      return;
+    }
     _restLoad = RestLoad(thresholdKg: _thresholdKg);
     state = state.copyWith(
       phase: WorkoutPhase.rest,
-      restRemainingSeconds: seconds,
+      restRemainingSeconds: remaining,
     );
-    _restCue(seconds);
-    _restTimer?.cancel();
-    _restTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (state.paused) return;
-      if (state.restRemainingSeconds > 1) {
-        final remaining = state.restRemainingSeconds - 1;
-        state = state.copyWith(restRemainingSeconds: remaining);
-        _restCue(remaining);
-        return;
-      }
-      _startRep(state.rep + 1);
-    });
+    _restCue(remaining);
   }
 
   /// Warns at 5 s of rest left, then counts the last 2 s down.
@@ -584,21 +644,20 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     _feedback.play(cue);
   }
 
-  /// Starts a hold, which waits for the pull above the threshold however
-  /// long the rest was.
-  void _startRep(int rep) {
-    _restTimer?.cancel();
+  /// Starts the current rep's hold, which waits for the pull above the
+  /// threshold however long the rest was. At the start or straight after
+  /// the previous hold, whose pull may still be on, it waits for any load,
+  /// such as an offset, to drop first. Its first sample shows whether there
+  /// is one.
+  void _startHold({required bool afterRest}) {
     final leftOn = _restLoad?.leftOn ?? false;
     _restLoad = null;
-    // Without a rest before it, the first hold waits for any load already on,
-    // such as an offset, to drop. Its first sample shows whether there is one.
     _hold = HoldTracker(
       thresholdKg: _thresholdKg,
-      waitForRelease: leftOn || rep == 1,
+      waitForRelease: !afterRest || leftOn,
     );
     state = state.copyWith(
       phase: WorkoutPhase.hold,
-      rep: rep,
       paused: false,
       holding: false,
       waitingForRelease: leftOn,
@@ -609,22 +668,25 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
 
   void _endRep(double heldSeconds, double? forceKg) {
     if (state.phase != WorkoutPhase.hold) return;
+    _restedSeconds[state.plan.hand] = 0;
+    _startTicker();
+    final last = state.actualSeconds.length + 1 == state.schedule.length;
     state = state.copyWith(
+      phase: last ? WorkoutPhase.done : WorkoutPhase.hold,
       actualSeconds: [...state.actualSeconds, heldSeconds],
       repForcesKg: [...state.repForcesKg, forceKg],
     );
-    if (state.rep < state.plan!.reps) {
-      _rest(state.plan!.restSeconds);
+    if (!last) {
+      _next();
       return;
     }
     _hold = null;
-    state = state.copyWith(phase: WorkoutPhase.done);
     unawaited(_release());
   }
 
   void _cancel() {
-    _restTimer?.cancel();
-    _restTimer = null;
+    _ticker?.cancel();
+    _ticker = null;
     _hold = null;
     _samples?.cancel();
     _samples = null;
