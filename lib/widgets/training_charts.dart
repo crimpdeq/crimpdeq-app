@@ -315,7 +315,9 @@ class LiveForceGraph extends StatelessWidget {
 }
 
 /// Past workouts by force and first hold, against the ideal force curve.
-/// With a [section], also its force range and the target force.
+/// With a [section], also its force range and the target force. The force
+/// axis spans the whole curve and every workout, even one outside the curve,
+/// such as a lighter tool's under the strongest benchmark.
 class ForceCurveGraph extends StatelessWidget {
   const ForceCurveGraph({
     super.key,
@@ -336,6 +338,9 @@ class ForceCurveGraph extends StatelessWidget {
     final targetForceKg = this.targetForceKg;
     final floorKg = curveFloorKg(benchmarkKg);
     final balancedKg = benchmarkKg * balancedRatio;
+    final forces = [for (final workout in workouts) workout.forceKg];
+    final minKg = [floorKg, ...forces].reduce(min);
+    final maxKg = [benchmarkKg, ...forces].reduce(max);
     final maxSeconds = [
       CurveSection.endurance.firstRepSeconds.toDouble(),
       for (final workout in workouts) workout.firstHangSeconds,
@@ -354,8 +359,8 @@ class ForceCurveGraph extends StatelessWidget {
           child: LineChart(
             duration: Duration.zero,
             LineChartData(
-              minX: floorKg,
-              maxX: benchmarkKg,
+              minX: minKg,
+              maxX: maxKg,
               minY: 0,
               // Headroom, so the longest first hang's dot is not cut.
               maxY: maxSeconds * 1.1,
