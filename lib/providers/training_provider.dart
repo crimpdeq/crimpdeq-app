@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -108,7 +109,12 @@ class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
       await prefs.setString(_workoutsKey, jsonEncode(log.workouts));
       await prefs.setString(_readinessKey, jsonEncode(log.readiness));
       state = AsyncData(log);
-      await ref.read(gripperRestProvider.notifier).notifyRestOver();
+      try {
+        await ref.read(gripperRestProvider.notifier).notifyRestOver();
+      } on Exception catch (error) {
+        // The log is stored, so the update succeeds: only the notice is off.
+        debugPrint('The rest notice did not follow the log: $error');
+      }
     });
     // A failed update fails its caller, not the later updates.
     _updated = update.catchError((_) {});

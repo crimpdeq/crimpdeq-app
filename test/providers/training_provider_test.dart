@@ -11,6 +11,7 @@ import 'package:crimpdeq/providers/schedule_provider.dart';
 import 'package:crimpdeq/providers/training_provider.dart';
 import 'package:crimpdeq/providers/warmup_provider.dart';
 import 'package:crimpdeq/providers/workout_feedback_provider.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -81,6 +82,13 @@ class _Feedback extends WorkoutFeedback {
 
   @override
   Future<void> keepScreenOn(bool on) async => events.add('screen $on');
+}
+
+/// A platform that fails to schedule or cancel the rest notice.
+class _FailingNotifications extends FakeNotifications {
+  @override
+  Future<void> cancelRestOver() async =>
+      throw PlatformException(code: 'unavailable');
 }
 
 /// Kept alive like the screen keeps the device state.
@@ -341,6 +349,25 @@ void main() {
     workout.reset();
     await save;
     expect(container.read(workoutProvider).saved, isFalse);
+  });
+
+  testWidgets('saves a workout once when the rest notice fails', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring(notifications: _FailingNotifications());
+    addTearDown(container.dispose);
+    final workout = container.read(workoutProvider.notifier);
+    await workout.start([plan.copyWith(reps: 2)]);
+    for (var i = 0; i < 3; i++) {
+      workout.skip();
+    }
+
+    await workout.save(perceivedExertion: 5, notes: '');
+    expect(container.read(workoutProvider).saved, isTrue);
+    await workout.save(perceivedExertion: 5, notes: '');
+    final saved = (await container.read(trainingLogProvider.future)).workouts;
+    expect(saved, hasLength(1));
   });
 
   testWidgets('notifies when the rest before the other gripper is over', (
