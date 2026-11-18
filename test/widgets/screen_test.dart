@@ -1492,11 +1492,34 @@ void main() {
     await tester.pumpAndSettle();
     // The new benchmark is the latest, which moves the default hand.
     await _select(tester, 'Right');
+    // The 193 s Endurance first hold does not fit in the 20 s rest.
+    bool alternateEnabled() => tester
+        .widget<SegmentedButton<WorkoutHands>>(
+          find.byType(SegmentedButton<WorkoutHands>),
+        )
+        .segments
+        .last
+        .enabled;
+    expect(alternateEnabled(), isFalse);
+    expect(find.textContaining('Alternate needs at least 203 s'), findsOne);
+
+    final setup = ProviderScope.containerOf(
+      tester.element(find.byType(CrimpdeqScreen)),
+    ).read(workoutSetupProvider.notifier);
+    final fits = WorkoutPlan.forSection(
+      tool: 'Photon',
+      hand: Hand.right,
+      section: CurveSection.endurance,
+      benchmarkKg: 30,
+    ).copyWith(firstHangSeconds: 40, restSeconds: 50);
+    setup.updatePlan(fits);
+    await tester.pumpAndSettle();
+    expect(alternateEnabled(), isTrue);
     await _select(tester, 'Alternate');
     expect(
       find.text(
-        'Each rep with the Right hand, then the Left. Each hand rests while '
-        'the other holds.',
+        'Each rep with the Right hand, then the Left: the other hand holds '
+        'during each rest.',
       ),
       findsOne,
     );
@@ -1509,6 +1532,14 @@ void main() {
       findsOne,
     );
 
+    // A rest that no longer fits blocks the start.
+    setup.updatePlan(fits.copyWith(restSeconds: 49));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Alternate needs at least 50 s'), findsOne);
+    expect(tester.widget<FilledButton>(start).onPressed, isNull);
+
+    setup.updatePlan(fits);
+    await tester.pumpAndSettle();
     await tester.ensureVisible(start);
     await tester.tap(start);
     final started = workout.starts.single;
@@ -1521,10 +1552,12 @@ void main() {
   });
 
   testWidgets('shows each hand of a workout of both hands', (tester) async {
-    final left = strength.copyWith(hand: Hand.left, benchmarkKg: 20);
+    // A rest that fits the 101 s first hold.
+    final right = strength.copyWith(restSeconds: 120);
+    final left = right.copyWith(hand: Hand.left, benchmarkKg: 20);
     final workout = _FixedWorkout(
       WorkoutState(
-        plans: [strength, left],
+        plans: [right, left],
         alternating: true,
         phase: WorkoutPhase.rest,
         restRemainingSeconds: 3,

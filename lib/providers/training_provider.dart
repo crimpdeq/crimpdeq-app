@@ -333,7 +333,8 @@ class BenchmarkRecorder extends Notifier<BenchmarkRecording> {
 /// The OpenGrips workout timer, with the Crimpdeq as the weight: holds at the
 /// target force separated by rests. Each hold waits for the pull above the
 /// threshold, and the rests count down. With both hands, each hand rests
-/// since its own previous hold, so the other hand's holds count as its rest.
+/// since its own previous hold, so alternating holds the other hand during
+/// the rest.
 final workoutProvider = NotifierProvider<WorkoutNotifier, WorkoutState>(
   WorkoutNotifier.new,
 );
@@ -416,6 +417,20 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     final hands = {for (final plan in plans) plan.hand};
     if (plans.isEmpty || hands.length != plans.length) {
       throw ArgumentError('A workout needs one plan per hand, not $plans.');
+    }
+    // Alternating fits the other hand's holds in each hand's rests.
+    if (alternating) {
+      for (final plan in plans) {
+        for (final other in plans.where((other) => other.hand != plan.hand)) {
+          final needed = alternateRestSeconds(other);
+          if (plan.restSeconds < needed) {
+            throw ArgumentError(
+              'Alternating needs ${plan.hand.label} hand rests of at least '
+              '$needed s, not ${plan.restSeconds} s.',
+            );
+          }
+        }
+      }
     }
     if (state.isRunning || _starting) return;
     _starting = true;

@@ -51,9 +51,10 @@ String _howWorkoutsWork(double thresholdKg) =>
     'scale with it.\n\n'
     'Both hands train the same plan, each at its own benchmark, starting '
     'with the selected hand. In turn does every rep of one hand, then of the '
-    'other. Alternate switches hands after each rep: each hand rests at '
-    'least the rest between reps, and while the other hand holds, so its '
-    'rests often last longer than in a one-hand workout.';
+    'other. Alternate switches hands after each rep and holds the other hand '
+    'during each rest, so it needs a rest longer than the longest hold, with '
+    '${alternateMarginSeconds ~/ 2} s to change hands each way. Then each '
+    'hand rests as planned.';
 
 class _WorkoutSetup extends ConsumerWidget {
   const _WorkoutSetup({required this.log});
@@ -156,6 +157,10 @@ class _WorkoutSetup extends ConsumerWidget {
         plan.copyWith(hand: otherHand, benchmarkKg: otherBenchmark.forceKg),
     ];
     final missingOtherHand = bothHands && otherBenchmark == null;
+    // Both hands share the targets and the rest.
+    final alternateRest = alternateRestSeconds(plan);
+    final canAlternate = plan.restSeconds >= alternateRest;
+    final alternateBlocked = alternating && !canAlternate;
     final benchmarks = plans.length == 1
         ? '${formatKg(benchmark.forceKg)} benchmark'
         : '${[for (final plan in plans) '${plan.hand.label} ${formatKg(plan.benchmarkKg)}'].join(' and ')} '
@@ -183,7 +188,12 @@ class _WorkoutSetup extends ConsumerWidget {
               SegmentedButton<WorkoutHands>(
                 segments: [
                   for (final hands in WorkoutHands.values)
-                    ButtonSegment(value: hands, label: Text(hands.label)),
+                    ButtonSegment(
+                      value: hands,
+                      label: Text(hands.label),
+                      enabled:
+                          hands != WorkoutHands.alternating || canAlternate,
+                    ),
                 ],
                 selected: {setup.hands},
                 showSelectedIcon: false,
@@ -195,12 +205,28 @@ class _WorkoutSetup extends ConsumerWidget {
                 Text(
                   alternating
                       ? 'Each rep with the ${hand.label} hand, then the '
-                            '${otherHand.label}. Each hand rests while the '
-                            'other holds.'
+                            '${otherHand.label}: the other hand holds during '
+                            'each rest.'
                       : 'Every rep with the ${hand.label} hand, then with '
                             'the ${otherHand.label}.',
                   style: textTheme.bodySmall,
                 ),
+                if (!canAlternate) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Alternate needs at least $alternateRest s of rest '
+                    'between reps: the other hand\'s longest hold, '
+                    '${formatDuration(alternateRest - alternateMarginSeconds)}, '
+                    'and ${alternateMarginSeconds ~/ 2} s to change hands '
+                    'each way. Raise the rest or shorten the first hold in '
+                    'Customize.',
+                    style: alternateBlocked
+                        ? textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.error,
+                          )
+                        : textTheme.bodySmall,
+                  ),
+                ],
               ],
               const SizedBox(height: 16),
               Wrap(
@@ -304,6 +330,7 @@ class _WorkoutSetup extends ConsumerWidget {
                           benchmarkRecording ||
                               !holdsCount ||
                               missingOtherHand ||
+                              alternateBlocked ||
                               !watchConnected(ref)
                           ? null
                           : () => ref

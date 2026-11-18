@@ -262,8 +262,8 @@ enum WorkoutHands {
   /// Every rep of the first hand, then of the other.
   inTurn('Both in turn'),
 
-  /// Each rep with the first hand, then the other, so each hand rests while
-  /// the other holds.
+  /// Each rep with the first hand, then the other: the other hand holds
+  /// during each rest, which [alternateRestSeconds] keeps long enough.
   alternating('Alternate');
 
   const WorkoutHands(this.label);
@@ -293,6 +293,15 @@ List<WorkoutRep> workoutSchedule(
         if (rep <= plan.reps) (plan: index, rep: rep),
   ];
 }
+
+/// Time to change to the other hand and back during a rest between reps.
+const alternateMarginSeconds = 2 * handChangeSeconds;
+
+/// Shortest rest between reps that alternating with [other] needs: its
+/// longest hold and [alternateMarginSeconds]. A shorter rest would be over
+/// before the other hand's hold, so the hand would rest longer than planned.
+int alternateRestSeconds(WorkoutPlan other) =>
+    other.targets().reduce(max) + alternateMarginSeconds;
 
 /// Estimated time of a workout of [plans] at the planned targets.
 int workoutSeconds(List<WorkoutPlan> plans, {required bool alternating}) =>

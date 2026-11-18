@@ -169,11 +169,21 @@ void main() {
     addTearDown(container.dispose);
     final workout = container.read(workoutProvider.notifier);
     WorkoutState state() => container.read(workoutProvider);
-    final left = plan.copyWith(hand: Hand.left, benchmarkKg: 28);
+    // The longest hold, 10 s, and 10 s to change hands fit in the rest.
+    final right = plan.copyWith(restSeconds: 20);
+    final left = right.copyWith(hand: Hand.left, benchmarkKg: 28);
     (Hand, int, WorkoutPhase) now() =>
         (state().plan.hand, state().rep, state().phase);
 
-    await workout.start([plan, left], alternating: true);
+    // A rest a second shorter would be over before the other hand's hold.
+    await expectLater(
+      () => workout.start([
+        right.copyWith(restSeconds: 19),
+        left,
+      ], alternating: true),
+      throwsArgumentError,
+    );
+    await workout.start([right, left], alternating: true);
     expect(now(), (Hand.right, 1, WorkoutPhase.hold));
     workout.addSamples([
       ..._pull(0, 1, 0),
@@ -183,7 +193,7 @@ void main() {
     // The left hand has rested since the start, so it holds at once.
     expect(now(), (Hand.left, 1, WorkoutPhase.hold));
 
-    // The left hold covers 4 s of the right hand's 6 s rest.
+    // The left hold covers 4 s of the right hand's 20 s rest.
     await tester.pump(const Duration(seconds: 4));
     workout.addSamples([
       ..._pull(0, 1, 12100),
@@ -191,8 +201,8 @@ void main() {
       ..._pull(0, 1.1, 17100),
     ]);
     expect(now(), (Hand.right, 2, WorkoutPhase.rest));
-    expect(state().restRemainingSeconds, 2);
-    await tester.pump(const Duration(seconds: 2));
+    expect(state().restRemainingSeconds, 16);
+    await tester.pump(const Duration(seconds: 16));
     expect(now(), (Hand.right, 2, WorkoutPhase.hold));
 
     final order = <(Hand, int)>[];
