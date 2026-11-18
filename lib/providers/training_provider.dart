@@ -122,6 +122,50 @@ class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
   }
 }
 
+/// Body weights, one per day in day order, stored on this device.
+final bodyWeightsProvider =
+    AsyncNotifierProvider<BodyWeightsNotifier, List<BodyWeight>>(
+      BodyWeightsNotifier.new,
+    );
+
+class BodyWeightsNotifier extends AsyncNotifier<List<BodyWeight>> {
+  static const _key = 'training.bodyWeights';
+
+  @override
+  Future<List<BodyWeight>> build() async => [
+    for (final json in jsonDecode(
+      (await SharedPreferences.getInstance()).getString(_key) ?? '[]',
+    ) as List)
+      BodyWeight.fromJson(json as Map<String, Object?>),
+  ];
+
+  /// Logs [weight], replacing the one of its day.
+  Future<void> add(BodyWeight weight) => _update(
+    (weights) => [
+      for (final other in weights)
+        if (other.day != weight.day) other,
+      weight,
+    ]..sort((a, b) => a.day.compareTo(b.day)),
+  );
+
+  Future<void> delete(BodyWeight weight) =>
+      _update((weights) => [...weights]..remove(weight));
+
+  /// Reads and sets the state with nothing between them, so overlapping
+  /// updates cannot drop each other.
+  Future<void> _update(
+    List<BodyWeight> Function(List<BodyWeight> weights) change,
+  ) async {
+    await future;
+    final weights = change(state.requireValue);
+    state = AsyncData(weights);
+    await (await SharedPreferences.getInstance()).setString(
+      _key,
+      jsonEncode(weights),
+    );
+  }
+}
+
 /// Force a hold counts above, stored on this device. Above it the hold timer
 /// starts, and it ends once the force stays at or below it.
 final holdThresholdProvider =

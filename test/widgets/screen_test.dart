@@ -1196,6 +1196,8 @@ void main() {
           '[$_benchmark,'
           '{"date":"2026-10-27T10:00:00.000","tool":"Photon",'
           '"hand":"right","forceKg":28}]',
+      // Logged after the first benchmark's day, so only the second has it.
+      'training.bodyWeights': '[{"day":"2026-10-27T00:00:00.000","kg":56}]',
     });
     await _pumpScreen(
       tester,
@@ -1203,13 +1205,46 @@ void main() {
       deviceTools: false,
     );
     await _openPage(tester, 'Benchmarks');
-    await tester.ensureVisible(find.text('28.0 kg'));
+    await tester.ensureVisible(find.text('28.0 kg · 50% BW'));
+    expect(find.text('30.0 kg'), findsOne);
 
     expect(
       find.textContaining('-2.0 kg vs best · -2.0 kg vs previous'),
       findsOne,
     );
     expect(find.textContaining('Personal best'), findsOne);
+  });
+
+  testWidgets('logs body weights from the app bar menu', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Body weight'));
+    await tester.pumpAndSettle();
+    expect(find.text('No body weights yet.'), findsOne);
+
+    final field = find.widgetWithText(TextField, 'Body weight (kg)');
+    final save = find.text('Save Body Weight');
+    await tester.enterText(field, '5');
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('from 20 to 300 kg'), findsOne);
+
+    await tester.enterText(field, '61,5');
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(find.text('61.5 kg'), findsOne);
+
+    await tester.tap(find.byTooltip('Delete body weight'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    expect(find.text('No body weights yet.'), findsOne);
   });
 
   testWidgets('shows the workout history with each rep', (tester) async {
@@ -1223,6 +1258,7 @@ void main() {
       'training.workouts':
           '[${workout('2026-10-26T10:00:00.000', [40, 30])},'
           '${workout('2026-10-27T10:00:00.000', [46, 36])}]',
+      'training.bodyWeights': '[{"day":"2026-10-27T00:00:00.000","kg":60.5}]',
     });
     await _pumpScreen(
       tester,
@@ -1243,6 +1279,10 @@ void main() {
     await tester.tap(latest);
     await tester.pumpAndSettle();
     expect(find.text('Notes: Felt good'), findsOneWidget);
+    expect(
+      find.text('Force: 12.1 kg, 20% BW (target 12.0 kg)'),
+      findsOneWidget,
+    );
     expect(find.text('-4.0 s'), findsOneWidget);
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();

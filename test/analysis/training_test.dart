@@ -57,6 +57,17 @@ void main() {
     });
   });
 
+  test('compares a force with the latest body weight on its day', () {
+    final weights = [
+      BodyWeight(day: DateTime(2026, 10, 20), kg: 70),
+      BodyWeight(day: DateTime(2026, 10, 26), kg: 68),
+    ];
+    expect(bodyWeightOn(weights, DateTime(2026, 10, 19, 23)), isNull);
+    expect(bodyWeightOn(weights, DateTime(2026, 10, 25, 23)), 70);
+    // A weight logged later that day still counts.
+    expect(bodyWeightOn(weights, DateTime(2026, 10, 26, 7)), 68);
+  });
+
   test('reminds on the next weekday at the time', () {
     // Monday 26 October 2026, 10:30.
     final now = tz.TZDateTime(tz.UTC, 2026, 10, 26, 10, 30);
