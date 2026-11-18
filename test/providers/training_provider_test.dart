@@ -289,7 +289,7 @@ void main() {
 
   testWidgets('stores every one of overlapping log updates', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    final container = ProviderContainer();
+    final container = _measuring();
     addTearDown(container.dispose);
     final log = container.read(trainingLogProvider.notifier);
     Benchmark benchmark(double forceKg) => Benchmark(
@@ -378,7 +378,15 @@ void main() {
           'Spark: 60 min since your Photon workout.',
     ]);
 
+    // Deleting the workout cancels its notice.
+    notifications.calls.clear();
+    await container
+        .read(trainingLogProvider.notifier)
+        .deleteWorkout(saved.single);
+    expect(notifications.calls, ['cancel rest']);
+
     // Both grippers are trained today.
+    await train('Photon');
     await train('Spark');
     expect(notifications.calls.last, 'cancel rest');
 

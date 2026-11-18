@@ -98,7 +98,8 @@ class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
   Future<void> _updated = Future.value();
 
   /// Applies [change] to the log and stores it, after the pending updates, so
-  /// overlapping updates cannot read the same log and drop each other.
+  /// overlapping updates cannot read the same log and drop each other. The
+  /// rest notice then follows the stored log, such as a deleted workout.
   Future<void> _update(TrainingLog Function(TrainingLog log) change) {
     final update = _updated.then((_) async {
       final log = change(await future);
@@ -107,6 +108,7 @@ class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
       await prefs.setString(_workoutsKey, jsonEncode(log.workouts));
       await prefs.setString(_readinessKey, jsonEncode(log.readiness));
       state = AsyncData(log);
+      await ref.read(gripperRestProvider.notifier).notifyRestOver();
     });
     // A failed update fails its caller, not the later updates.
     _updated = update.catchError((_) {});
@@ -572,7 +574,6 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
       ]);
       // Leaving the results meanwhile starts over with another workout.
       if (identical(state, workout)) state = state.copyWith(saved: true);
-      await ref.read(gripperRestProvider.notifier).notifyRestOver();
     } finally {
       _saving = false;
     }
