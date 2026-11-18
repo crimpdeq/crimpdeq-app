@@ -4,6 +4,7 @@ import 'package:crimpdeq/models/progressor_models.dart';
 import 'package:crimpdeq/models/training_models.dart';
 import 'package:crimpdeq/protocol/progressor_protocol.dart';
 import 'package:crimpdeq/providers/progressor_provider.dart';
+import 'package:crimpdeq/providers/schedule_provider.dart';
 import 'package:crimpdeq/providers/theme_mode_provider.dart';
 import 'package:crimpdeq/providers/training_provider.dart';
 import 'package:crimpdeq/providers/warmup_provider.dart';
@@ -20,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/calibration_details.dart';
+import '../support/fake_notifications.dart';
 
 /// Serves a fixed state and records the commands instead of using Bluetooth.
 class _FakeProgressor extends ProgressorNotifier {
@@ -141,11 +143,17 @@ Future<_FakeProgressor> _pumpScreen(
   ProgressorState state, {
   bool deviceTools = true,
   List<Override> overrides = const [],
+  FakeNotifications? notifications,
 }) async {
+  notifications ??= FakeNotifications();
   final fake = _FakeProgressor(state);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [progressorProvider.overrideWith(() => fake), ...overrides],
+      overrides: [
+        progressorProvider.overrideWith(() => fake),
+        trainingNotificationsProvider.overrideWithValue(notifications),
+        ...overrides,
+      ],
       child: MaterialApp(theme: buildDarkTheme(), home: const CrimpdeqScreen()),
     ),
   );
@@ -1242,6 +1250,117 @@ void main() {
     await tester.tap(find.text('Delete').last);
     await tester.pumpAndSettle();
     expect(latest, findsNothing);
+  });
+
+  testWidgets('counts the rest down before the other gripper', (tester) async {
+    final saved = DateTime.now().subtract(const Duration(minutes: 15));
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_allBenchmarks]',
+      'training.workouts':
+          '[{"date":"${saved.toIso8601String()}","tool":"Photon",'
+          '"hand":"right","section":"strength","targetForceKg":12,'
+          '"forceKg":12,"restSeconds":20,"targetSeconds":[50,36],'
+          '"actualSeconds":[50,36],"perceivedExertion":7,"notes":""}]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    await tester.pump();
+
+    // The latest benchmark's Spark, an hour after the Photon workout.
+    expect(find.text('Rest before Spark'), findsOne);
+    expect(find.textContaining(RegExp(r'^4[45]:\d\d$')), findsOne);
+    // The other hand on Photon needs no rest.
+    await tester.tap(find.text('Photon').first);
+    await tester.pump();
+    expect(find.textContaining('Rest before'), findsNothing);
+  });
+
+  testWidgets('schedules reminders and the end of the rest', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    final notifications = FakeNotifications();
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+      notifications: notifications,
+    );
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Schedule'));
+    await tester.pumpAndSettle();
+    expect(find.text('Rest: 60 min'), findsOne);
+
+    final add = find.text('Add Reminder');
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    expect(notifications.calls, [
+      'request',
+      'reminders Photon [1, 3, 5] 10:0',
+      'request',
+      'reminders Photon [1, 3, 5] 10:0, Spark [1, 3, 5] 10:0',
+    ]);
+    // Each gripper's name on one line, on a 360 dp phone.
+    for (final element in find.text('Photon').evaluate()) {
+      final name = element.renderObject! as RenderParagraph;
+      expect(
+        name.getBoxesForSelection(
+          const TextSelection(baseOffset: 0, extentOffset: 6),
+        ),
+        hasLength(1),
+      );
+    }
+
+    notifications.calls.clear();
+    await tester.tap(find.text('Tue').first);
+    await tester.pumpAndSettle();
+    final delete = find.byTooltip('Delete reminder').last;
+    await tester.ensureVisible(delete);
+    await tester.tap(delete);
+    await tester.pumpAndSettle();
+    expect(notifications.calls, [
+      'reminders Photon [1, 2, 3, 5] 10:0, Spark [1, 3, 5] 10:0',
+      'reminders Photon [1, 2, 3, 5] 10:0',
+    ]);
+
+    notifications.calls.clear();
+    final notify = find.text('Notify when the rest is over');
+    await tester.ensureVisible(notify);
+    await tester.tap(notify);
+    await tester.pumpAndSettle();
+    expect(notifications.calls, ['request', 'cancel rest']);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      isTrue,
+    );
+  });
+
+  testWidgets('keeps the rest notice off without permission', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+      notifications: FakeNotifications(allowed: false),
+    );
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Schedule'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Notify when the rest is over'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      isFalse,
+    );
+    expect(find.textContaining('Notifications are off'), findsOne);
   });
 
   testWidgets('keeps the training available without a device', (tester) async {

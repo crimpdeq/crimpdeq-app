@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,6 +12,7 @@ import '../analysis/opengrips_curve.dart';
 import '../models/progressor_models.dart';
 import '../models/training_models.dart';
 import 'progressor_provider.dart';
+import 'schedule_provider.dart';
 import 'warmup_provider.dart';
 import 'workout_feedback_provider.dart';
 
@@ -97,7 +99,8 @@ class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
   Future<void> _updated = Future.value();
 
   /// Applies [change] to the log and stores it, after the pending updates, so
-  /// overlapping updates cannot read the same log and drop each other.
+  /// overlapping updates cannot read the same log and drop each other. The
+  /// rest notice then follows the stored log, such as a deleted workout.
   Future<void> _update(TrainingLog Function(TrainingLog log) change) {
     final update = _updated.then((_) async {
       final log = change(await future);
@@ -106,6 +109,12 @@ class TrainingLogNotifier extends AsyncNotifier<TrainingLog> {
       await prefs.setString(_workoutsKey, jsonEncode(log.workouts));
       await prefs.setString(_readinessKey, jsonEncode(log.readiness));
       state = AsyncData(log);
+      try {
+        await ref.read(gripperRestProvider.notifier).notifyRestOver();
+      } on Exception catch (error) {
+        // The log is stored, so the update succeeds: only the notice is off.
+        debugPrint('The rest notice did not follow the log: $error');
+      }
     });
     // A failed update fails its caller, not the later updates.
     _updated = update.catchError((_) {});

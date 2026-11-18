@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:crimpdeq/analysis/opengrips_curve.dart';
 import 'package:crimpdeq/analysis/warmup.dart';
@@ -6,13 +7,17 @@ import 'package:crimpdeq/models/progressor_models.dart';
 import 'package:crimpdeq/models/training_models.dart';
 import 'package:crimpdeq/protocol/progressor_protocol.dart';
 import 'package:crimpdeq/providers/progressor_provider.dart';
+import 'package:crimpdeq/providers/schedule_provider.dart';
 import 'package:crimpdeq/providers/training_provider.dart';
 import 'package:crimpdeq/providers/warmup_provider.dart';
 import 'package:crimpdeq/providers/workout_feedback_provider.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/fake_notifications.dart';
 
 /// Measures without Bluetooth; the test feeds the samples to the workout.
 class _MeasuringProgressor extends ProgressorNotifier {
@@ -79,11 +84,24 @@ class _Feedback extends WorkoutFeedback {
   Future<void> keepScreenOn(bool on) async => events.add('screen $on');
 }
 
+/// A platform that fails to schedule or cancel the rest notice.
+class _FailingNotifications extends FakeNotifications {
+  @override
+  Future<void> cancelRestOver() async =>
+      throw PlatformException(code: 'unavailable');
+}
+
 /// Kept alive like the screen keeps the device state.
-ProviderContainer _measuring([_Feedback? feedback]) => ProviderContainer(
+ProviderContainer _measuring({
+  _Feedback? feedback,
+  FakeNotifications? notifications,
+}) => ProviderContainer(
   overrides: [
     progressorProvider.overrideWith(_MeasuringProgressor.new),
     workoutFeedbackProvider.overrideWithValue(feedback ?? _Feedback()),
+    trainingNotificationsProvider.overrideWithValue(
+      notifications ?? FakeNotifications(),
+    ),
   ],
 )..listen(progressorProvider, (_, _) {});
 
@@ -279,7 +297,7 @@ void main() {
 
   testWidgets('stores every one of overlapping log updates', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    final container = ProviderContainer();
+    final container = _measuring();
     addTearDown(container.dispose);
     final log = container.read(trainingLogProvider.notifier);
     Benchmark benchmark(double forceKg) => Benchmark(
@@ -331,6 +349,98 @@ void main() {
     workout.reset();
     await save;
     expect(container.read(workoutProvider).saved, isFalse);
+  });
+
+  testWidgets('saves a workout once when the rest notice fails', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring(notifications: _FailingNotifications());
+    addTearDown(container.dispose);
+    final workout = container.read(workoutProvider.notifier);
+    await workout.start([plan.copyWith(reps: 2)]);
+    for (var i = 0; i < 3; i++) {
+      workout.skip();
+    }
+
+    await workout.save(perceivedExertion: 5, notes: '');
+    expect(container.read(workoutProvider).saved, isTrue);
+    await workout.save(perceivedExertion: 5, notes: '');
+    final saved = (await container.read(trainingLogProvider.future)).workouts;
+    expect(saved, hasLength(1));
+  });
+
+  testWidgets('notifies when the rest before the other gripper is over', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': jsonEncode([
+        for (final tool in trainingTools)
+          Benchmark(
+            date: DateTime(2026, 10, 26),
+            tool: tool,
+            hand: Hand.right,
+            forceKg: 30,
+          ),
+      ]),
+      'training.gripperRestNotify': true,
+    });
+    final notifications = FakeNotifications();
+    final container = _measuring(notifications: notifications);
+    addTearDown(container.dispose);
+    final workout = container.read(workoutProvider.notifier);
+    Future<void> train(String tool) async {
+      workout.reset();
+      await workout.start([plan.copyWith(tool: tool, reps: 2)]);
+      for (var i = 0; i < 3; i++) {
+        workout.skip();
+      }
+      await workout.save(perceivedExertion: 5, notes: '');
+    }
+
+    await train('Photon');
+    final saved = (await container.read(trainingLogProvider.future)).workouts;
+    expect(notifications.calls, [
+      'rest ${saved.single.date.add(const Duration(hours: 1))} Time for '
+          'Spark: 60 min since your Photon workout.',
+    ]);
+
+    // Deleting the workout cancels its notice.
+    notifications.calls.clear();
+    await container
+        .read(trainingLogProvider.notifier)
+        .deleteWorkout(saved.single);
+    expect(notifications.calls, ['cancel rest']);
+
+    // Both grippers are trained today.
+    await train('Photon');
+    await train('Spark');
+    expect(notifications.calls.last, 'cancel rest');
+
+    // Turning it off cancels the notice.
+    notifications.calls.clear();
+    await container.read(gripperRestProvider.notifier).setNotify(false);
+    expect(notifications.calls, ['cancel rest']);
+  });
+
+  testWidgets('stores the reminders and schedules them', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final notifications = FakeNotifications();
+    final container = _measuring(notifications: notifications);
+    addTearDown(container.dispose);
+    const reminder = Reminder(
+      tool: 'Spark',
+      weekdays: [DateTime.monday, DateTime.friday],
+      hour: 10,
+      minute: 30,
+    );
+
+    await container.read(remindersProvider.notifier).set([reminder]);
+    expect(notifications.calls, ['reminders Spark [1, 5] 10:30']);
+    final reloaded = ProviderContainer();
+    addTearDown(reloaded.dispose);
+    final stored = await reloaded.read(remindersProvider.future);
+    expect(stored.single.toJson(), reminder.toJson());
   });
 
   testWidgets('records the best 5 s of a benchmark pull', (tester) async {
@@ -469,7 +579,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final feedback = _Feedback();
-    final container = _measuring(feedback);
+    final container = _measuring(feedback: feedback);
     addTearDown(container.dispose);
     final workout = container.read(workoutProvider.notifier);
     final events = feedback.events;
@@ -504,7 +614,7 @@ void main() {
   testWidgets('keeps a stored mute from the first cue', (tester) async {
     SharedPreferences.setMockInitialValues({'training.muted': true});
     final feedback = _Feedback();
-    final container = _measuring(feedback);
+    final container = _measuring(feedback: feedback);
     addTearDown(container.dispose);
     final workout = container.read(workoutProvider.notifier);
 
@@ -660,7 +770,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final feedback = _Feedback();
-    final container = _measuring(feedback);
+    final container = _measuring(feedback: feedback);
     addTearDown(container.dispose);
     final warmup = container.read(warmupProvider.notifier);
     WarmupState state() => container.read(warmupProvider);
@@ -725,7 +835,7 @@ void main() {
   testWidgets('rests each hand between its own holds', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final feedback = _Feedback();
-    final container = _measuring(feedback);
+    final container = _measuring(feedback: feedback);
     addTearDown(container.dispose);
     final warmup = container.read(warmupProvider.notifier);
     WarmupState state() => container.read(warmupProvider);
@@ -781,7 +891,7 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final feedback = _Feedback();
-    final container = _measuring(feedback);
+    final container = _measuring(feedback: feedback);
     addTearDown(container.dispose);
     final warmup = container.read(warmupProvider.notifier);
     WarmupState state() => container.read(warmupProvider);
@@ -818,7 +928,7 @@ void main() {
   testWidgets('counts the rest down after a training warm-up', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final feedback = _Feedback();
-    final container = _measuring(feedback);
+    final container = _measuring(feedback: feedback);
     addTearDown(container.dispose);
     final warmup = container.read(warmupProvider.notifier);
     WarmupState state() => container.read(warmupProvider);

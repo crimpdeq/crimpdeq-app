@@ -4,7 +4,9 @@ import 'package:crimpdeq/analysis/opengrips_curve.dart';
 import 'package:crimpdeq/models/progressor_models.dart';
 import 'package:crimpdeq/models/training_models.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:crimpdeq/providers/schedule_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 /// Samples every 100 ms from [startMs], one per weight.
 List<WeightMeasurement> _samples(List<double> weightsKg, {int startMs = 0}) => [
@@ -19,6 +21,59 @@ List<double> _repeat(double weightKg, double seconds) =>
     List.filled((seconds * 10).round(), weightKg);
 
 void main() {
+  group('Gripper rest', () {
+    WorkoutRecord workout(String tool, DateTime date) => WorkoutRecord(
+      date: date,
+      tool: tool,
+      hand: Hand.right,
+      section: CurveSection.strength,
+      targetForceKg: 24,
+      forceKg: 24,
+      restSeconds: 6,
+      targetSeconds: const [10],
+      actualSeconds: const [10],
+      perceivedExertion: 5,
+      notes: '',
+    );
+    final photon = workout('Photon', DateTime(2026, 10, 26, 10));
+
+    test('rests after a workout with the other gripper', () {
+      const hour = Duration(hours: 1);
+      expect(
+        gripperRestEnd([photon], 'Spark', hour),
+        DateTime(2026, 10, 26, 11),
+      );
+      // The other hand on the same gripper, or no rest at all.
+      expect(gripperRestEnd([photon], 'Photon', hour), isNull);
+      expect(gripperRestEnd([photon], 'Spark', Duration.zero), isNull);
+      expect(gripperRestEnd([], 'Spark', hour), isNull);
+    });
+
+    test('leaves the grippers without a workout that day', () {
+      final yesterday = workout('Spark', DateTime(2026, 10, 25, 18));
+      expect(toolsLeftToday([yesterday, photon], trainingTools, photon.date), [
+        'Spark',
+      ]);
+    });
+  });
+
+  test('reminds on the next weekday at the time', () {
+    // Monday 26 October 2026, 10:30.
+    final now = tz.TZDateTime(tz.UTC, 2026, 10, 26, 10, 30);
+    expect(
+      nextWeekdayTime(now, DateTime.monday, 15, 0),
+      tz.TZDateTime(tz.UTC, 2026, 10, 26, 15),
+    );
+    expect(
+      nextWeekdayTime(now, DateTime.monday, 10, 0),
+      tz.TZDateTime(tz.UTC, 2026, 11, 2, 10),
+    );
+    expect(
+      nextWeekdayTime(now, DateTime.wednesday, 10, 0),
+      tz.TZDateTime(tz.UTC, 2026, 10, 28, 10),
+    );
+  });
+
   group('Workout schedule', () {
     // Targets of 10, 4 and 3 s, with 6 s of rest between the reps.
     const right = WorkoutPlan(
