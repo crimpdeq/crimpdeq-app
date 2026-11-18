@@ -210,10 +210,10 @@ void main() {
     });
 
     test('derives the 5 s max from a longer hold', () {
-      expect(deriveBenchmarkKg(30, 10), 32.92);
-      expect(deriveBenchmarkKg(20, 30), 31.66);
-      expect(deriveBenchmarkKg(25, 7), 25.88);
-      expect(deriveBenchmarkKg(10, 60), 25.91);
+      expect(deriveBenchmarkKg(30, 10), closeTo(32.92, 0.005));
+      expect(deriveBenchmarkKg(20, 30), closeTo(31.66, 0.005));
+      expect(deriveBenchmarkKg(25, 7), closeTo(25.88, 0.005));
+      expect(deriveBenchmarkKg(10, 60), closeTo(25.91, 0.005));
       expect(deriveBenchmarkKg(35, 5), 35);
     });
 
@@ -221,6 +221,7 @@ void main() {
       expect(CurveSection.of(10, 30), CurveSection.strengthEndurance);
       expect(CurveSection.of(19, 30), CurveSection.power);
       expect(CurveSection.of(5, 30), CurveSection.endurance);
+      expect(CurveSection.of(50, -10), CurveSection.power);
     });
 
     test('suggests the section with the fewest workouts first', () {

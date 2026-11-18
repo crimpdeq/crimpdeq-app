@@ -85,8 +85,10 @@ enum CurveSection {
   double targetForceKg(double benchmarkKg) =>
       _round2(benchmarkKg * balancedRatio * forceRatio);
 
-  /// Section that a workout at [forceKg] trained.
+  /// Section that a workout at [forceKg] trained. Without a benchmark, any
+  /// force is Power, as in OpenGrips.
   static CurveSection of(double forceKg, double benchmarkKg) {
+    if (benchmarkKg <= 0) return power;
     final ratio = forceKg / (benchmarkKg * balancedRatio);
     return values.firstWhere((section) => ratio <= section.topRatio);
   }
@@ -213,7 +215,7 @@ int idealFirstHangSeconds(double forceKg, double benchmarkKg) =>
     _idealSeconds(forceKg, benchmarkKg).round();
 
 /// The 5 s max of a hold of [forceKg] for [heldSeconds]: the benchmark whose
-/// ideal curve passes through the hold, rounded to 10 g. Holds of 5 s or less
+/// ideal curve passes through the hold. Holds of 5 s or less
 /// are the benchmark itself.
 double deriveBenchmarkKg(double forceKg, double heldSeconds) {
   if (forceKg <= 0 || heldSeconds <= 5) return forceKg;
@@ -227,7 +229,7 @@ double deriveBenchmarkKg(double forceKg, double heldSeconds) {
       low = middle;
     }
   }
-  return _round2((low + high) / 2);
+  return (low + high) / 2;
 }
 
 /// A past workout on the curve: its mean force and its first hang.
