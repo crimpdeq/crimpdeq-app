@@ -1230,10 +1230,13 @@ void main() {
 
     final field = find.widgetWithText(TextField, 'Body weight (kg)');
     final save = find.text('Save Body Weight');
-    await tester.enterText(field, '5');
-    await tester.tap(save);
-    await tester.pumpAndSettle();
-    expect(find.textContaining('from 20 to 300 kg'), findsOne);
+    for (final invalid in ['5', 'NaN']) {
+      await tester.enterText(field, invalid);
+      await tester.tap(save);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('from 20 to 300 kg'), findsOne);
+    }
+    expect(find.text('No body weights yet.'), findsOne);
 
     await tester.enterText(field, '61,5');
     await tester.tap(save);

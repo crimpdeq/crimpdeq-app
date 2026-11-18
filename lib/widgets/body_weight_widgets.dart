@@ -92,7 +92,8 @@ class _AddBodyWeightState extends ConsumerState<_AddBodyWeight> {
   Future<void> _save() async {
     final messenger = ScaffoldMessenger.of(context);
     final kg = double.tryParse(_kg.text.trim().replaceAll(',', '.'));
-    if (kg == null || kg < _minBodyKg || kg > _maxBodyKg) {
+    // NaN parses, but passes no comparison and cannot be stored.
+    if (kg == null || !kg.isFinite || kg < _minBodyKg || kg > _maxBodyKg) {
       messenger
         ..removeCurrentSnackBar()
         ..showSnackBar(
