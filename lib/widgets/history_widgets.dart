@@ -7,8 +7,8 @@ import '../providers/training_provider.dart';
 import 'training_charts.dart';
 import 'training_common.dart';
 
-/// OpenGrips workout history: the workouts on the force curve and their
-/// results.
+/// OpenGrips workout history: the workouts on the force curve, and each
+/// workout's hands and reps, like the Frez workout log.
 class HistoryTab extends StatefulWidget {
   const HistoryTab({super.key});
 
@@ -30,9 +30,13 @@ class _HistoryTabState extends State<HistoryTab> {
             child: _StartWorkout(),
           );
         }
-        final workouts = [
-          for (final workout in log.workouts.reversed)
-            if (_tool == null || workout.tool == _tool) workout,
+        final sessions = workoutSessions(log.workouts);
+        final monthNumbers = _monthNumbers(sessions);
+        // Newest first.
+        final shown = [
+          for (final (index, session) in sessions.indexed.toList().reversed)
+            if (_tool == null || session.first.tool == _tool)
+              (session: session, monthNumber: monthNumbers[index]),
         ];
         // The curve of the strongest benchmark among the shown tools.
         final benchmarks = [
@@ -61,20 +65,22 @@ class _HistoryTabState extends State<HistoryTab> {
                   : ForceCurveGraph(
                       benchmarkKg: benchmarkKg,
                       workouts: [
-                        for (final workout in workouts) ?workout.curvePoint,
+                        for (final (:session, monthNumber: _) in shown)
+                          for (final workout in session) ?workout.curvePoint,
                       ],
                     ),
             ),
             const SizedBox(height: 16),
             Text('Workouts', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            if (workouts.isEmpty)
+            if (shown.isEmpty)
               Text('No workouts with $_tool yet.')
             else
-              for (final workout in workouts) ...[
-                _Entry(
-                  workout: workout,
-                  vsPrevious: _vsPrevious(workout, log.workouts),
+              for (final (:session, :monthNumber) in shown) ...[
+                _SessionCard(
+                  session: session,
+                  monthNumber: monthNumber,
+                  workouts: log.workouts,
                 ),
                 const SizedBox(height: 12),
               ],
@@ -84,20 +90,20 @@ class _HistoryTabState extends State<HistoryTab> {
     );
   }
 
-  /// Change of the mean delta since the previous workout with the same tool
-  /// and hand, like OpenGrips.
-  static double? _vsPrevious(
-    WorkoutRecord workout,
-    List<WorkoutRecord> workouts,
-  ) {
-    final earlier = workouts.sublist(0, workouts.indexOf(workout));
-    final previous = earlier.lastWhere(
-      (other) => other.tool == workout.tool && other.hand == workout.hand,
-      orElse: () => workout,
-    );
-    return identical(previous, workout)
-        ? null
-        : workout.meanDeltaSeconds - previous.meanDeltaSeconds;
+  /// Each workout's place in its local month: 1 for the month's first.
+  static List<int> _monthNumbers(List<List<WorkoutRecord>> sessions) {
+    final counts = <(int, int), int>{};
+    return [
+      for (final session in sessions)
+        counts.update(
+          (
+            session.first.date.toLocal().year,
+            session.first.date.toLocal().month,
+          ),
+          (count) => count + 1,
+          ifAbsent: () => 1,
+        ),
+    ];
   }
 }
 
@@ -125,27 +131,41 @@ class _StartWorkout extends ConsumerWidget {
   }
 }
 
-class _Entry extends StatelessWidget {
-  const _Entry({required this.workout, required this.vsPrevious});
+/// "Photon · #3 this month".
+String _sessionLabel(List<WorkoutRecord> session, int monthNumber) =>
+    '${session.first.tool} · #$monthNumber this month';
 
-  final WorkoutRecord workout;
-  final double? vsPrevious;
+/// One workout, with each hand trained in it.
+class _SessionCard extends StatelessWidget {
+  const _SessionCard({
+    required this.session,
+    required this.monthNumber,
+    required this.workouts,
+  });
+
+  final List<WorkoutRecord> session;
+  final int monthNumber;
+
+  /// Every workout, for each hand's previous one.
+  final List<WorkoutRecord> workouts;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
-    final sectionColor = sectionColors[workout.section]!;
-    final forceKg = workout.forceKg;
-    final held = forceKg != null;
-    final notes = workout.notes;
+    final textTheme = Theme.of(context).textTheme;
+    final first = session.first;
+    final sectionColor = sectionColors[first.section]!;
 
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => showDialog<void>(
-          context: context,
-          builder: (context) => _Details(workout: workout),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (context) => _SessionDetails(
+              session: session,
+              monthNumber: monthNumber,
+              workouts: workouts,
+            ),
+          ),
         ),
         child: IntrinsicHeight(
           child: Row(
@@ -162,17 +182,14 @@ class _Entry extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              workout.section.label,
+                              first.section.label,
                               style: textTheme.titleMedium?.copyWith(
-                                color: sectionTextColor(
-                                  context,
-                                  workout.section,
-                                ),
+                                color: sectionTextColor(context, first.section),
                               ),
                             ),
                           ),
                           Text(
-                            formatDate(workout.date),
+                            formatDate(first.date),
                             style: textTheme.bodySmall,
                           ),
                           Icon(
@@ -183,60 +200,22 @@ class _Entry extends StatelessWidget {
                         ],
                       ),
                       Text(
-                        '${workout.tool} · ${workout.hand.label} hand',
+                        _sessionLabel(session, monthNumber),
                         style: textTheme.bodySmall,
                       ),
                       const SizedBox(height: 12),
-                      StatRow([
-                        StatTile(
-                          label: 'Force',
-                          value: held ? formatKg(forceKg) : '—',
+                      _SessionStats(session: session),
+                      for (final workout in session) ...[
+                        const SizedBox(height: 14),
+                        _HandSummary(
+                          workout: workout,
+                          previous: previousWorkout(workouts, workout),
                         ),
-                        StatTile(
-                          label: 'Hold',
-                          value:
-                              '${workout.meanActualSeconds.round()}'
-                              ' / ${workout.meanTargetSeconds.round()} s',
-                        ),
-                        StatTile(
-                          label: 'Avg Δ',
-                          value: formatDelta(workout.meanDeltaSeconds, 's'),
-                          color: deltaColor(workout.meanDeltaSeconds),
-                        ),
-                        StatTile(
-                          label: 'Effort',
-                          value: '${workout.perceivedExertion}/10',
-                        ),
-                      ]),
-                      const SizedBox(height: 12),
-                      RepBars(
-                        targets: workout.targetSeconds
-                            .take(workout.actualSeconds.length)
-                            .toList(),
-                        actual: workout.actualSeconds,
-                        color: sectionColor,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              held
-                                  ? '${workout.actualSeconds.where((s) => s > 0).length}'
-                                        ' of ${workout.actualSeconds.length} '
-                                        'reps held'
-                                  : 'No rep held',
-                              style: textTheme.bodySmall,
-                            ),
-                          ),
-                          if (vsPrevious case final vsPrevious?)
-                            _Trend(seconds: vsPrevious),
-                        ],
-                      ),
-                      if (notes.isNotEmpty) ...[
+                      ],
+                      if (first.notes.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         Text(
-                          notes,
+                          first.notes,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: textTheme.bodySmall?.copyWith(
@@ -252,6 +231,101 @@ class _Entry extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The totals of a workout's hands, like the Frez workout log: its time,
+/// time under load, effort and workload, last so it scales down to fit.
+class _SessionStats extends StatelessWidget {
+  const _SessionStats({required this.session});
+
+  final List<WorkoutRecord> session;
+
+  @override
+  Widget build(BuildContext context) {
+    final first = session.first;
+    final heldSeconds = session
+        .map((workout) => workout.heldSeconds)
+        .reduce((a, b) => a + b);
+    final workloadKgS = session
+        .map((workout) => workout.workloadKgS)
+        .reduce((a, b) => a + b);
+    return StatRow([
+      StatTile(
+        label: 'Time',
+        value: switch (first.durationSeconds) {
+          final seconds? => formatDuration(seconds),
+          null => '—',
+        },
+      ),
+      StatTile(label: 'Under load', value: formatDuration(heldSeconds.round())),
+      StatTile(label: 'Effort', value: '${first.perceivedExertion}/10'),
+      StatTile(label: 'Workload', value: formatWorkload(workloadKgS)),
+    ]);
+  }
+}
+
+/// One hand's results in the workout card.
+class _HandSummary extends StatelessWidget {
+  const _HandSummary({required this.workout, required this.previous});
+
+  final WorkoutRecord workout;
+  final WorkoutRecord? previous;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final forceKg = workout.forceKg;
+    final previous = this.previous;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${workout.hand.label} hand',
+                style: textTheme.titleSmall,
+              ),
+            ),
+            if (previous != null)
+              _Trend(
+                seconds: workout.meanDeltaSeconds - previous.meanDeltaSeconds,
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        StatRow([
+          StatTile(
+            label: 'Force',
+            value: forceKg == null ? '—' : formatKg(forceKg),
+          ),
+          StatTile(
+            label: 'Hold',
+            value:
+                '${workout.meanActualSeconds.round()}'
+                ' / ${workout.meanTargetSeconds.round()} s',
+          ),
+          StatTile(
+            label: 'Avg Δ',
+            value: formatDelta(workout.meanDeltaSeconds, 's'),
+            color: deltaColor(workout.meanDeltaSeconds),
+          ),
+          StatTile(
+            label: 'Held',
+            value: '${workout.repsHeld}/${workout.actualSeconds.length}',
+          ),
+        ]),
+        const SizedBox(height: 8),
+        RepBars(
+          targets: workout.targetSeconds
+              .take(workout.actualSeconds.length)
+              .toList(),
+          actual: workout.actualSeconds,
+          color: sectionColors[workout.section]!,
+        ),
+      ],
     );
   }
 }
@@ -288,90 +362,200 @@ class _Trend extends StatelessWidget {
   }
 }
 
-class _Details extends ConsumerWidget {
-  const _Details({required this.workout});
+/// A workout in full: its totals, and each hand's reps against their
+/// targets and the previous workout.
+class _SessionDetails extends ConsumerWidget {
+  const _SessionDetails({
+    required this.session,
+    required this.monthNumber,
+    required this.workouts,
+  });
 
-  final WorkoutRecord workout;
+  final List<WorkoutRecord> session;
+  final int monthNumber;
+
+  /// Every workout when the page opened, for each hand's previous one: the
+  /// page closes before a deletion changes them.
+  final List<WorkoutRecord> workouts;
+
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    final navigator = Navigator.of(context);
+    final log = ref.read(trainingLogProvider.notifier);
+    if (!await confirm(
+      context,
+      title: 'Delete the workout?',
+      content: session.length == 1
+          ? 'Its results leave the history and the force curve.'
+          : 'The results of both hands leave the history and the force '
+                'curve.',
+      action: 'Delete',
+    )) {
+      return;
+    }
+    // Closed first, so the page does not show the deleted workout.
+    navigator.pop();
+    await log.deleteWorkouts(session);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final forceKg = workout.forceKg;
+    final first = session.first;
     final bodyKg = bodyWeightOn(
       ref.watch(bodyWeightsProvider).value ?? const [],
-      workout.date,
+      first.date,
     );
-    return AlertDialog(
-      title: Text('${workout.tool} · ${workout.section.label}'),
-      content: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(formatDate(workout.date)),
-            Text('Hand: ${workout.hand.label}'),
-            Text(
-              'Force: ${forceKg == null ? '—' : formatKg(forceKg)}'
-              '${forceKg == null || bodyKg == null ? '' : ', ${formatBodyWeightShare(forceKg, bodyKg)}'}'
-              ' (target ${formatKg(workout.targetForceKg)})',
-            ),
-            Text('RPE: ${workout.perceivedExertion}/10'),
-            Text('Avg Δ: ${formatDelta(workout.meanDeltaSeconds, 's')}'),
-            const SizedBox(height: 8),
-            DataTable(
-              columnSpacing: 16,
-              columns: const [
-                DataColumn(label: Text('Rep')),
-                DataColumn(label: Text('Target'), numeric: true),
-                DataColumn(label: Text('Actual'), numeric: true),
-                DataColumn(label: Text('Δ'), numeric: true),
-              ],
-              rows: [
-                for (final (rep, actual) in workout.actualSeconds.indexed)
-                  DataRow(
-                    cells: [
-                      DataCell(Text('${rep + 1}')),
-                      DataCell(Text('${workout.targetSeconds[rep]} s')),
-                      DataCell(Text('${actual.round()} s')),
-                      DataCell(
-                        Text(
-                          formatDelta(
-                            (actual.round() - workout.targetSeconds[rep])
-                                .toDouble(),
-                            's',
-                          ),
-                        ),
-                      ),
-                    ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('${first.section.label} · ${first.tool}'),
+        actions: [
+          IconButton(
+            tooltip: 'Delete',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () => _delete(context, ref),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: maxPageWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '${formatDate(first.date)} · '
+                  '${_sessionLabel(session, monthNumber)}',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: _SessionStats(session: session),
                   ),
+                ),
+                for (final workout in session) ...[
+                  const SizedBox(height: 16),
+                  TitledCard(
+                    title: '${workout.hand.label} hand',
+                    child: _HandDetails(
+                      workout: workout,
+                      previous: previousWorkout(workouts, workout),
+                      bodyKg: bodyKg,
+                    ),
+                  ),
+                ],
+                if (first.notes.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  TitledCard(title: 'Notes', child: Text(first.notes)),
+                ],
               ],
             ),
-            if (workout.notes.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text('Notes: ${workout.notes}'),
-            ],
-          ],
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () async {
-            final navigator = Navigator.of(context);
-            if (!await confirm(
-              context,
-              title: 'Delete the workout?',
-              content: 'Its results leave the history and the force curve.',
-              action: 'Delete',
-            )) {
-              return;
-            }
-            await ref.read(trainingLogProvider.notifier).deleteWorkout(workout);
-            navigator.pop();
-          },
-          child: const Text('Delete'),
+    );
+  }
+}
+
+/// One hand's reps in full: the time and force of each, like the sets of the
+/// Frez workout log.
+class _HandDetails extends StatelessWidget {
+  const _HandDetails({
+    required this.workout,
+    required this.previous,
+    required this.bodyKg,
+  });
+
+  final WorkoutRecord workout;
+  final WorkoutRecord? previous;
+  final double? bodyKg;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final forceKg = workout.forceKg;
+    final bodyKg = this.bodyKg;
+    final previous = this.previous;
+    final previousKg = previous?.forceKg;
+    final repForcesKg = workout.repForcesKg;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        StatRow([
+          StatTile(
+            label: 'Force',
+            value: forceKg == null ? '—' : formatKg(forceKg),
+          ),
+          StatTile(label: 'Target', value: formatKg(workout.targetForceKg)),
+          StatTile(
+            label: 'Avg Δ',
+            value: formatDelta(workout.meanDeltaSeconds, 's'),
+            color: deltaColor(workout.meanDeltaSeconds),
+          ),
+          StatTile(
+            label: 'Held',
+            value: '${workout.repsHeld}/${workout.actualSeconds.length}',
+          ),
+        ]),
+        const SizedBox(height: 4),
+        Text(
+          [
+            if (forceKg != null && bodyKg != null)
+              formatBodyWeightShare(forceKg, bodyKg),
+            '${formatDuration(workout.restSeconds)} rest',
+            'under load ${formatDuration(workout.heldSeconds.round())}',
+            formatWorkload(workout.workloadKgS),
+          ].join(' · '),
+          style: textTheme.bodySmall,
         ),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
+        if (previous != null)
+          Text(
+            'vs ${formatDate(previous.date)}: ${[if (forceKg != null && previousKg != null) 'force ${formatDelta(forceKg - previousKg, 'kg')}', 'Avg Δ ${formatDelta(workout.meanDeltaSeconds - previous.meanDeltaSeconds, 's')}', 'workload ${formatDelta(workout.workloadKgS - previous.workloadKgS, 'kg·s', digits: 0)}'].join(', ')}',
+            style: textTheme.bodySmall,
+          ),
+        const SizedBox(height: 12),
+        RepResultsGraph(
+          targets: workout.targetSeconds,
+          actual: workout.actualSeconds,
+          section: workout.section,
+        ),
+        const SizedBox(height: 8),
+        Table(
+          children: [
+            TableRow(
+              children: [
+                for (final label in ['Rep', 'Target', 'Held', 'Δ', 'Force'])
+                  Text(label, style: textTheme.bodySmall),
+              ],
+            ),
+            for (final (rep, seconds) in workout.actualSeconds.indexed)
+              TableRow(
+                children: [
+                  Text('${rep + 1}'),
+                  Text('${workout.targetSeconds[rep]} s'),
+                  Text('${seconds.round()} s'),
+                  Text(
+                    formatDelta(
+                      (seconds.round() - workout.targetSeconds[rep]).toDouble(),
+                      's',
+                    ),
+                    style: TextStyle(
+                      color: deltaColor(
+                        (seconds.round() - workout.targetSeconds[rep])
+                            .toDouble(),
+                      ),
+                    ),
+                  ),
+                  Text(switch (repForcesKg?[rep]) {
+                    final kg? => formatKg(kg),
+                    null => '—',
+                  }),
+                ],
+              ),
+          ],
         ),
       ],
     );

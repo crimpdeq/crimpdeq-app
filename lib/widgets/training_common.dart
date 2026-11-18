@@ -54,10 +54,14 @@ String formatDate(DateTime date) {
       '${local.minute.toString().padLeft(2, '0')}';
 }
 
+/// Isometric workload, force times time held: "1240 kg·s".
+String formatWorkload(double kgS) => '${kgS.round()} kg·s';
+
 /// A change with its sign, or a dash without a value.
-String formatDelta(double? value, String unit) => value == null
+String formatDelta(double? value, String unit, {int digits = 1}) =>
+    value == null
     ? '—'
-    : '${value > 0 ? '+' : ''}${value.toStringAsFixed(1)} $unit';
+    : '${value > 0 ? '+' : ''}${value.toStringAsFixed(digits)} $unit';
 
 /// Colors of a change, like OpenGrips: green above the target or the previous
 /// result, red below, and neutral without a change.
@@ -71,7 +75,7 @@ Color? deltaColor(double? value) => value == null || value.abs() < 0.05
     : lossColor;
 
 /// Widest training page, so a desktop window does not stretch the controls.
-const _maxPageWidth = 760.0;
+const maxPageWidth = 760.0;
 
 /// Builds a training page once the log is loaded.
 class TrainingLogView extends ConsumerWidget {
@@ -87,7 +91,7 @@ class TrainingLogView extends ConsumerWidget {
         padding: const EdgeInsets.only(top: 4, bottom: 16),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _maxPageWidth),
+            constraints: const BoxConstraints(maxWidth: maxPageWidth),
             child: builder(context, log),
           ),
         ),
