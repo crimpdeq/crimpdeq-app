@@ -1,19 +1,31 @@
-name: Build & Upload APK & Web
+name: Build
 
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "**/README.md"
+    paths: &build_inputs
+      - "lib/**"
+      - "assets/**"
+      - "android/**"
+      - "web/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - ".github/workflows/build.yml"
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "**/README.md"
+    paths: *build_inputs
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build_and_release:
-    name: Build and upload Android APK
+  android:
+    name: Android APK
     runs-on: ubuntu-latest
 
     steps:
@@ -25,6 +37,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: "17"
+          cache: gradle
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
@@ -39,18 +52,40 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release
 
-      - name: Build release web
-        run: flutter build web --release
-
-      # Save the artifact for quick download from the workflow run
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v7
         with:
           name: android-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v7
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release web
+        run: flutter build web --release
 
       - name: Upload Web as artifact
         uses: actions/upload-artifact@v7
         with:
           name: web
           path: build/web
+          if-no-files-found: error
+          retention-days: 7
