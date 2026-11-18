@@ -31,7 +31,8 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
     alternating after each rep, where the other hand holds during each rest. Alternating needs a
     rest between reps longer than the longest hold plus 5 s to change hands each way, so each hand
     still rests as planned. Each hand saves its own workout
-  - Benchmarks: 5-second-max pulls, with the same live graph, or held weights, with personal bests
+  - Benchmarks: 5-second-max pulls, with the same live graph, or held weights; each tool shows the
+    personal best of each hand, their progress over time and the history
   - History: workouts on the force curve, and a log like Frez's: each workout with both hands
     together, its time, time under load, effort, workload (force × time held) and place in the
     month; each hand's force, holds and change since its previous workout; and in its details,

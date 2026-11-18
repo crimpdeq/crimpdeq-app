@@ -1,4 +1,5 @@
 import 'package:crimpdeq/analysis/opengrips_curve.dart';
+import 'package:crimpdeq/models/training_models.dart';
 import 'package:crimpdeq/widgets/training_charts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -38,5 +39,35 @@ void main() {
       expect(data.minX, 8);
       expect(data.maxX, 105);
     });
+  });
+
+  testWidgets('BenchmarkProgressGraph draws a line per hand over four dates', (
+    tester,
+  ) async {
+    Benchmark benchmark(int day, Hand hand, double forceKg) => Benchmark(
+      date: DateTime(2026, 6, day),
+      tool: 'Photon',
+      hand: hand,
+      forceKg: forceKg,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BenchmarkProgressGraph(
+            benchmarks: [
+              benchmark(1, Hand.left, 20),
+              benchmark(1, Hand.right, 22),
+              benchmark(31, Hand.right, 25),
+            ],
+          ),
+        ),
+      ),
+    );
+    final data = tester.widget<LineChart>(find.byType(LineChart)).data;
+    expect(data.lineBarsData.map((bar) => bar.spots.length), [1, 2]);
+    expect(data.lineBarsData.last.spots.last.x, 3);
+    for (final date in ['1 Jun', '11 Jun', '21 Jun', '1 Jul']) {
+      expect(find.text(date), findsOne);
+    }
   });
 }
