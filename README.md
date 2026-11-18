@@ -26,7 +26,10 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
   - Workout: the suggested workout type with its targets, a Start button above the fold, and a
     full-screen timer with sound cues and the screen kept on. Each hold waits for a pull above a
     threshold (2 kg by default, set in Customize), even once its rest is over, and a live graph
-    shows the last 15 s of force with the current reading and a Tare button
+    shows the last 15 s of force with the current reading and a Tare button. A workout trains one
+    hand or both, each at its own benchmark: in turn (every rep of one hand, then the other) or
+    alternating after each rep, where each hand rests during the other hand's hold and the next
+    hold starts once its hand has rested the rest between reps. Each hand saves its own workout
   - Benchmarks: 5-second-max pulls, with the same live graph, or held weights, with personal bests
   - History: workouts on the force curve with their per-rep results, stored on the device
 - Device tools, in the app bar menu: calibration and measurements

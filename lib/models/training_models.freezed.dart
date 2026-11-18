@@ -296,7 +296,7 @@ as EnergySystems?,
 /// @nodoc
 mixin _$WorkoutSetup {
 
- String? get tool; Hand? get hand; CurveSection? get section; WorkoutPlan? get plan;
+ String? get tool; Hand? get hand; WorkoutHands get hands; CurveSection? get section; WorkoutPlan? get plan;
 /// Create a copy of WorkoutSetup
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -308,20 +308,20 @@ $WorkoutSetupCopyWith<WorkoutSetup> get copyWith => _$WorkoutSetupCopyWithImpl<W
 @override
 bool operator ==(Object other) {
   final _this = this as WorkoutSetup;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkoutSetup&&(identical(other.tool, _this.tool) || other.tool == _this.tool)&&(identical(other.hand, _this.hand) || other.hand == _this.hand)&&(identical(other.section, _this.section) || other.section == _this.section)&&(identical(other.plan, _this.plan) || other.plan == _this.plan));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkoutSetup&&(identical(other.tool, _this.tool) || other.tool == _this.tool)&&(identical(other.hand, _this.hand) || other.hand == _this.hand)&&(identical(other.hands, _this.hands) || other.hands == _this.hands)&&(identical(other.section, _this.section) || other.section == _this.section)&&(identical(other.plan, _this.plan) || other.plan == _this.plan));
 }
 
 
 @override
 int get hashCode {
   final _this = this as WorkoutSetup;
-  return Object.hash(runtimeType,_this.tool,_this.hand,_this.section,_this.plan);
+  return Object.hash(runtimeType,_this.tool,_this.hand,_this.hands,_this.section,_this.plan);
 }
 
 @override
 String toString() {
   final _this = this as WorkoutSetup;
-  return 'WorkoutSetup(tool: ${_this.tool}, hand: ${_this.hand}, section: ${_this.section}, plan: ${_this.plan})';
+  return 'WorkoutSetup(tool: ${_this.tool}, hand: ${_this.hand}, hands: ${_this.hands}, section: ${_this.section}, plan: ${_this.plan})';
 }
 
 
@@ -332,7 +332,7 @@ abstract mixin class $WorkoutSetupCopyWith<$Res>  {
   factory $WorkoutSetupCopyWith(WorkoutSetup value, $Res Function(WorkoutSetup) _then) = _$WorkoutSetupCopyWithImpl;
 @useResult
 $Res call({
- String? tool, Hand? hand, CurveSection? section, WorkoutPlan? plan
+ String? tool, Hand? hand, WorkoutHands hands, CurveSection? section, WorkoutPlan? plan
 });
 
 
@@ -349,11 +349,12 @@ class _$WorkoutSetupCopyWithImpl<$Res>
 
 /// Create a copy of WorkoutSetup
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? tool = freezed,Object? hand = freezed,Object? section = freezed,Object? plan = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? tool = freezed,Object? hand = freezed,Object? hands = null,Object? section = freezed,Object? plan = freezed,}) {
   return _then(WorkoutSetup(
 tool: freezed == tool ? _self.tool : tool // ignore: cast_nullable_to_non_nullable
 as String?,hand: freezed == hand ? _self.hand : hand // ignore: cast_nullable_to_non_nullable
-as Hand?,section: freezed == section ? _self.section : section // ignore: cast_nullable_to_non_nullable
+as Hand?,hands: null == hands ? _self.hands : hands // ignore: cast_nullable_to_non_nullable
+as WorkoutHands,section: freezed == section ? _self.section : section // ignore: cast_nullable_to_non_nullable
 as CurveSection?,plan: freezed == plan ? _self.plan : plan // ignore: cast_nullable_to_non_nullable
 as WorkoutPlan?,
   ));
@@ -449,10 +450,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? tool,  Hand? hand,  CurveSection? section,  WorkoutPlan? plan)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String? tool,  Hand? hand,  WorkoutHands hands,  CurveSection? section,  WorkoutPlan? plan)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _WorkoutSetup() when $default != null:
-return $default(_that.tool,_that.hand,_that.section,_that.plan);case _:
+return $default(_that.tool,_that.hand,_that.hands,_that.section,_that.plan);case _:
   return orElse();
 
 }
@@ -470,10 +471,10 @@ return $default(_that.tool,_that.hand,_that.section,_that.plan);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? tool,  Hand? hand,  CurveSection? section,  WorkoutPlan? plan)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String? tool,  Hand? hand,  WorkoutHands hands,  CurveSection? section,  WorkoutPlan? plan)  $default,) {final _that = this;
 switch (_that) {
 case _WorkoutSetup():
-return $default(_that.tool,_that.hand,_that.section,_that.plan);}
+return $default(_that.tool,_that.hand,_that.hands,_that.section,_that.plan);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -487,10 +488,10 @@ return $default(_that.tool,_that.hand,_that.section,_that.plan);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? tool,  Hand? hand,  CurveSection? section,  WorkoutPlan? plan)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String? tool,  Hand? hand,  WorkoutHands hands,  CurveSection? section,  WorkoutPlan? plan)?  $default,) {final _that = this;
 switch (_that) {
 case _WorkoutSetup() when $default != null:
-return $default(_that.tool,_that.hand,_that.section,_that.plan);case _:
+return $default(_that.tool,_that.hand,_that.hands,_that.section,_that.plan);case _:
   return null;
 
 }
@@ -502,11 +503,12 @@ return $default(_that.tool,_that.hand,_that.section,_that.plan);case _:
 
 
 class _WorkoutSetup implements WorkoutSetup {
-  const _WorkoutSetup({this.tool, this.hand, this.section, this.plan});
+  const _WorkoutSetup({this.tool, this.hand, this.hands = WorkoutHands.one, this.section, this.plan});
   
 
 @override final  String? tool;
 @override final  Hand? hand;
+@override@JsonKey() final  WorkoutHands hands;
 @override final  CurveSection? section;
 @override final  WorkoutPlan? plan;
 
@@ -520,18 +522,18 @@ _$WorkoutSetupCopyWith<_WorkoutSetup> get copyWith => __$WorkoutSetupCopyWithImp
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkoutSetup&&(identical(other.tool, tool) || other.tool == tool)&&(identical(other.hand, hand) || other.hand == hand)&&(identical(other.section, section) || other.section == section)&&(identical(other.plan, plan) || other.plan == plan));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkoutSetup&&(identical(other.tool, tool) || other.tool == tool)&&(identical(other.hand, hand) || other.hand == hand)&&(identical(other.hands, hands) || other.hands == hands)&&(identical(other.section, section) || other.section == section)&&(identical(other.plan, plan) || other.plan == plan));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,tool,hand,section,plan);
+    return Object.hash(runtimeType,tool,hand,hands,section,plan);
 }
 
 @override
 String toString() {
-    return 'WorkoutSetup(tool: $tool, hand: $hand, section: $section, plan: $plan)';
+    return 'WorkoutSetup(tool: $tool, hand: $hand, hands: $hands, section: $section, plan: $plan)';
 }
 
 
@@ -542,7 +544,7 @@ abstract mixin class _$WorkoutSetupCopyWith<$Res> implements $WorkoutSetupCopyWi
   factory _$WorkoutSetupCopyWith(_WorkoutSetup value, $Res Function(_WorkoutSetup) _then) = __$WorkoutSetupCopyWithImpl;
 @override @useResult
 $Res call({
- String? tool, Hand? hand, CurveSection? section, WorkoutPlan? plan
+ String? tool, Hand? hand, WorkoutHands hands, CurveSection? section, WorkoutPlan? plan
 });
 
 
@@ -559,11 +561,12 @@ class __$WorkoutSetupCopyWithImpl<$Res>
 
 /// Create a copy of WorkoutSetup
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? tool = freezed,Object? hand = freezed,Object? section = freezed,Object? plan = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? tool = freezed,Object? hand = freezed,Object? hands = null,Object? section = freezed,Object? plan = freezed,}) {
   return _then(_WorkoutSetup(
 tool: freezed == tool ? _self.tool : tool // ignore: cast_nullable_to_non_nullable
 as String?,hand: freezed == hand ? _self.hand : hand // ignore: cast_nullable_to_non_nullable
-as Hand?,section: freezed == section ? _self.section : section // ignore: cast_nullable_to_non_nullable
+as Hand?,hands: null == hands ? _self.hands : hands // ignore: cast_nullable_to_non_nullable
+as WorkoutHands,section: freezed == section ? _self.section : section // ignore: cast_nullable_to_non_nullable
 as CurveSection?,plan: freezed == plan ? _self.plan : plan // ignore: cast_nullable_to_non_nullable
 as WorkoutPlan?,
   ));
@@ -918,11 +921,14 @@ as WorkoutEnd?,
 /// @nodoc
 mixin _$WorkoutState {
 
- WorkoutPlan? get plan; WorkoutPhase get phase;/// Current rep, or the last one during a rest. 1-based.
- int get rep; int get restRemainingSeconds; bool get paused;/// The pull passed the threshold, so the current hold counts.
+/// One plan per hand, in the order of their first reps.
+ List<WorkoutPlan> get plans;/// The hands take turns rep by rep, instead of plan by plan.
+ bool get alternating; WorkoutPhase get phase;/// The rest the current rep's hand still needs.
+ int get restRemainingSeconds; bool get paused;/// The pull passed the threshold, so the current hold counts.
  bool get holding;/// The current rep waits for a load left on to drop.
  bool get waitingForRelease; double get heldSeconds;/// The latest force of the workout, through the holds and rests.
- List<FlSpot> get forceTrace; List<double> get actualSeconds;/// Mean force of each rep, null for a rep not held.
+ List<FlSpot> get forceTrace;/// Time held in each rep done, in the [schedule] order.
+ List<double> get actualSeconds;/// Mean force of each rep done, null for a rep not held.
  List<double?> get repForcesKg; bool get saved;/// Set when the workout ended before its last rep.
  WorkoutEnd? get endedEarly;
 /// Create a copy of WorkoutState
@@ -936,20 +942,20 @@ $WorkoutStateCopyWith<WorkoutState> get copyWith => _$WorkoutStateCopyWithImpl<W
 @override
 bool operator ==(Object other) {
   final _this = this as WorkoutState;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkoutState&&(identical(other.plan, _this.plan) || other.plan == _this.plan)&&(identical(other.phase, _this.phase) || other.phase == _this.phase)&&(identical(other.rep, _this.rep) || other.rep == _this.rep)&&(identical(other.restRemainingSeconds, _this.restRemainingSeconds) || other.restRemainingSeconds == _this.restRemainingSeconds)&&(identical(other.paused, _this.paused) || other.paused == _this.paused)&&(identical(other.holding, _this.holding) || other.holding == _this.holding)&&(identical(other.waitingForRelease, _this.waitingForRelease) || other.waitingForRelease == _this.waitingForRelease)&&(identical(other.heldSeconds, _this.heldSeconds) || other.heldSeconds == _this.heldSeconds)&&const DeepCollectionEquality().equals(other.forceTrace, _this.forceTrace)&&const DeepCollectionEquality().equals(other.actualSeconds, _this.actualSeconds)&&const DeepCollectionEquality().equals(other.repForcesKg, _this.repForcesKg)&&(identical(other.saved, _this.saved) || other.saved == _this.saved)&&(identical(other.endedEarly, _this.endedEarly) || other.endedEarly == _this.endedEarly));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkoutState&&const DeepCollectionEquality().equals(other.plans, _this.plans)&&(identical(other.alternating, _this.alternating) || other.alternating == _this.alternating)&&(identical(other.phase, _this.phase) || other.phase == _this.phase)&&(identical(other.restRemainingSeconds, _this.restRemainingSeconds) || other.restRemainingSeconds == _this.restRemainingSeconds)&&(identical(other.paused, _this.paused) || other.paused == _this.paused)&&(identical(other.holding, _this.holding) || other.holding == _this.holding)&&(identical(other.waitingForRelease, _this.waitingForRelease) || other.waitingForRelease == _this.waitingForRelease)&&(identical(other.heldSeconds, _this.heldSeconds) || other.heldSeconds == _this.heldSeconds)&&const DeepCollectionEquality().equals(other.forceTrace, _this.forceTrace)&&const DeepCollectionEquality().equals(other.actualSeconds, _this.actualSeconds)&&const DeepCollectionEquality().equals(other.repForcesKg, _this.repForcesKg)&&(identical(other.saved, _this.saved) || other.saved == _this.saved)&&(identical(other.endedEarly, _this.endedEarly) || other.endedEarly == _this.endedEarly));
 }
 
 
 @override
 int get hashCode {
   final _this = this as WorkoutState;
-  return Object.hash(runtimeType,_this.plan,_this.phase,_this.rep,_this.restRemainingSeconds,_this.paused,_this.holding,_this.waitingForRelease,_this.heldSeconds,const DeepCollectionEquality().hash(_this.forceTrace),const DeepCollectionEquality().hash(_this.actualSeconds),const DeepCollectionEquality().hash(_this.repForcesKg),_this.saved,_this.endedEarly);
+  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.plans),_this.alternating,_this.phase,_this.restRemainingSeconds,_this.paused,_this.holding,_this.waitingForRelease,_this.heldSeconds,const DeepCollectionEquality().hash(_this.forceTrace),const DeepCollectionEquality().hash(_this.actualSeconds),const DeepCollectionEquality().hash(_this.repForcesKg),_this.saved,_this.endedEarly);
 }
 
 @override
 String toString() {
   final _this = this as WorkoutState;
-  return 'WorkoutState(plan: ${_this.plan}, phase: ${_this.phase}, rep: ${_this.rep}, restRemainingSeconds: ${_this.restRemainingSeconds}, paused: ${_this.paused}, holding: ${_this.holding}, waitingForRelease: ${_this.waitingForRelease}, heldSeconds: ${_this.heldSeconds}, forceTrace: ${_this.forceTrace}, actualSeconds: ${_this.actualSeconds}, repForcesKg: ${_this.repForcesKg}, saved: ${_this.saved}, endedEarly: ${_this.endedEarly})';
+  return 'WorkoutState(plans: ${_this.plans}, alternating: ${_this.alternating}, phase: ${_this.phase}, restRemainingSeconds: ${_this.restRemainingSeconds}, paused: ${_this.paused}, holding: ${_this.holding}, waitingForRelease: ${_this.waitingForRelease}, heldSeconds: ${_this.heldSeconds}, forceTrace: ${_this.forceTrace}, actualSeconds: ${_this.actualSeconds}, repForcesKg: ${_this.repForcesKg}, saved: ${_this.saved}, endedEarly: ${_this.endedEarly})';
 }
 
 
@@ -960,11 +966,11 @@ abstract mixin class $WorkoutStateCopyWith<$Res>  {
   factory $WorkoutStateCopyWith(WorkoutState value, $Res Function(WorkoutState) _then) = _$WorkoutStateCopyWithImpl;
 @useResult
 $Res call({
- WorkoutPlan? plan, WorkoutPhase phase, int rep, int restRemainingSeconds, bool paused, bool holding, bool waitingForRelease, double heldSeconds, List<FlSpot> forceTrace, List<double> actualSeconds, List<double?> repForcesKg, bool saved, WorkoutEnd? endedEarly
+ List<WorkoutPlan> plans, bool alternating, WorkoutPhase phase, int restRemainingSeconds, bool paused, bool holding, bool waitingForRelease, double heldSeconds, List<FlSpot> forceTrace, List<double> actualSeconds, List<double?> repForcesKg, bool saved, WorkoutEnd? endedEarly
 });
 
 
-$WorkoutPlanCopyWith<$Res>? get plan;
+
 
 }
 /// @nodoc
@@ -977,12 +983,12 @@ class _$WorkoutStateCopyWithImpl<$Res>
 
 /// Create a copy of WorkoutState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? plan = freezed,Object? phase = null,Object? rep = null,Object? restRemainingSeconds = null,Object? paused = null,Object? holding = null,Object? waitingForRelease = null,Object? heldSeconds = null,Object? forceTrace = null,Object? actualSeconds = null,Object? repForcesKg = null,Object? saved = null,Object? endedEarly = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? plans = null,Object? alternating = null,Object? phase = null,Object? restRemainingSeconds = null,Object? paused = null,Object? holding = null,Object? waitingForRelease = null,Object? heldSeconds = null,Object? forceTrace = null,Object? actualSeconds = null,Object? repForcesKg = null,Object? saved = null,Object? endedEarly = freezed,}) {
   return _then(WorkoutState(
-plan: freezed == plan ? _self.plan : plan // ignore: cast_nullable_to_non_nullable
-as WorkoutPlan?,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
-as WorkoutPhase,rep: null == rep ? _self.rep : rep // ignore: cast_nullable_to_non_nullable
-as int,restRemainingSeconds: null == restRemainingSeconds ? _self.restRemainingSeconds : restRemainingSeconds // ignore: cast_nullable_to_non_nullable
+plans: null == plans ? _self.plans : plans // ignore: cast_nullable_to_non_nullable
+as List<WorkoutPlan>,alternating: null == alternating ? _self.alternating : alternating // ignore: cast_nullable_to_non_nullable
+as bool,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
+as WorkoutPhase,restRemainingSeconds: null == restRemainingSeconds ? _self.restRemainingSeconds : restRemainingSeconds // ignore: cast_nullable_to_non_nullable
 as int,paused: null == paused ? _self.paused : paused // ignore: cast_nullable_to_non_nullable
 as bool,holding: null == holding ? _self.holding : holding // ignore: cast_nullable_to_non_nullable
 as bool,waitingForRelease: null == waitingForRelease ? _self.waitingForRelease : waitingForRelease // ignore: cast_nullable_to_non_nullable
@@ -995,19 +1001,7 @@ as bool,endedEarly: freezed == endedEarly ? _self.endedEarly : endedEarly // ign
 as WorkoutEnd?,
   ));
 }
-/// Create a copy of WorkoutState
-/// with the given fields replaced by the non-null parameter values.
-@override
-@pragma('vm:prefer-inline')
-$WorkoutPlanCopyWith<$Res>? get plan {
-    if (_self.plan == null) {
-    return null;
-  }
 
-  return $WorkoutPlanCopyWith<$Res>(_self.plan!, (value) {
-    return _then(_self.copyWith(plan: value));
-  });
-}
 }
 
 
@@ -1086,10 +1080,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( WorkoutPlan? plan,  WorkoutPhase phase,  int rep,  int restRemainingSeconds,  bool paused,  bool holding,  bool waitingForRelease,  double heldSeconds,  List<FlSpot> forceTrace,  List<double> actualSeconds,  List<double?> repForcesKg,  bool saved,  WorkoutEnd? endedEarly)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<WorkoutPlan> plans,  bool alternating,  WorkoutPhase phase,  int restRemainingSeconds,  bool paused,  bool holding,  bool waitingForRelease,  double heldSeconds,  List<FlSpot> forceTrace,  List<double> actualSeconds,  List<double?> repForcesKg,  bool saved,  WorkoutEnd? endedEarly)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _WorkoutState() when $default != null:
-return $default(_that.plan,_that.phase,_that.rep,_that.restRemainingSeconds,_that.paused,_that.holding,_that.waitingForRelease,_that.heldSeconds,_that.forceTrace,_that.actualSeconds,_that.repForcesKg,_that.saved,_that.endedEarly);case _:
+return $default(_that.plans,_that.alternating,_that.phase,_that.restRemainingSeconds,_that.paused,_that.holding,_that.waitingForRelease,_that.heldSeconds,_that.forceTrace,_that.actualSeconds,_that.repForcesKg,_that.saved,_that.endedEarly);case _:
   return orElse();
 
 }
@@ -1107,10 +1101,10 @@ return $default(_that.plan,_that.phase,_that.rep,_that.restRemainingSeconds,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( WorkoutPlan? plan,  WorkoutPhase phase,  int rep,  int restRemainingSeconds,  bool paused,  bool holding,  bool waitingForRelease,  double heldSeconds,  List<FlSpot> forceTrace,  List<double> actualSeconds,  List<double?> repForcesKg,  bool saved,  WorkoutEnd? endedEarly)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<WorkoutPlan> plans,  bool alternating,  WorkoutPhase phase,  int restRemainingSeconds,  bool paused,  bool holding,  bool waitingForRelease,  double heldSeconds,  List<FlSpot> forceTrace,  List<double> actualSeconds,  List<double?> repForcesKg,  bool saved,  WorkoutEnd? endedEarly)  $default,) {final _that = this;
 switch (_that) {
 case _WorkoutState():
-return $default(_that.plan,_that.phase,_that.rep,_that.restRemainingSeconds,_that.paused,_that.holding,_that.waitingForRelease,_that.heldSeconds,_that.forceTrace,_that.actualSeconds,_that.repForcesKg,_that.saved,_that.endedEarly);}
+return $default(_that.plans,_that.alternating,_that.phase,_that.restRemainingSeconds,_that.paused,_that.holding,_that.waitingForRelease,_that.heldSeconds,_that.forceTrace,_that.actualSeconds,_that.repForcesKg,_that.saved,_that.endedEarly);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -1124,10 +1118,10 @@ return $default(_that.plan,_that.phase,_that.rep,_that.restRemainingSeconds,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( WorkoutPlan? plan,  WorkoutPhase phase,  int rep,  int restRemainingSeconds,  bool paused,  bool holding,  bool waitingForRelease,  double heldSeconds,  List<FlSpot> forceTrace,  List<double> actualSeconds,  List<double?> repForcesKg,  bool saved,  WorkoutEnd? endedEarly)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<WorkoutPlan> plans,  bool alternating,  WorkoutPhase phase,  int restRemainingSeconds,  bool paused,  bool holding,  bool waitingForRelease,  double heldSeconds,  List<FlSpot> forceTrace,  List<double> actualSeconds,  List<double?> repForcesKg,  bool saved,  WorkoutEnd? endedEarly)?  $default,) {final _that = this;
 switch (_that) {
 case _WorkoutState() when $default != null:
-return $default(_that.plan,_that.phase,_that.rep,_that.restRemainingSeconds,_that.paused,_that.holding,_that.waitingForRelease,_that.heldSeconds,_that.forceTrace,_that.actualSeconds,_that.repForcesKg,_that.saved,_that.endedEarly);case _:
+return $default(_that.plans,_that.alternating,_that.phase,_that.restRemainingSeconds,_that.paused,_that.holding,_that.waitingForRelease,_that.heldSeconds,_that.forceTrace,_that.actualSeconds,_that.repForcesKg,_that.saved,_that.endedEarly);case _:
   return null;
 
 }
@@ -1139,13 +1133,22 @@ return $default(_that.plan,_that.phase,_that.rep,_that.restRemainingSeconds,_tha
 
 
 class _WorkoutState extends WorkoutState {
-  const _WorkoutState({this.plan, this.phase = WorkoutPhase.idle, this.rep = 1, this.restRemainingSeconds = 0, this.paused = false, this.holding = false, this.waitingForRelease = false, this.heldSeconds = 0.0,  List<FlSpot> forceTrace = const [],  List<double> actualSeconds = const [],  List<double?> repForcesKg = const [], this.saved = false, this.endedEarly}): _forceTrace = forceTrace,_actualSeconds = actualSeconds,_repForcesKg = repForcesKg,super._();
+  const _WorkoutState({ List<WorkoutPlan> plans = const [], this.alternating = false, this.phase = WorkoutPhase.idle, this.restRemainingSeconds = 0, this.paused = false, this.holding = false, this.waitingForRelease = false, this.heldSeconds = 0.0,  List<FlSpot> forceTrace = const [],  List<double> actualSeconds = const [],  List<double?> repForcesKg = const [], this.saved = false, this.endedEarly}): _plans = plans,_forceTrace = forceTrace,_actualSeconds = actualSeconds,_repForcesKg = repForcesKg,super._();
   
 
-@override final  WorkoutPlan? plan;
+/// One plan per hand, in the order of their first reps.
+ final  List<WorkoutPlan> _plans;
+/// One plan per hand, in the order of their first reps.
+@override@JsonKey() List<WorkoutPlan> get plans {
+  if (_plans is EqualUnmodifiableListView) return _plans;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_plans);
+}
+
+/// The hands take turns rep by rep, instead of plan by plan.
+@override@JsonKey() final  bool alternating;
 @override@JsonKey() final  WorkoutPhase phase;
-/// Current rep, or the last one during a rest. 1-based.
-@override@JsonKey() final  int rep;
+/// The rest the current rep's hand still needs.
 @override@JsonKey() final  int restRemainingSeconds;
 @override@JsonKey() final  bool paused;
 /// The pull passed the threshold, so the current hold counts.
@@ -1162,16 +1165,18 @@ class _WorkoutState extends WorkoutState {
   return EqualUnmodifiableListView(_forceTrace);
 }
 
+/// Time held in each rep done, in the [schedule] order.
  final  List<double> _actualSeconds;
+/// Time held in each rep done, in the [schedule] order.
 @override@JsonKey() List<double> get actualSeconds {
   if (_actualSeconds is EqualUnmodifiableListView) return _actualSeconds;
   // ignore: implicit_dynamic_type
   return EqualUnmodifiableListView(_actualSeconds);
 }
 
-/// Mean force of each rep, null for a rep not held.
+/// Mean force of each rep done, null for a rep not held.
  final  List<double?> _repForcesKg;
-/// Mean force of each rep, null for a rep not held.
+/// Mean force of each rep done, null for a rep not held.
 @override@JsonKey() List<double?> get repForcesKg {
   if (_repForcesKg is EqualUnmodifiableListView) return _repForcesKg;
   // ignore: implicit_dynamic_type
@@ -1192,18 +1197,18 @@ _$WorkoutStateCopyWith<_WorkoutState> get copyWith => __$WorkoutStateCopyWithImp
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkoutState&&(identical(other.plan, plan) || other.plan == plan)&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.rep, rep) || other.rep == rep)&&(identical(other.restRemainingSeconds, restRemainingSeconds) || other.restRemainingSeconds == restRemainingSeconds)&&(identical(other.paused, paused) || other.paused == paused)&&(identical(other.holding, holding) || other.holding == holding)&&(identical(other.waitingForRelease, waitingForRelease) || other.waitingForRelease == waitingForRelease)&&(identical(other.heldSeconds, heldSeconds) || other.heldSeconds == heldSeconds)&&const DeepCollectionEquality().equals(other.forceTrace, _forceTrace)&&const DeepCollectionEquality().equals(other.actualSeconds, _actualSeconds)&&const DeepCollectionEquality().equals(other.repForcesKg, _repForcesKg)&&(identical(other.saved, saved) || other.saved == saved)&&(identical(other.endedEarly, endedEarly) || other.endedEarly == endedEarly));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkoutState&&const DeepCollectionEquality().equals(other.plans, _plans)&&(identical(other.alternating, alternating) || other.alternating == alternating)&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.restRemainingSeconds, restRemainingSeconds) || other.restRemainingSeconds == restRemainingSeconds)&&(identical(other.paused, paused) || other.paused == paused)&&(identical(other.holding, holding) || other.holding == holding)&&(identical(other.waitingForRelease, waitingForRelease) || other.waitingForRelease == waitingForRelease)&&(identical(other.heldSeconds, heldSeconds) || other.heldSeconds == heldSeconds)&&const DeepCollectionEquality().equals(other.forceTrace, _forceTrace)&&const DeepCollectionEquality().equals(other.actualSeconds, _actualSeconds)&&const DeepCollectionEquality().equals(other.repForcesKg, _repForcesKg)&&(identical(other.saved, saved) || other.saved == saved)&&(identical(other.endedEarly, endedEarly) || other.endedEarly == endedEarly));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,plan,phase,rep,restRemainingSeconds,paused,holding,waitingForRelease,heldSeconds,const DeepCollectionEquality().hash(_forceTrace),const DeepCollectionEquality().hash(_actualSeconds),const DeepCollectionEquality().hash(_repForcesKg),saved,endedEarly);
+    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_plans),alternating,phase,restRemainingSeconds,paused,holding,waitingForRelease,heldSeconds,const DeepCollectionEquality().hash(_forceTrace),const DeepCollectionEquality().hash(_actualSeconds),const DeepCollectionEquality().hash(_repForcesKg),saved,endedEarly);
 }
 
 @override
 String toString() {
-    return 'WorkoutState(plan: $plan, phase: $phase, rep: $rep, restRemainingSeconds: $restRemainingSeconds, paused: $paused, holding: $holding, waitingForRelease: $waitingForRelease, heldSeconds: $heldSeconds, forceTrace: $forceTrace, actualSeconds: $actualSeconds, repForcesKg: $repForcesKg, saved: $saved, endedEarly: $endedEarly)';
+    return 'WorkoutState(plans: $plans, alternating: $alternating, phase: $phase, restRemainingSeconds: $restRemainingSeconds, paused: $paused, holding: $holding, waitingForRelease: $waitingForRelease, heldSeconds: $heldSeconds, forceTrace: $forceTrace, actualSeconds: $actualSeconds, repForcesKg: $repForcesKg, saved: $saved, endedEarly: $endedEarly)';
 }
 
 
@@ -1214,11 +1219,11 @@ abstract mixin class _$WorkoutStateCopyWith<$Res> implements $WorkoutStateCopyWi
   factory _$WorkoutStateCopyWith(_WorkoutState value, $Res Function(_WorkoutState) _then) = __$WorkoutStateCopyWithImpl;
 @override @useResult
 $Res call({
- WorkoutPlan? plan, WorkoutPhase phase, int rep, int restRemainingSeconds, bool paused, bool holding, bool waitingForRelease, double heldSeconds, List<FlSpot> forceTrace, List<double> actualSeconds, List<double?> repForcesKg, bool saved, WorkoutEnd? endedEarly
+ List<WorkoutPlan> plans, bool alternating, WorkoutPhase phase, int restRemainingSeconds, bool paused, bool holding, bool waitingForRelease, double heldSeconds, List<FlSpot> forceTrace, List<double> actualSeconds, List<double?> repForcesKg, bool saved, WorkoutEnd? endedEarly
 });
 
 
-@override $WorkoutPlanCopyWith<$Res>? get plan;
+
 
 }
 /// @nodoc
@@ -1231,12 +1236,12 @@ class __$WorkoutStateCopyWithImpl<$Res>
 
 /// Create a copy of WorkoutState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? plan = freezed,Object? phase = null,Object? rep = null,Object? restRemainingSeconds = null,Object? paused = null,Object? holding = null,Object? waitingForRelease = null,Object? heldSeconds = null,Object? forceTrace = null,Object? actualSeconds = null,Object? repForcesKg = null,Object? saved = null,Object? endedEarly = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? plans = null,Object? alternating = null,Object? phase = null,Object? restRemainingSeconds = null,Object? paused = null,Object? holding = null,Object? waitingForRelease = null,Object? heldSeconds = null,Object? forceTrace = null,Object? actualSeconds = null,Object? repForcesKg = null,Object? saved = null,Object? endedEarly = freezed,}) {
   return _then(_WorkoutState(
-plan: freezed == plan ? _self.plan : plan // ignore: cast_nullable_to_non_nullable
-as WorkoutPlan?,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
-as WorkoutPhase,rep: null == rep ? _self.rep : rep // ignore: cast_nullable_to_non_nullable
-as int,restRemainingSeconds: null == restRemainingSeconds ? _self.restRemainingSeconds : restRemainingSeconds // ignore: cast_nullable_to_non_nullable
+plans: null == plans ? _self._plans : plans // ignore: cast_nullable_to_non_nullable
+as List<WorkoutPlan>,alternating: null == alternating ? _self.alternating : alternating // ignore: cast_nullable_to_non_nullable
+as bool,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
+as WorkoutPhase,restRemainingSeconds: null == restRemainingSeconds ? _self.restRemainingSeconds : restRemainingSeconds // ignore: cast_nullable_to_non_nullable
 as int,paused: null == paused ? _self.paused : paused // ignore: cast_nullable_to_non_nullable
 as bool,holding: null == holding ? _self.holding : holding // ignore: cast_nullable_to_non_nullable
 as bool,waitingForRelease: null == waitingForRelease ? _self.waitingForRelease : waitingForRelease // ignore: cast_nullable_to_non_nullable
@@ -1250,19 +1255,7 @@ as WorkoutEnd?,
   ));
 }
 
-/// Create a copy of WorkoutState
-/// with the given fields replaced by the non-null parameter values.
-@override
-@pragma('vm:prefer-inline')
-$WorkoutPlanCopyWith<$Res>? get plan {
-    if (_self.plan == null) {
-    return null;
-  }
 
-  return $WorkoutPlanCopyWith<$Res>(_self.plan!, (value) {
-    return _then(_self.copyWith(plan: value));
-  });
-}
 }
 
 // dart format on

@@ -248,10 +248,10 @@ void main() {
       timeout: const Duration(seconds: 45),
     );
     debugPrint(
-      'Holds: ${workout().actualSeconds}, ${workout().meanForceKg} kg',
+      'Holds: ${workout().actualSeconds}, ${workout().meanForceKgOf(0)} kg',
     );
     expectSimulatedHolds();
-    expect(workout().meanForceKg, isNotNull);
+    expect(workout().meanForceKgOf(0), isNotNull);
     // The workout started the measurement, so it stops it.
     await waitUntil(
       () => !device().measurement.isMeasuring,

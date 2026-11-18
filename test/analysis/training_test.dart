@@ -2,6 +2,7 @@ import 'package:crimpdeq/analysis/force_trace.dart';
 import 'package:crimpdeq/analysis/hold_tracker.dart';
 import 'package:crimpdeq/analysis/opengrips_curve.dart';
 import 'package:crimpdeq/models/progressor_models.dart';
+import 'package:crimpdeq/models/training_models.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,6 +19,39 @@ List<double> _repeat(double weightKg, double seconds) =>
     List.filled((seconds * 10).round(), weightKg);
 
 void main() {
+  group('Workout schedule', () {
+    // Targets of 10, 4 and 3 s, with 6 s of rest between the reps.
+    const right = WorkoutPlan(
+      tool: 'Photon',
+      hand: Hand.right,
+      section: CurveSection.strength,
+      benchmarkKg: 30,
+      firstHangSeconds: 10,
+      reps: 3,
+      restSeconds: 6,
+    );
+    final left = right.copyWith(hand: Hand.left, benchmarkKg: 28);
+
+    test('takes the hands in turn or rep by rep', () {
+      expect(workoutSchedule([right, left], alternating: false), [
+        for (final plan in [0, 1])
+          for (final rep in [1, 2, 3]) (plan: plan, rep: rep),
+      ]);
+      expect(workoutSchedule([right, left], alternating: true), [
+        for (final rep in [1, 2, 3])
+          for (final plan in [0, 1]) (plan: plan, rep: rep),
+      ]);
+    });
+
+    test('estimates the time with the rests the other hand covers', () {
+      expect(workoutSeconds([right], alternating: false), 17 + 2 * 6);
+      // The left hand starts rested, after a hand change.
+      expect(workoutSeconds([right, left], alternating: false), 29 + 5 + 29);
+      // The other hand's hold and the hand changes cover every rest.
+      expect(workoutSeconds([right, left], alternating: true), 2 * 17 + 5 * 5);
+    });
+  });
+
   // Expected values come from the OpenGrips formulas run on the same inputs.
   group('OpenGrips curve', () {
     test('targets a fraction of the balanced force', () {
