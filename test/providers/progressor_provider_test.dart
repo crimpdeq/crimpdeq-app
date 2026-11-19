@@ -66,7 +66,10 @@ void main() {
   }
 
   group('reconnects to the last device', () {
-    tearDown(() => ble.advertising = false);
+    tearDown(() {
+      ble.advertising = false;
+      ble.failConnect = false;
+    });
 
     /// A new start of the app, with Bluetooth on.
     Future<ProviderContainer> start(WidgetTester tester) async {
@@ -88,6 +91,31 @@ void main() {
       expect(ble.scans, 1);
       expect(next.read(progressorProvider).connection.isConnected, isTrue);
       await dispose(tester, next);
+    });
+
+    testWidgets('lists it to choose once a reconnection fails', (tester) async {
+      ble.advertising = true;
+      final container = await connect(tester);
+      // Dropped by the device, not the user: the next scan reconnects.
+      ble.setConnected(false);
+      await tester.pump();
+      final notifier = container.read(progressorProvider.notifier);
+      ble.failConnect = true;
+      unawaited(notifier.startScanning());
+      await tester.pump(const Duration(milliseconds: 10));
+      final failed = container.read(progressorProvider).connection;
+      expect(failed.isConnected, isFalse);
+      expect(failed.status, startsWith('Connection failed'));
+
+      ble.failConnect = false;
+      unawaited(notifier.startScanning());
+      await tester.pump(const Duration(milliseconds: 10));
+      final connection = container.read(progressorProvider).connection;
+      expect(connection.isConnected, isFalse);
+      expect(connection.discoveredDevices.single.id, ble.device.id);
+      await notifier.stopScanning();
+      await tester.pump(const Duration(milliseconds: 10));
+      await dispose(tester, container);
     });
 
     testWidgets('lists it to choose once disconnected by the user', (

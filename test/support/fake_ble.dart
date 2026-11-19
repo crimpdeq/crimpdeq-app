@@ -28,6 +28,9 @@ final class FakeBle extends FlutterBluePlusPlatform {
 
   /// Scans started.
   int scans = 0;
+
+  /// Whether a connection fails, such as out of range.
+  bool failConnect = false;
   final _written = StreamController<BmCharacteristicData>.broadcast();
   // Never emits: there is no CCCD to write.
   final _descriptorWritten = StreamController<BmDescriptorData>.broadcast();
@@ -189,6 +192,7 @@ final class FakeBle extends FlutterBluePlusPlatform {
 
   @override
   Future<bool> connect(BmConnectRequest request) async {
+    if (failConnect) throw Exception('Out of range');
     setConnected(true);
     return true;
   }

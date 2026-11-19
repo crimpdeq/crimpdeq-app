@@ -83,8 +83,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   /// The device connected last, which a scan connects to when it finds it.
   String? _lastDeviceId;
 
-  /// Off once the user disconnects, until the next connection: the scan
-  /// then lists the devices, to choose another one.
+  /// Off once the user disconnects or a connection fails, until the next
+  /// connection: the scan then lists the devices, to choose another one.
   bool _reconnect = true;
 
   /// The start scans once for the last device, where a scan needs no tap.
@@ -366,6 +366,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> _failConnection(BluetoothDevice device, String status) async {
+    // The next scan lists the devices instead of trying this one again.
+    _reconnect = false;
     _resetConnection(status);
     await device.disconnect().catchError(
       (Object e) => _log('Disconnect after failed setup: $e'),
