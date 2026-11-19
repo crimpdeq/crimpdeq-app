@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../analysis/hold_tracker.dart';
+import '../analysis/opengrips_curve.dart';
 import '../models/training_models.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/progressor_provider.dart';
@@ -82,6 +83,11 @@ const handColors = {
   Hand.right: Color(0xFFFB923C),
 };
 
+/// Color of a hold against its target: neutral within
+/// [repToleranceSeconds], which counts as on target.
+Color? holdDeltaColor(double seconds) =>
+    seconds.abs() <= repToleranceSeconds ? null : deltaColor(seconds);
+
 Color? deltaColor(double? value) => value == null || value.abs() < 0.05
     ? null
     : value > 0
@@ -101,8 +107,12 @@ class TrainingLogView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return switch (ref.watch(trainingLogProvider)) {
       // The top padding keeps the floating label of a leading field visible.
+      // Above the gesture bar on a page without the navigation bar.
       AsyncData(value: final log) => SingleChildScrollView(
-        padding: const EdgeInsets.only(top: 4, bottom: 16),
+        padding: EdgeInsets.only(
+          top: 4,
+          bottom: 16 + MediaQuery.paddingOf(context).bottom,
+        ),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: maxPageWidth),
@@ -115,6 +125,38 @@ class TrainingLogView extends ConsumerWidget {
       ),
       _ => const Center(child: CircularProgressIndicator()),
     };
+  }
+}
+
+/// A running timer: the whole height, so its controls stay on screen, or
+/// scrolling when its content does not fit, such as with large text.
+class TimerLayout extends StatelessWidget {
+  const TimerLayout({super.key, required this.child});
+
+  /// Fills the height it is given.
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.only(
+            top: 4,
+            bottom: 16 + MediaQuery.paddingOf(context).bottom,
+          ),
+          sliver: SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: maxPageWidth),
+                child: child,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -325,6 +367,17 @@ class ToolAndHand extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Why a workout or warm-up cannot start on the device, null when it can.
+String? watchStartBlocked(WidgetRef ref) {
+  if (!watchConnected(ref)) return 'Connect your Crimpdeq to start.';
+  if (ref.watch(
+    benchmarkRecorderProvider.select((recording) => recording.recording),
+  )) {
+    return 'Finish the benchmark pull to start.';
+  }
+  return null;
 }
 
 /// Whether a device is connected, which measuring needs.

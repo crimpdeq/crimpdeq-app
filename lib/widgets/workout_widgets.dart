@@ -20,6 +20,9 @@ class WorkoutTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final phase = ref.watch(workoutProvider.select((state) => state.phase));
     final isConnected = watchConnected(ref);
+    if (phase == WorkoutPhase.hold || phase == WorkoutPhase.rest) {
+      return const TimerLayout(child: _WorkoutTimer());
+    }
     return TrainingLogView(
       builder: (context, log) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -28,11 +31,10 @@ class WorkoutTab extends ConsumerWidget {
             const ConnectCard(),
             const SizedBox(height: 16),
           ],
-          switch (phase) {
-            WorkoutPhase.idle => _WorkoutSetup(log: log),
-            WorkoutPhase.done => const _WorkoutResults(),
-            _ => const _WorkoutTimer(),
-          },
+          if (phase == WorkoutPhase.idle)
+            _WorkoutSetup(log: log)
+          else
+            const _WorkoutResults(),
         ],
       ),
     );
@@ -46,7 +48,7 @@ String _howWorkoutsWork(double thresholdKg) =>
     'Tare the Crimpdeq unloaded before you start. Each hold waits for you, '
     'even after its rest: it counts down from its target while you pull more '
     'than ${formatKg(thresholdKg)}, and ends a second after you let go. '
-    'Change the threshold in Customize. Pull close to the target force: the '
+    'Change the threshold in Settings, in the menu. Pull close to the target force: the '
     'force you actually pull is what the workout records.\n\n'
     'If the first hold misses its target by more than $repToleranceSeconds s, '
     'the later targets scale with it. A rep that falls that short, such as a '
@@ -131,18 +133,19 @@ class _WorkoutSetup extends ConsumerWidget {
     // An edited plan follows the current best benchmark. A new benchmark or
     // workout can move the default tool, hand or section away from it.
     final edited = setup.plan;
+    final defaults = WorkoutPlan.forSection(
+      tool: tool,
+      hand: hand,
+      section: section,
+      benchmarkKg: benchmark.forceKg,
+    );
     final plan =
         edited != null &&
             edited.tool == tool &&
             edited.hand == hand &&
             edited.section == section
         ? edited.copyWith(benchmarkKg: benchmark.forceKg)
-        : WorkoutPlan.forSection(
-            tool: tool,
-            hand: hand,
-            section: section,
-            benchmarkKg: benchmark.forceKg,
-          );
+        : defaults;
     final sessions = [
       for (final (workout, point) in workouts.reversed)
         if (CurveSection.of(point.forceKg, benchmark.forceKg) == section)
@@ -172,9 +175,7 @@ class _WorkoutSetup extends ConsumerWidget {
         .map((plan) => plan.targetForceKg)
         .reduce((a, b) => a < b ? a : b);
     final holdsCount = lightestKg > thresholdKg;
-    final benchmarkRecording = ref.watch(
-      benchmarkRecorderProvider.select((recording) => recording.recording),
-    );
+    final blocked = watchStartBlocked(ref);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -330,11 +331,10 @@ class _WorkoutSetup extends ConsumerWidget {
                   Expanded(
                     child: FilledButton.icon(
                       onPressed:
-                          benchmarkRecording ||
+                          blocked != null ||
                               !holdsCount ||
                               missingOtherHand ||
-                              alternateBlocked ||
-                              !watchConnected(ref)
+                              alternateBlocked
                           ? null
                           : () => ref
                                 .read(workoutProvider.notifier)
@@ -350,9 +350,14 @@ class _WorkoutSetup extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Tare it unloaded first. Each hold starts when you pull more '
-                'than ${formatKg(thresholdKg)}.',
-                style: textTheme.bodySmall,
+                blocked ??
+                    'Tare it unloaded first. Each hold starts when you pull '
+                        'more than ${formatKg(thresholdKg)}.',
+                style: blocked == null
+                    ? textTheme.bodySmall
+                    : textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -368,7 +373,7 @@ class _WorkoutSetup extends ConsumerWidget {
               _PlanSettings(
                 plan: plan,
                 section: section,
-                edited: edited != null,
+                edited: plan != defaults,
               ),
             ],
           ),
@@ -427,7 +432,6 @@ class _PlanSettings extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final setupNotifier = ref.read(workoutSetupProvider.notifier);
     final update = setupNotifier.updatePlan;
-    final thresholdKg = watchHoldThreshold(ref);
     final energySystems = clampEnergySystems(
       plan.energySystems ?? section.energySystems,
     );
@@ -441,7 +445,7 @@ class _PlanSettings extends ConsumerWidget {
       subtitle: Text(
         edited
             ? 'Changed from the ${section.label} defaults'
-            : 'First hold, reps, rest, threshold and rep targets',
+            : 'First hold, reps, rest and rep targets',
         style: textTheme.bodySmall,
       ),
       tilePadding: EdgeInsets.zero,
@@ -472,64 +476,70 @@ class _PlanSettings extends ConsumerWidget {
           onChanged: (value) =>
               update(plan.copyWith(restSeconds: value.round())),
         ),
-        _SliderRow(
-          label:
-              'Hold threshold: ${formatKg(thresholdKg)} '
-              '(the timer runs while you pull more)',
-          value: thresholdKg,
-          range: (min: 0.5, max: 10),
-          step: 0.5,
-          onChanged: ref.read(holdThresholdProvider.notifier).set,
-        ),
         const SizedBox(height: 8),
-        Text('Energy systems', style: textTheme.titleSmall),
-        Text(
-          plan.energySystems == null
-              ? 'The rep targets follow the ${section.label} template. '
-                    'Moving a slider shapes them with these values.'
-              : 'The rep targets follow these values.',
-          style: textTheme.bodySmall,
+        // The template and the energy systems are different formulas, so the
+        // switch, not a slider's first move, changes the targets.
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Shape by energy systems'),
+          subtitle: Text(
+            plan.energySystems == null
+                ? 'Off: the rep targets follow the ${section.label} '
+                      'template.'
+                : 'The rep targets follow the values below.',
+            style: textTheme.bodySmall,
+          ),
+          value: plan.energySystems != null,
+          onChanged: (on) => update(
+            plan.copyWith(
+              energySystems: on
+                  ? clampEnergySystems(section.energySystems)
+                  : null,
+            ),
+          ),
         ),
-        _SliderRow(
-          label:
-              'Power: ${energySystems.power.toStringAsFixed(2)} '
-              '(rep 2 target as a fraction of the first hold)',
-          value: energySystems.power,
-          range: power,
-          step: 0.01,
-          onChanged: (value) => updateEnergySystems((
-            power: value,
-            powerEndurance: energySystems.powerEndurance,
-            endurance: energySystems.endurance,
-          )),
-        ),
-        _SliderRow(
-          label:
-              'Power-Endurance: '
-              '${energySystems.powerEndurance.toStringAsFixed(2)} '
-              '(how far the later reps fall)',
-          value: energySystems.powerEndurance,
-          range: powerEndurance,
-          step: 0.01,
-          onChanged: (value) => updateEnergySystems((
-            power: energySystems.power,
-            powerEndurance: value,
-            endurance: energySystems.endurance,
-          )),
-        ),
-        _SliderRow(
-          label:
-              'Endurance: ${energySystems.endurance.toStringAsFixed(2)} '
-              '(the tail of the later reps)',
-          value: energySystems.endurance,
-          range: enduranceRange,
-          step: 0.01,
-          onChanged: (value) => updateEnergySystems((
-            power: energySystems.power,
-            powerEndurance: energySystems.powerEndurance,
-            endurance: value,
-          )),
-        ),
+        if (plan.energySystems != null) ...[
+          _SliderRow(
+            label:
+                'Power: ${energySystems.power.toStringAsFixed(2)} '
+                '(rep 2 target as a fraction of the first hold)',
+            value: energySystems.power,
+            range: power,
+            step: 0.01,
+            onChanged: (value) => updateEnergySystems((
+              power: value,
+              powerEndurance: energySystems.powerEndurance,
+              endurance: energySystems.endurance,
+            )),
+          ),
+          _SliderRow(
+            label:
+                'Power-Endurance: '
+                '${energySystems.powerEndurance.toStringAsFixed(2)} '
+                '(how far the later reps fall)',
+            value: energySystems.powerEndurance,
+            range: powerEndurance,
+            step: 0.01,
+            onChanged: (value) => updateEnergySystems((
+              power: energySystems.power,
+              powerEndurance: value,
+              endurance: energySystems.endurance,
+            )),
+          ),
+          _SliderRow(
+            label:
+                'Endurance: ${energySystems.endurance.toStringAsFixed(2)} '
+                '(the tail of the later reps)',
+            value: energySystems.endurance,
+            range: enduranceRange,
+            step: 0.01,
+            onChanged: (value) => updateEnergySystems((
+              power: energySystems.power,
+              powerEndurance: energySystems.powerEndurance,
+              endurance: value,
+            )),
+          ),
+        ],
         if (edited)
           TextButton.icon(
             onPressed: () => setupNotifier.selectSection(section),
@@ -578,7 +588,8 @@ class _SliderRow extends StatelessWidget {
 const _unloadedToleranceKg = 0.5;
 
 /// Readable from the hangboard: the phase in its color, a large clock and
-/// the force, then the controls.
+/// the force, then the controls. Fills the height, the graph taking what is
+/// left.
 class _WorkoutTimer extends ConsumerWidget {
   const _WorkoutTimer();
 
@@ -671,9 +682,8 @@ class _WorkoutTimer extends ConsumerWidget {
       // left on, which the next hold waits to drop.
       warning = (currentKg ?? 0) > thresholdKg
           ? Text(
-              'The Crimpdeq reads more than ${formatKg(thresholdKg)} at '
-              'rest, so the next hold waits for you to release it. Release '
-              'it, or tare it unloaded.',
+              'Over ${formatKg(thresholdKg)} at rest: the next hold waits '
+              'for a release, or tare it unloaded.',
               style: textTheme.bodyMedium?.copyWith(color: colorScheme.error),
             )
           : (currentKg ?? 0).abs() > _unloadedToleranceKg
@@ -687,6 +697,16 @@ class _WorkoutTimer extends ConsumerWidget {
 
     final bigButton = FilledButton.styleFrom(
       minimumSize: const Size.fromHeight(56),
+    );
+    final graph = LiveForceGraph(
+      trace: workout.forceTrace,
+      currentKg: currentKg,
+      target: (
+        kg: plan.targetForceKg,
+        thresholdKg: thresholdKg,
+        section: plan.section,
+      ),
+      fill: true,
     );
     return Card(
       child: Padding(
@@ -702,10 +722,13 @@ class _WorkoutTimer extends ConsumerWidget {
                 const MuteButton(),
               ],
             ),
+            // Large already, so the text scale would only push the
+            // controls off the screen.
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
                 clock,
+                textScaler: TextScaler.noScaling,
                 style: textTheme.displayLarge?.copyWith(
                   fontFamily: interFont,
                   fontWeight: FontWeight.w800,
@@ -727,15 +750,7 @@ class _WorkoutTimer extends ConsumerWidget {
             const SizedBox(height: 16),
             instruction,
             const SizedBox(height: 12),
-            LiveForceGraph(
-              trace: workout.forceTrace,
-              currentKg: currentKg,
-              target: (
-                kg: plan.targetForceKg,
-                thresholdKg: thresholdKg,
-                section: plan.section,
-              ),
-            ),
+            Expanded(child: graph),
             ?warning,
             const SizedBox(height: 16),
             RepBars(
@@ -747,11 +762,14 @@ class _WorkoutTimer extends ConsumerWidget {
               color: sectionColors[plan.section]!,
             ),
             const SizedBox(height: 16),
-            // Before the pull, ending the rep is the same as skipping it.
+            // Before the pull, ending the rep is the same as skipping it. A
+            // release ends the hold too, so the button is a secondary one.
             if (holdPhase && workout.holding)
-              FilledButton(
+              OutlinedButton(
                 onPressed: notifier.finishRep,
-                style: bigButton,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
                 child: Text(
                   workout.heldSeconds < workout.target
                       ? 'Failed Early'
@@ -779,7 +797,11 @@ class _WorkoutTimer extends ConsumerWidget {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _confirmStop(context, notifier),
+                    onPressed: () => _confirmStop(
+                      context,
+                      notifier,
+                      workout.actualSeconds.length,
+                    ),
                     icon: const Icon(Icons.stop),
                     label: const Text('Stop'),
                   ),
@@ -803,27 +825,48 @@ class _WorkoutTimer extends ConsumerWidget {
   Future<void> _confirmStop(
     BuildContext context,
     WorkoutNotifier notifier,
+    int repsDone,
   ) async {
-    final stop = await showDialog<bool>(
+    final stop = await showDialog<_Stop>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Stop the workout?'),
-        content: const Text('The workout so far is discarded.'),
+        content: Text(
+          repsDone == 0
+              ? 'No rep is done yet, so there is nothing to save.'
+              : 'Save the $repsDone rep${repsDone == 1 ? '' : 's'} done, or '
+                    'discard the workout.',
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context),
             child: const Text('Continue'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Stop'),
+            onPressed: () => Navigator.pop(context, _Stop.discard),
+            child: Text(repsDone == 0 ? 'Stop' : 'Discard'),
           ),
+          if (repsDone > 0)
+            TextButton(
+              onPressed: () => Navigator.pop(context, _Stop.keep),
+              child: const Text('Save Reps'),
+            ),
         ],
       ),
     );
-    if (stop ?? false) await notifier.stop();
+    switch (stop) {
+      case _Stop.discard:
+        await notifier.stop();
+      case _Stop.keep:
+        await notifier.stopKeepingReps();
+      case null:
+        return;
+    }
   }
 }
+
+/// How a workout stops: without its reps, or with them to save.
+enum _Stop { discard, keep }
 
 /// Perceived exertion labels, from 1 to 10.
 const _effort = [
@@ -848,7 +891,8 @@ class _WorkoutResults extends ConsumerStatefulWidget {
 
 class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
   final _notes = TextEditingController();
-  int _exertion = 5;
+  // Unrated until chosen, so a default is not saved as the effort.
+  int? _exertion;
 
   @override
   void dispose() {
@@ -876,22 +920,27 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
     final reps = workout.actualSeconds.length;
 
     return TitledCard(
-      title: workout.endedEarly == null
-          ? 'Workout complete'
-          : 'Workout ended early',
+      title: switch (workout.endedEarly) {
+        null => 'Workout complete',
+        WorkoutEnd.stopped => 'Workout stopped',
+        _ => 'Workout ended early',
+      },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (workout.endedEarly case final end?) ...[
             Text(
-              'The Crimpdeq ${switch (end) {
-                WorkoutEnd.disconnected => 'disconnected',
-                WorkoutEnd.measurementFailed => 'stopped measuring',
+              '${switch (end) {
+                WorkoutEnd.disconnected => 'The Crimpdeq disconnected',
+                WorkoutEnd.measurementFailed => 'The Crimpdeq stopped measuring',
+                WorkoutEnd.stopped => 'You stopped',
               }} after rep $reps of ${workout.schedule.length}. You can '
               'still save the reps done.',
-              style: textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.error,
-              ),
+              style: end == WorkoutEnd.stopped
+                  ? textTheme.bodyMedium
+                  : textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
             ),
             const SizedBox(height: 8),
           ],
@@ -906,15 +955,21 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
               ),
             ],
           const SizedBox(height: 16),
-          Text(
-            'Effort: $_exertion/10 · ${_effort[_exertion - 1]}',
-            style: textTheme.titleSmall,
-          ),
+          Text(switch (_exertion) {
+            final exertion? =>
+              'Effort: $exertion/10 · ${_effort[exertion - 1]}',
+            null => 'Effort: how hard was it, from 1 to 10?',
+          }, style: textTheme.titleSmall),
           Slider(
-            value: _exertion.toDouble(),
+            value: (_exertion ?? 5).toDouble(),
             min: 1,
             max: 10,
             divisions: 9,
+            // Unrated, the thumb waits in the middle without a color.
+            thumbColor: _exertion == null ? theme.colorScheme.outline : null,
+            activeColor: _exertion == null
+                ? theme.colorScheme.surfaceContainerHighest
+                : null,
             onChanged: workout.saved
                 ? null
                 : (value) => setState(() => _exertion = value.round()),
@@ -971,10 +1026,13 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
                 Expanded(
                   flex: 2,
                   child: FilledButton.icon(
-                    onPressed: () => notifier.save(
-                      perceivedExertion: _exertion,
-                      notes: _notes.text.trim(),
-                    ),
+                    onPressed: switch (_exertion) {
+                      final exertion? => () => notifier.save(
+                        perceivedExertion: exertion,
+                        notes: _notes.text.trim(),
+                      ),
+                      null => null,
+                    },
                     icon: const Icon(Icons.save_alt),
                     label: const Text('Save Results'),
                     style: FilledButton.styleFrom(
@@ -1036,7 +1094,7 @@ class _HandResults extends StatelessWidget {
           StatTile(
             label: 'Avg Δ',
             value: formatDelta(meanDelta, 's'),
-            color: deltaColor(meanDelta),
+            color: holdDeltaColor(meanDelta),
           ),
           StatTile(
             label: 'Held',
@@ -1079,7 +1137,7 @@ class _HandResults extends StatelessWidget {
                       's',
                     ),
                     style: TextStyle(
-                      color: deltaColor(
+                      color: holdDeltaColor(
                         (seconds.round() - targets[rep]).toDouble(),
                       ),
                     ),

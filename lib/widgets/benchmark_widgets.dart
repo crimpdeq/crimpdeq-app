@@ -69,6 +69,26 @@ class BenchmarksTab extends ConsumerWidget {
   }
 }
 
+/// The hand without a benchmark of a tool trained, or the other hand of the
+/// latest benchmark. Null without benchmarks, before a first choice.
+({String tool, Hand hand})? _nextBenchmark(List<Benchmark> benchmarks) {
+  final latest = benchmarks.lastOrNull;
+  if (latest == null) return null;
+  for (final tool in {for (final benchmark in benchmarks) benchmark.tool}) {
+    for (final hand in Hand.values) {
+      if (!benchmarks.any(
+        (benchmark) => benchmark.tool == tool && benchmark.hand == hand,
+      )) {
+        return (tool: tool, hand: hand);
+      }
+    }
+  }
+  return (
+    tool: latest.tool,
+    hand: Hand.values.firstWhere((hand) => hand != latest.hand),
+  );
+}
+
 class _AddBenchmark extends ConsumerStatefulWidget {
   const _AddBenchmark();
 
@@ -97,6 +117,9 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
       forceKg: forceKg,
     );
     await ref.read(trainingLogProvider.notifier).addBenchmark(benchmark);
+    // The tool and hand follow the next suggestion together, such as the
+    // other hand, so the next pull is not saved for an unintended pair.
+    ref.read(benchmarkSelectionProvider.notifier).clear();
     // Replaces a pending error instead of waiting behind it.
     messenger
       ..removeCurrentSnackBar()
@@ -164,12 +187,13 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
     final workoutRunning = ref.watch(
       workoutProvider.select((state) => state.isRunning),
     );
-    // By default the latest benchmark's tool and hand, the likeliest next
-    // ones.
+    // By default the likeliest next tool and hand: the first without a
+    // benchmark, or the other hand of the latest one.
     final selection = ref.watch(benchmarkSelectionProvider);
-    final latest = ref.watch(trainingLogProvider).value?.benchmarks.lastOrNull;
-    final tool = selection.tool ?? latest?.tool;
-    final hand = selection.hand ?? latest?.hand;
+    final benchmarks = ref.watch(trainingLogProvider).value?.benchmarks;
+    final next = benchmarks == null ? null : _nextBenchmark(benchmarks);
+    final tool = selection.tool ?? next?.tool;
+    final hand = selection.hand ?? next?.hand;
     final selector = ref.read(benchmarkSelectionProvider.notifier);
     final bestKg = recording.bestKg;
     final minBenchmarkKg = _minBenchmarkKg(watchHoldThreshold(ref));
@@ -297,9 +321,7 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(
-                      labelText: 'Weight held (kg)',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Weight (kg)'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -309,9 +331,7 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(
-                      labelText: 'Time held (s)',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Held (s)'),
                   ),
                 ),
               ],

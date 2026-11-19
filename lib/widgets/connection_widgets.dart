@@ -249,13 +249,15 @@ class ConnectCard extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Icon(
-                  connection.bluetoothReady
-                      ? Icons.bluetooth_searching
-                      : Icons.bluetooth_disabled,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 12),
+                // Off only: the Scan button carries the Bluetooth icon, and
+                // the title keeps the width for one line.
+                if (!connection.bluetoothReady) ...[
+                  Icon(
+                    Icons.bluetooth_disabled,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 12),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,19 +275,27 @@ class ConnectCard extends ConsumerWidget {
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
+                if (connection.isScanning) ...[
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: notifier.stopScanning,
+                    child: const Text('Stop'),
+                  ),
+                ],
+                // Beside the title, so the card leaves the page its height.
+                if (canScan) ...[
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: notifier.startScanning,
+                    icon: const Icon(Icons.bluetooth_searching),
+                    label: const Text('Scan'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                    ),
+                  ),
+                ],
               ],
             ),
-            if (canScan) ...[
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: notifier.startScanning,
-                icon: const Icon(Icons.search),
-                label: const Text('Scan'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                ),
-              ),
-            ],
             if (connection.needsSettings && !kIsWeb) ...[
               const SizedBox(height: 8),
               const OutlinedButton(

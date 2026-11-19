@@ -11,7 +11,6 @@ import 'package:crimpdeq/providers/warmup_provider.dart';
 import 'package:crimpdeq/screens/crimpdeq_screen.dart';
 import 'package:crimpdeq/theme.dart';
 import 'package:crimpdeq/widgets/training_charts.dart';
-import 'package:crimpdeq/widgets/training_common.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -135,6 +134,19 @@ class _RedoneWorkout extends _FixedWorkout {
 
   @override
   void redoRep() => redone++;
+}
+
+/// A workout in a fixed state that records how it stops.
+class _StoppedWorkout extends _FixedWorkout {
+  _StoppedWorkout(super.initialState);
+
+  final stops = <String>[];
+
+  @override
+  Future<void> stop() async => stops.add('discard');
+
+  @override
+  Future<void> stopKeepingReps() async => stops.add('keep');
 }
 
 /// A warm-up in a fixed state.
@@ -1063,6 +1075,43 @@ void main() {
     expect(hand.selected, {Hand.left});
   });
 
+  testWidgets('shapes the rep targets by energy systems once switched on', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CrimpdeqScreen)),
+    );
+    EnergySystems? energySystems() =>
+        container.read(workoutSetupProvider).plan?.energySystems;
+    Future<void> tap(Finder finder) async {
+      await tester.ensureVisible(finder);
+      await tester.tap(finder);
+      await tester.pumpAndSettle();
+    }
+
+    await tap(find.text('Customize'));
+    // The template, without the sliders that would change it.
+    expect(find.textContaining('Power: '), findsNothing);
+
+    final shape = find.text('Shape by energy systems');
+    await tap(shape);
+    expect(energySystems(), isNotNull);
+    expect(find.textContaining('Power: '), findsOne);
+
+    await tap(shape);
+    expect(energySystems(), isNull);
+    expect(find.textContaining('Power: '), findsNothing);
+  });
+
   testWidgets('drops an edited plan when the default tool or hand moves', (
     tester,
   ) async {
@@ -1133,6 +1182,88 @@ void main() {
     expect(find.text('Photon'), findsOneWidget);
   });
 
+  for (final (benchmarks, tool, hand) in [
+    // The missing hand of a tool trained, not of the others.
+    ([('Spark', 'left')], 'Spark', Hand.right),
+    // Else the other hand of the latest.
+    ([('Spark', 'left'), ('Spark', 'right')], 'Spark', Hand.left),
+  ]) {
+    testWidgets('defaults a benchmark after $benchmarks to $tool $hand', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        'training.benchmarks': [
+          for (final (tool, hand) in benchmarks)
+            '{"date":"2026-10-26T10:00:00.000","tool":"$tool",'
+                '"hand":"$hand","forceKg":30}',
+        ].toString(),
+      });
+      await _pumpScreen(
+        tester,
+        ProgressorState(connection: _connected),
+        deviceTools: false,
+      );
+      await _openPage(tester, 'Benchmarks');
+      expect(
+        tester
+            .widget<SegmentedButton<String?>>(
+              find.byType(SegmentedButton<String?>),
+            )
+            .selected,
+        {tool},
+      );
+      expect(
+        tester
+            .widget<SegmentedButton<Hand>>(find.byType(SegmentedButton<Hand>))
+            .selected,
+        {hand},
+      );
+    });
+  }
+
+  testWidgets('moves to the next missing benchmark after a save', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': [
+        for (final tool in ['Photon', 'Spark'])
+          '{"date":"2026-10-26T10:00:00.000","tool":"$tool",'
+              '"hand":"left","forceKg":30}',
+      ].toString(),
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    await _openPage(tester, 'Benchmarks');
+    // Photon's right hand is missing first.
+    await tester.ensureVisible(find.text('Enter a held weight instead'));
+    await tester.tap(find.text('Enter a held weight instead'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Weight (kg)'), '30');
+    final save = find.widgetWithText(OutlinedButton, 'Save Hold');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    // Then Spark's, as a pair, not the left hand of Spark.
+    expect(
+      tester
+          .widget<SegmentedButton<String?>>(
+            find.byType(SegmentedButton<String?>),
+          )
+          .selected,
+      {'Spark'},
+    );
+    expect(
+      tester
+          .widget<SegmentedButton<Hand>>(find.byType(SegmentedButton<Hand>))
+          .selected,
+      {Hand.right},
+    );
+  });
+
   testWidgets('saves a held weight as a benchmark and opens its workout', (
     tester,
   ) async {
@@ -1149,7 +1280,7 @@ void main() {
     await tester.ensureVisible(find.text('Enter a held weight instead'));
     await tester.tap(find.text('Enter a held weight instead'));
     await tester.pumpAndSettle();
-    final weight = find.widgetWithText(TextField, 'Weight held (kg)');
+    final weight = find.widgetWithText(TextField, 'Weight (kg)');
     final save = find.widgetWithText(OutlinedButton, 'Save Hold');
     await tester.ensureVisible(save);
     await tester.enterText(weight, 'abc');
@@ -1164,16 +1295,20 @@ void main() {
 
     // 30 kg for 10 s is a 32.92 kg 5 s max.
     await tester.enterText(weight, '30');
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Time held (s)'),
-      '10',
-    );
+    await tester.enterText(find.widgetWithText(TextField, 'Held (s)'), '10');
     await tester.tap(save);
     await tester.pumpAndSettle();
     // The left hand's best, the right hand without one.
     expect(find.widgetWithText(Card, '1 benchmark'), findsOne);
     expect(find.text('32.9 kg'), findsOneWidget);
     expect(find.text('No benchmark yet'), findsOne);
+    // The other hand pulls next.
+    expect(
+      tester
+          .widget<SegmentedButton<Hand>>(find.byType(SegmentedButton<Hand>))
+          .selected,
+      {Hand.right},
+    );
 
     await tester.tap(find.text('Open Workout'));
     await tester.pumpAndSettle();
@@ -1193,10 +1328,7 @@ void main() {
     await _openPage(tester, 'Benchmarks');
     await _select(tester, 'Photon');
     await _select(tester, 'Right');
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Weight held (kg)'),
-      '30',
-    );
+    await tester.enterText(find.widgetWithText(TextField, 'Weight (kg)'), '30');
     final save = find.widgetWithText(OutlinedButton, 'Save Hold');
     await tester.ensureVisible(save);
     await tester.tap(save);
@@ -1252,7 +1384,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('No body weights yet.'), findsOne);
 
-    final field = find.widgetWithText(TextField, 'Body weight (kg)');
+    final field = find.widgetWithText(TextField, 'Weight (kg)');
     final save = find.text('Save Body Weight');
     for (final invalid in ['5', 'NaN']) {
       await tester.enterText(field, invalid);
@@ -1471,6 +1603,13 @@ void main() {
       'reminders Photon [1, 2, 3, 5] 10:0, Spark [1, 3, 5] 10:0',
       'reminders Photon [1, 2, 3, 5] 10:0',
     ]);
+    // A deletion can be undone, back in its place.
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(
+      notifications.calls.last,
+      'reminders Photon [1, 2, 3, 5] 10:0, Spark [1, 3, 5] 10:0',
+    );
 
     notifications.calls.clear();
     final notify = find.text('Notify when the rest is over');
@@ -1505,6 +1644,31 @@ void main() {
     expect(find.textContaining('Notifications are off'), findsOne);
   });
 
+  testWidgets('warns while reminders cannot notify', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+      notifications: FakeNotifications(allowed: false),
+    );
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Schedule'));
+    await tester.pumpAndSettle();
+    const warning =
+        'Notifications are off for Crimpdeq, so the reminders and the rest '
+        'notice do not show.';
+    // Nothing to notify yet.
+    expect(find.text(warning), findsNothing);
+
+    await tester.tap(find.text('Add Reminder'));
+    await tester.pumpAndSettle();
+    // The reminder is kept, and the warning stays with it.
+    expect(find.text('10:00'), findsOne);
+    expect(find.text(warning), findsOne);
+    expect(find.text('Open App Settings'), findsOne);
+  });
+
   testWidgets('keeps the training available without a device', (tester) async {
     SharedPreferences.setMockInitialValues({
       'training.benchmarks': '[$_benchmark]',
@@ -1522,6 +1686,8 @@ void main() {
     final start = find.widgetWithText(FilledButton, 'Start Workout');
     await tester.ensureVisible(start);
     expect(tester.widget<FilledButton>(start).onPressed, isNull);
+    // Saying why.
+    expect(find.text('Connect your Crimpdeq to start.'), findsOne);
 
     // Without a device, a held weight, and the way to connect one.
     await _openPage(tester, 'Benchmarks');
@@ -1723,6 +1889,97 @@ void main() {
     });
   }
 
+  for (final (size, ratio, scale) in [
+    (const Size(1080, 2340), 3.0, 1.0),
+    (const Size(1280, 2772), 3.25, 1.3),
+  ]) {
+    testWidgets('keeps the timer controls on a phone at $scale× text', (
+      tester,
+    ) async {
+      final workout = _FixedWorkout(
+        WorkoutState(
+          plans: [strength],
+          phase: WorkoutPhase.rest,
+          actualSeconds: const [1],
+          repForcesKg: const [12],
+          restRemainingSeconds: 15,
+        ),
+      );
+      // A load at rest adds the longest message, and the short rep its redo.
+      await _pumpScreen(
+        tester,
+        ProgressorState(
+          connection: _connected,
+          measurement: const MeasurementState(isMeasuring: true, currentKg: 3),
+        ),
+        deviceTools: false,
+        overrides: [workoutProvider.overrideWith(() => workout)],
+      );
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = ratio;
+      tester.view.padding = FakeViewPadding(
+        top: 24 * ratio,
+        bottom: 16 * ratio,
+      );
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      for (final state in [
+        workout.initialState,
+        WorkoutState(
+          plans: [strength],
+          phase: WorkoutPhase.hold,
+          actualSeconds: const [101],
+          holding: true,
+          heldSeconds: 10,
+        ),
+      ]) {
+        workout.set(state);
+        await tester.pumpAndSettle();
+        // Above the gesture bar, without scrolling.
+        expect(
+          tester.getRect(find.text('Stop')).bottom,
+          lessThanOrEqualTo(size.height / ratio - 16),
+        );
+      }
+    });
+  }
+
+  for (final (repsDone, action) in [
+    (0, 'Stop'),
+    (1, 'Discard'),
+    (1, 'Save Reps'),
+  ]) {
+    testWidgets('stops a workout with $repsDone reps done: $action', (
+      tester,
+    ) async {
+      final workout = _StoppedWorkout(
+        WorkoutState(
+          plans: [strength],
+          phase: WorkoutPhase.hold,
+          actualSeconds: [for (var rep = 0; rep < repsDone; rep++) 101],
+          repForcesKg: [for (var rep = 0; rep < repsDone; rep++) 12],
+        ),
+      );
+      await _pumpScreen(
+        tester,
+        ProgressorState(connection: _connected),
+        deviceTools: false,
+        overrides: [workoutProvider.overrideWith(() => workout)],
+      );
+      final stop = find.widgetWithText(OutlinedButton, 'Stop');
+      await tester.ensureVisible(stop);
+      await tester.tap(stop);
+      await tester.pumpAndSettle();
+      expect(find.text('Save Reps'), repsDone == 0 ? findsNothing : findsOne);
+
+      await tester.tap(find.widgetWithText(TextButton, action));
+      await tester.pumpAndSettle();
+      expect(workout.stops, [action == 'Save Reps' ? 'keep' : 'discard']);
+    });
+  }
+
   testWidgets('shows the workout that starts on another page', (tester) async {
     final workout = _FixedWorkout(const WorkoutState());
     SharedPreferences.setMockInitialValues({
@@ -1808,16 +2065,22 @@ void main() {
     expect(find.text('-2.2 s'), findsOneWidget);
     final save = find.widgetWithText(FilledButton, 'Save Results');
     await tester.ensureVisible(save);
+    // Saving waits for the effort.
+    expect(tester.widget<FilledButton>(save).onPressed, isNull);
+    final effort = find.byType(Slider);
+    await tester.ensureVisible(effort);
+    await tester.tap(effort);
+    await tester.pumpAndSettle();
+    expect(find.textContaining(RegExp(r'^Effort: \d+/10 · ')), findsOne);
+    await tester.ensureVisible(save);
     await tester.tap(save);
     await tester.pumpAndSettle();
     expect(find.text('Saved to your history.'), findsOneWidget);
 
     await tester.tap(find.text('View History'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('Photon · #1 in ${formatMonth(DateTime.now())}'),
-      findsOne,
-    );
+    // Saved at the end of its last rep, in October.
+    expect(find.text('Photon · #1 in Oct'), findsOne);
     expect(find.text('6:40'), findsOne);
   });
 
@@ -1968,7 +2231,28 @@ void main() {
     }
   });
 
-  testWidgets('stores the theme choice', (tester) async {
+  testWidgets('keeps the threshold of a running workout', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+      overrides: [
+        workoutProvider.overrideWith(
+          () => _FixedWorkout(
+            WorkoutState(plans: [strength], phase: WorkoutPhase.hold),
+          ),
+        ),
+      ],
+    );
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Slider>(find.byType(Slider)).onChanged, isNull);
+    expect(find.text('Stop the workout or warm-up to change it.'), findsOne);
+  });
+
+  testWidgets('stores the theme and threshold in the settings', (tester) async {
     await _pumpScreen(
       tester,
       ProgressorState(connection: _connected),
@@ -1976,20 +2260,22 @@ void main() {
     );
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Light mode'));
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    expect(
-      ProviderScope.containerOf(tester.element(find.byType(CrimpdeqScreen)))
-          .read(themeModeProvider),
-      ThemeMode.light,
+    await tester.tap(find.text('System'));
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SettingsScreen)),
     );
+    expect(container.read(themeModeProvider), ThemeMode.system);
+    // A new start reads it back before its first frame.
+    expect(await ThemeModeNotifier.load(), ThemeMode.system);
 
-    // A new start reads it back.
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    container.read(themeModeProvider);
-    await tester.pump();
-    expect(container.read(themeModeProvider), ThemeMode.light);
+    expect(find.text('Hold threshold: 2.0 kg'), findsOne);
+    await tester.drag(find.byType(Slider), const Offset(-1000, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Hold threshold: 0.5 kg'), findsOne);
+    expect(await container.read(holdThresholdProvider.future), 0.5);
   });
   testWidgets('asks for every benchmark a warm-up needs', (tester) async {
     SharedPreferences.setMockInitialValues({
@@ -2061,6 +2347,30 @@ void main() {
     expect(find.text('42.5 kg'), findsOne);
   });
 
+  testWidgets('warms up for the tool of the next workout', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_allBenchmarks]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CrimpdeqScreen)),
+    );
+    container.read(workoutSetupProvider.notifier).selectTool('Photon');
+    await _openPage(tester, 'Warm-up');
+    await _select(tester, 'Before training');
+    SegmentedButton<String?> tools() =>
+        tester.widget(find.byType(SegmentedButton<String?>));
+    expect(tools().selected, {'Photon'});
+
+    // And the workout follows the warm-up's tool.
+    await _select(tester, 'Spark');
+    expect(container.read(workoutSetupProvider).tool, 'Spark');
+  });
+
   testWidgets('blocks a warm-up whose lightest hold cannot start', (
     tester,
   ) async {
@@ -2075,11 +2385,12 @@ void main() {
     );
     await _openPage(tester, 'Warm-up');
     await _select(tester, 'Before training');
+    await _select(tester, 'Photon');
 
     expect(
       find.text(
         'The lightest hold, 6.0 kg, is too light to start above 7.0 kg. '
-        'Lower the threshold in the workout Customize settings.',
+        'Lower the threshold in Settings, in the menu.',
       ),
       findsOne,
     );
@@ -2334,6 +2645,7 @@ void main() {
     await tester.ensureVisible(latest);
     expect(latest, findsOne);
     expect(find.text('Left 95% (19.0 kg)\nRight 90% (27.0 kg)'), findsOne);
+    expect(find.textContaining(RegExp(r'^Photon · ')), findsNWidgets(2));
 
     await tester.tap(find.byTooltip('Delete readiness check').first);
     await tester.pumpAndSettle();

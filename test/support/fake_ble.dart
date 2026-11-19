@@ -21,6 +21,16 @@ final class FakeBle extends FlutterBluePlusPlatform {
   final _discoveredServices =
       StreamController<BmDiscoverServicesResult>.broadcast();
   final _received = StreamController<BmCharacteristicData>.broadcast();
+  final _scanResponses = StreamController<BmScanResponse>.broadcast();
+
+  /// Whether a scan finds the Progressor.
+  bool advertising = false;
+
+  /// Scans started.
+  int scans = 0;
+
+  /// Whether a connection fails, such as out of range.
+  bool failConnect = false;
   final _written = StreamController<BmCharacteristicData>.broadcast();
   // Never emits: there is no CCCD to write.
   final _descriptorWritten = StreamController<BmDescriptorData>.broadcast();
@@ -135,6 +145,44 @@ final class FakeBle extends FlutterBluePlusPlatform {
   Stream<BmDescriptorData> get onDescriptorWritten => _descriptorWritten.stream;
 
   @override
+  Stream<BmScanResponse> get onScanResponse => _scanResponses.stream;
+
+  @override
+  Future<bool> startScan(BmScanSettings request) async {
+    scans++;
+    if (advertising) {
+      // After the start returns, as a device answers.
+      scheduleMicrotask(
+        () => _scanResponses.add(
+          BmScanResponse(
+            advertisements: [
+              BmScanAdvertisement(
+                remoteId: _remoteId,
+                platformName: 'Progressor',
+                advName: 'Progressor',
+                connectable: true,
+                txPowerLevel: null,
+                appearance: null,
+                manufacturerData: const {},
+                serviceData: const {},
+                serviceUuids: [_service],
+                rssi: -50,
+              ),
+            ],
+            success: true,
+            errorCode: 0,
+            errorString: '',
+          ),
+        ),
+      );
+    }
+    return true;
+  }
+
+  @override
+  Future<bool> stopScan(BmStopScanRequest request) async => true;
+
+  @override
   Future<bool> isSupported(BmIsSupportedRequest request) async => true;
 
   @override
@@ -144,6 +192,7 @@ final class FakeBle extends FlutterBluePlusPlatform {
 
   @override
   Future<bool> connect(BmConnectRequest request) async {
+    if (failConnect) throw Exception('Out of range');
     setConnected(true);
     return true;
   }

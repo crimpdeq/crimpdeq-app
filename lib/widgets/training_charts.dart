@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../analysis/force_trace.dart';
 import '../analysis/opengrips_curve.dart';
@@ -26,7 +27,6 @@ Color sectionTextColor(BuildContext context, CurveSection section) {
       : color;
 }
 
-const _idealCurveColor = Color(0xFFEF4444);
 const _workoutColor = Color(0xFFF97316);
 
 const _hiddenTitles = AxisTitles(sideTitles: SideTitles(showTitles: false));
@@ -79,6 +79,10 @@ LineTooltipItem _tooltip(BuildContext context, String text) => LineTooltipItem(
   ),
 );
 
+/// Room beside the first and last reps, in reps, so their labels center
+/// under them instead of shifting inside the chart.
+const _repPadding = 0.4;
+
 List<FlSpot> _repSpots(List<num> seconds) => [
   for (final (rep, value) in seconds.indexed) FlSpot(rep + 1, value.toDouble()),
 ];
@@ -100,7 +104,12 @@ class _Legend extends StatelessWidget {
             children: [
               Icon(Icons.circle, size: 10, color: color),
               const SizedBox(width: 4),
-              Text(label, style: Theme.of(context).textTheme.bodySmall),
+              Flexible(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
             ],
           ),
       ],
@@ -129,8 +138,8 @@ class TargetWorkoutGraph extends StatelessWidget {
           child: LineChart(
             duration: Duration.zero,
             LineChartData(
-              minX: 1,
-              maxX: max(targets.length, 2).toDouble(),
+              minX: 1 - _repPadding,
+              maxX: max(targets.length, 2) + _repPadding,
               minY: 0,
               maxY: max(targets.reduce(max), 50).toDouble(),
               lineBarsData: [
@@ -178,6 +187,8 @@ class TargetWorkoutGraph extends StatelessWidget {
                   context,
                   (value) => 'Rep ${value.round()}',
                   interval: 1,
+                  minIncluded: false,
+                  maxIncluded: false,
                 ),
               ),
               gridData: _grid(Theme.of(context).colorScheme),
@@ -191,16 +202,23 @@ class TargetWorkoutGraph extends StatelessWidget {
   }
 }
 
+/// Share of the target force a pull can miss it by and still be on target.
+const targetBandRatio = 0.05;
+
+/// Lowest height of a filling live graph, with its legend, to show it.
+const _minFillChartHeight = 120.0;
+
 /// The force of the latest [ForceTrace.windowSeconds] over the time since
 /// the start, the newest at the right, under the current force, centered,
-/// and a tare button. With a [target], also its force and the threshold the
-/// hold counts above.
+/// and a tare button. With a [target], also its force, in green when on
+/// target, its band and the threshold the hold counts above.
 class LiveForceGraph extends StatelessWidget {
   const LiveForceGraph({
     super.key,
     required this.trace,
     required this.currentKg,
     this.target,
+    this.fill = false,
   });
 
   final List<FlSpot> trace;
@@ -208,6 +226,10 @@ class LiveForceGraph extends StatelessWidget {
   /// Null without a reading.
   final double? currentKg;
   final ({double kg, double thresholdKg, CurveSection section})? target;
+
+  /// Takes the height left, such as by a timer that fits the screen, instead
+  /// of a fixed one.
+  final bool fill;
 
   @override
   Widget build(BuildContext context) {
@@ -222,6 +244,86 @@ class LiveForceGraph extends StatelessWidget {
       trace.lastOrNull?.x ?? 0,
     );
     final peakKg = trace.fold(0.0, (peak, spot) => max(peak, spot.y));
+    final legend = target == null
+        ? null
+        : _Legend([
+            (colorScheme.primary, 'Force'),
+            (targetColor!, 'Target ${formatKg(target.kg)}'),
+            (
+              targetColor.withValues(alpha: 0.7),
+              '${formatKg(target.thresholdKg)}: hold counts',
+            ),
+          ]);
+    final onTarget =
+        target != null &&
+        currentKg != null &&
+        (currentKg - target.kg).abs() <= target.kg * targetBandRatio;
+    final chart = LineChart(
+      duration: Duration.zero,
+      LineChartData(
+        minX: maxX - ForceTrace.windowSeconds,
+        maxX: maxX,
+        minY: 0,
+        maxY: max((target?.kg ?? 8) * 1.25, peakKg * 1.1),
+        clipData: const FlClipData.all(),
+        rangeAnnotations: RangeAnnotations(
+          horizontalRangeAnnotations: [
+            if (target != null)
+              HorizontalRangeAnnotation(
+                y1: target.kg * (1 - targetBandRatio),
+                y2: target.kg * (1 + targetBandRatio),
+                color: targetColor!.withValues(alpha: 0.18),
+              ),
+          ],
+        ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: trace,
+            color: colorScheme.primary,
+            barWidth: 2.5,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              color: colorScheme.primary.withValues(alpha: 0.12),
+            ),
+          ),
+        ],
+        extraLinesData: ExtraLinesData(
+          horizontalLines: [
+            if (target != null) ...[
+              HorizontalLine(y: target.kg, color: targetColor, strokeWidth: 2),
+              HorizontalLine(
+                y: target.thresholdKg,
+                color: targetColor!.withValues(alpha: 0.7),
+                strokeWidth: 1.5,
+                dashArray: [6, 4],
+              ),
+            ],
+          ],
+        ),
+        lineTouchData: const LineTouchData(enabled: false),
+        titlesData: FlTitlesData(
+          topTitles: _hiddenTitles,
+          rightTitles: _hiddenTitles,
+          leftTitles: _titles(
+            context,
+            (value) => '${value.round()} kg',
+            reservedSize: 44,
+            maxIncluded: false,
+          ),
+          // The time since the pull or workout started.
+          bottomTitles: _titles(
+            context,
+            (value) => formatDuration(value.round()),
+            interval: 5,
+            minIncluded: false,
+            maxIncluded: false,
+          ),
+        ),
+        gridData: _grid(colorScheme),
+        borderData: FlBorderData(show: false),
+      ),
+    );
     return Column(
       children: [
         Row(
@@ -231,6 +333,7 @@ class LiveForceGraph extends StatelessWidget {
               currentKg == null ? '—' : formatKg(currentKg),
               style: textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.w800,
+                color: onTarget ? gainColor : null,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
@@ -243,80 +346,88 @@ class LiveForceGraph extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 200,
-          child: LineChart(
-            duration: Duration.zero,
-            LineChartData(
-              minX: maxX - ForceTrace.windowSeconds,
-              maxX: maxX,
-              minY: 0,
-              maxY: max((target?.kg ?? 8) * 1.25, peakKg * 1.1),
-              clipData: const FlClipData.all(),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: trace,
-                  color: colorScheme.primary,
-                  barWidth: 2.5,
-                  dotData: const FlDotData(show: false),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    color: colorScheme.primary.withValues(alpha: 0.12),
-                  ),
-                ),
-              ],
-              extraLinesData: ExtraLinesData(
-                horizontalLines: [
-                  if (target != null) ...[
-                    HorizontalLine(
-                      y: target.kg,
-                      color: targetColor,
-                      strokeWidth: 2,
-                    ),
-                    HorizontalLine(
-                      y: target.thresholdKg,
-                      color: targetColor!.withValues(alpha: 0.7),
-                      strokeWidth: 1.5,
-                      dashArray: [6, 4],
-                    ),
-                  ],
+        if (fill)
+          // Without the height to read it, such as with large text, the
+          // graph gives way to the controls.
+          Expanded(
+            child: _HiddenUnder(
+              minHeight: _minFillChartHeight,
+              child: Column(
+                children: [
+                  Expanded(child: chart),
+                  ?legend,
                 ],
               ),
-              lineTouchData: const LineTouchData(enabled: false),
-              titlesData: FlTitlesData(
-                topTitles: _hiddenTitles,
-                rightTitles: _hiddenTitles,
-                leftTitles: _titles(
-                  context,
-                  (value) => '${value.round()} kg',
-                  reservedSize: 44,
-                  maxIncluded: false,
-                ),
-                // The time since the pull or workout started.
-                bottomTitles: _titles(
-                  context,
-                  (value) => formatDuration(value.round()),
-                  interval: 5,
-                  minIncluded: false,
-                  maxIncluded: false,
-                ),
-              ),
-              gridData: _grid(colorScheme),
-              borderData: FlBorderData(show: false),
             ),
-          ),
-        ),
-        if (target != null)
-          _Legend([
-            (colorScheme.primary, 'Force'),
-            (targetColor!, 'Target ${formatKg(target.kg)}'),
-            (
-              targetColor.withValues(alpha: 0.7),
-              '${formatKg(target.thresholdKg)}: hold counts',
-            ),
-          ]),
+          )
+        else ...[
+          SizedBox(height: 200, child: chart),
+          ?legend,
+        ],
       ],
     );
+  }
+}
+
+/// [child] in the height it is given, or nothing under [minHeight]. It asks
+/// for no height, so a layout that fills the screen, or scrolls when it
+/// cannot, gives it only what is left.
+class _HiddenUnder extends SingleChildRenderObjectWidget {
+  const _HiddenUnder({required this.minHeight, required super.child});
+
+  final double minHeight;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderHiddenUnder(minHeight);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderHiddenUnder renderObject,
+  ) => renderObject.minHeight = minHeight;
+}
+
+class _RenderHiddenUnder extends RenderProxyBox {
+  _RenderHiddenUnder(this._minHeight);
+
+  double _minHeight;
+  set minHeight(double value) {
+    if (value == _minHeight) return;
+    _minHeight = value;
+    markNeedsLayout();
+  }
+
+  bool get _shown => constraints.maxHeight >= _minHeight;
+
+  @override
+  double computeMinIntrinsicHeight(double width) => 0;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => 0;
+
+  @override
+  void performLayout() {
+    if (_shown) {
+      child!.layout(constraints, parentUsesSize: true);
+      size = child!.size;
+    } else {
+      size = constraints.smallest;
+    }
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (_shown) super.paint(context, offset);
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      _shown && super.hitTestChildren(result, position: position);
+
+  @override
+  void visitChildrenForSemantics(RenderObjectVisitor visitor) {
+    if (_shown) super.visitChildrenForSemantics(visitor);
   }
 }
 
@@ -338,6 +449,9 @@ class ForceCurveGraph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Neutral, apart from the section colors, such as Power's red.
+    final idealCurveColor = Theme.of(context).colorScheme.onSurface
+        .withValues(alpha: 0.6);
     final section = this.section;
     final targetForceKg = this.targetForceKg;
     final floorKg = curveFloorKg(benchmarkKg);
@@ -393,7 +507,7 @@ class ForceCurveGraph extends StatelessWidget {
               lineBarsData: [
                 LineChartBarData(
                   spots: idealCurve,
-                  color: _idealCurveColor,
+                  color: idealCurveColor,
                   barWidth: 2.5,
                   dotData: const FlDotData(show: false),
                 ),
@@ -454,7 +568,7 @@ class ForceCurveGraph extends StatelessWidget {
           ),
         ),
         _Legend([
-          (_idealCurveColor, 'Ideal force curve'),
+          (idealCurveColor, 'Ideal force curve'),
           (_workoutColor, 'First holds'),
           if (section != null)
             (sectionColors[section]!, '${section.label} range and target'),
@@ -596,8 +710,8 @@ class RepResultsGraph extends StatelessWidget {
           child: LineChart(
             duration: Duration.zero,
             LineChartData(
-              minX: 1,
-              maxX: max(targets.length, 2).toDouble(),
+              minX: 1 - _repPadding,
+              maxX: max(targets.length, 2) + _repPadding,
               minY: 0,
               lineBarsData: [
                 line(targets, targetColor, dashed: true),
@@ -616,6 +730,8 @@ class RepResultsGraph extends StatelessWidget {
                   context,
                   (value) => 'Rep ${value.round()}',
                   interval: 1,
+                  minIncluded: false,
+                  maxIncluded: false,
                 ),
               ),
               gridData: _grid(colorScheme),

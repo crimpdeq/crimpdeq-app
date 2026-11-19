@@ -31,6 +31,9 @@ class CalibrationTab extends ConsumerWidget {
         calibration.changingModel;
 
     return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        bottom: 16 + MediaQuery.paddingOf(context).bottom,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

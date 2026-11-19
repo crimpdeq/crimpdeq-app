@@ -222,6 +222,58 @@ void main() {
     await workout.stop();
   });
 
+  testWidgets('keeps the reps done of a stopped workout until saved', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final workout = container.read(workoutProvider.notifier);
+    WorkoutState state() => container.read(workoutProvider);
+
+    await workout.start([plan]);
+    workout.addSamples([
+      ..._pull(0, 1, 0),
+      ..._pull(12, 10, 1000),
+      ..._pull(0, 1.1, 11000),
+    ]);
+    expect(state().phase, WorkoutPhase.rest);
+    await workout.stopKeepingReps();
+    expect(state().phase, WorkoutPhase.done);
+    expect(state().endedEarly, WorkoutEnd.stopped);
+    expect(state().actualSeconds.single, closeTo(9.9, 1e-9));
+    await tester.pump();
+
+    // The app closes before the results are saved: its next start shows
+    // them.
+    final reopened = _measuring();
+    addTearDown(reopened.dispose);
+    reopened.listen(workoutProvider, (_, _) {});
+    await tester.pump();
+    final restored = reopened.read(workoutProvider);
+    expect(restored.phase, WorkoutPhase.done);
+    expect(restored.plans, [plan]);
+    expect(restored.actualSeconds, state().actualSeconds);
+    expect(restored.repForcesKg, state().repForcesKg);
+    expect(restored.endedEarly, WorkoutEnd.stopped);
+    expect(restored.startedAt, state().startedAt);
+    expect(restored.endedAt, state().endedAt);
+
+    await reopened
+        .read(workoutProvider.notifier)
+        .save(perceivedExertion: 6, notes: '');
+    await tester.pump();
+    final saved = _measuring();
+    addTearDown(saved.dispose);
+    saved.listen(workoutProvider, (_, _) {});
+    await tester.pump();
+    expect(saved.read(workoutProvider).phase, WorkoutPhase.idle);
+    final log = await saved.read(trainingLogProvider.future);
+    expect(log.workouts.single.actualSeconds, state().actualSeconds);
+    // At its end, however late it is saved.
+    expect(log.workouts.single.date, state().endedAt);
+  });
+
   testWidgets('alternates the hands, each resting while the other holds', (
     tester,
   ) async {

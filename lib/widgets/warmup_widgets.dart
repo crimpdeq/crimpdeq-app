@@ -22,6 +22,9 @@ class WarmupTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final phase = ref.watch(warmupProvider.select((state) => state.phase));
     final isConnected = watchConnected(ref);
+    if (phase == WorkoutPhase.hold || phase == WorkoutPhase.rest) {
+      return const TimerLayout(child: _WarmupTimer());
+    }
     return TrainingLogView(
       builder: (context, log) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -30,11 +33,10 @@ class WarmupTab extends ConsumerWidget {
             const ConnectCard(),
             const SizedBox(height: 16),
           ],
-          switch (phase) {
-            WorkoutPhase.idle => _WarmupSetup(log: log),
-            WorkoutPhase.done => _WarmupResults(log: log),
-            _ => const _WarmupTimer(),
-          },
+          if (phase == WorkoutPhase.idle)
+            _WarmupSetup(log: log)
+          else
+            _WarmupResults(log: log),
           if (phase == WorkoutPhase.idle) ...[
             const SizedBox(height: 16),
             _ReadinessHistory(checks: log.readiness),
@@ -71,7 +73,6 @@ class _WarmupSetup extends ConsumerStatefulWidget {
 
 class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
   WarmupKind _kind = WarmupKind.climbing;
-  String _tool = trainingTools.first;
   bool _heavy = false;
 
   @override
@@ -79,24 +80,27 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final benchmarks = widget.log.benchmarks;
+    // The workout's tool, which the training warm-up prepares for.
+    final tool =
+        ref.watch(workoutSetupProvider.select((setup) => setup.tool)) ??
+        benchmarks.lastOrNull?.tool ??
+        trainingTools.first;
     final thresholdKg = watchHoldThreshold(ref);
     final missing = missingBenchmarks(
       benchmarks,
-      _kind == WarmupKind.climbing ? trainingTools : [_tool],
+      _kind == WarmupKind.climbing ? trainingTools : [tool],
     );
     final steps = missing.isNotEmpty
         ? null
         : _kind == WarmupKind.climbing
         ? climbingWarmup(benchmarks)
-        : trainingWarmup(benchmarks, _tool, heavy: _heavy);
+        : trainingWarmup(benchmarks, tool, heavy: _heavy);
     // A hold only counts above the threshold, which a light force is not.
     final lightestKg = steps
         ?.map((step) => step.forceKg!)
         .reduce((a, b) => a < b ? a : b);
     final holdsCount = lightestKg != null && lightestKg > thresholdKg;
-    final benchmarkRecording = ref.watch(
-      benchmarkRecorderProvider.select((recording) => recording.recording),
-    );
+    final blocked = watchStartBlocked(ref);
 
     return TitledCard(
       title: 'Warm-up',
@@ -121,8 +125,8 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
             const SizedBox(height: 12),
             ToolAndHand(
               tools: trainingTools,
-              tool: _tool,
-              onToolChanged: (tool) => setState(() => _tool = tool!),
+              tool: tool,
+              onToolChanged: ref.read(workoutSetupProvider.notifier).selectTool,
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -158,7 +162,7 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
               Text(
                 'The lightest hold, ${formatKg(lightestKg!)}, is too light to '
                 'start above ${formatKg(thresholdKg)}. Lower the threshold in '
-                'the workout Customize settings.',
+                'Settings, in the menu.',
                 style: textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.error,
                 ),
@@ -171,10 +175,7 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed:
-                        benchmarkRecording ||
-                            !holdsCount ||
-                            !watchConnected(ref)
+                    onPressed: blocked != null || !holdsCount
                         ? null
                         : () => ref
                               .read(warmupProvider.notifier)
@@ -190,9 +191,15 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Tare it unloaded first. Each hold starts when you pull more '
-              'than ${formatKg(thresholdKg)} and ends at its target.',
-              style: textTheme.bodySmall,
+              blocked ??
+                  'Tare it unloaded first. Each hold starts when you pull '
+                      'more than ${formatKg(thresholdKg)} and ends at its '
+                      'target.',
+              style: blocked == null
+                  ? textTheme.bodySmall
+                  : textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -237,7 +244,8 @@ class _StepTable extends StatelessWidget {
 }
 
 /// Readable from the grip: the phase in its color, the tool and hand, a
-/// large clock and the force, then the controls.
+/// large clock and the force, then the controls. Fills the height, the graph
+/// taking what is left.
 class _WarmupTimer extends ConsumerWidget {
   const _WarmupTimer();
 
@@ -296,6 +304,18 @@ class _WarmupTimer extends ConsumerWidget {
     final bigButton = FilledButton.styleFrom(
       minimumSize: const Size.fromHeight(56),
     );
+    final graph = LiveForceGraph(
+      trace: warmup.forceTrace,
+      currentKg: currentKg,
+      target: forceKg == null
+          ? null
+          : (
+              kg: forceKg,
+              thresholdKg: thresholdKg,
+              section: CurveSection.of(forceKg, step.benchmarkKg),
+            ),
+      fill: true,
+    );
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -329,10 +349,13 @@ class _WarmupTimer extends ConsumerWidget {
               style: textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
+            // Large already, so the text scale would only push the
+            // controls off the screen.
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
                 clock,
+                textScaler: TextScaler.noScaling,
                 style: textTheme.displayLarge?.copyWith(
                   fontFamily: interFont,
                   fontWeight: FontWeight.w800,
@@ -360,17 +383,7 @@ class _WarmupTimer extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-            LiveForceGraph(
-              trace: warmup.forceTrace,
-              currentKg: currentKg,
-              target: forceKg == null
-                  ? null
-                  : (
-                      kg: forceKg,
-                      thresholdKg: thresholdKg,
-                      section: CurveSection.of(forceKg, step.benchmarkKg),
-                    ),
-            ),
+            Expanded(child: graph),
             if (warning != null)
               Text(
                 warning,
@@ -455,9 +468,10 @@ class _WarmupResults extends ConsumerWidget {
         children: [
           if (warmup.endedEarly case final end?) ...[
             Text(
-              'The Crimpdeq ${switch (end) {
-                WorkoutEnd.disconnected => 'disconnected',
-                WorkoutEnd.measurementFailed => 'stopped measuring',
+              '${switch (end) {
+                WorkoutEnd.disconnected => 'The Crimpdeq disconnected',
+                WorkoutEnd.measurementFailed => 'The Crimpdeq stopped measuring',
+                WorkoutEnd.stopped => 'You stopped',
               }} after ${warmup.bestKg.length} of ${warmup.steps.length} '
               'holds.',
               style: textTheme.bodyMedium?.copyWith(
@@ -615,7 +629,7 @@ class _ReadinessHistory extends ConsumerWidget {
                 for (final (index, check) in checks.indexed.toList().reversed)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text(formatDate(check.date)),
+                    title: Text('${check.tool} · ${formatDate(check.date)}'),
                     subtitle: Text(
                       [
                         for (final pull in check.pulls)

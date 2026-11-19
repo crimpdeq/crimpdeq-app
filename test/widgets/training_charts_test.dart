@@ -1,9 +1,19 @@
 import 'package:crimpdeq/analysis/opengrips_curve.dart';
+import 'package:crimpdeq/models/progressor_models.dart';
 import 'package:crimpdeq/models/training_models.dart';
+import 'package:crimpdeq/providers/progressor_provider.dart';
 import 'package:crimpdeq/widgets/training_charts.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:crimpdeq/widgets/training_common.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// Without Bluetooth, for the tare button.
+class _Disconnected extends ProgressorNotifier {
+  @override
+  ProgressorState build() => const ProgressorState();
+}
 
 void main() {
   group('ForceCurveGraph', () {
@@ -69,5 +79,42 @@ void main() {
     for (final date in ['1 Jun', '11 Jun', '21 Jun', '1 Jul']) {
       expect(find.text(date), findsOne);
     }
+  });
+
+  for (final (currentKg, onTarget) in [(19.5, true), (18.5, false)]) {
+    testWidgets('LiveForceGraph shows $currentKg kg '
+        '${onTarget ? 'on' : 'off'} a 20 kg target', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [progressorProvider.overrideWith(_Disconnected.new)],
+          child: MaterialApp(
+            home: Scaffold(
+              body: LiveForceGraph(
+                trace: const [],
+                currentKg: currentKg,
+                target: (kg: 20, thresholdKg: 2, section: CurveSection.power),
+              ),
+            ),
+          ),
+        ),
+      );
+      final reading = tester.widget<Text>(find.text('$currentKg kg'));
+      expect(reading.style?.color == gainColor, onTarget);
+      // The band around the target.
+      final band = tester
+          .widget<LineChart>(find.byType(LineChart))
+          .data
+          .rangeAnnotations
+          .horizontalRangeAnnotations
+          .single;
+      expect((band.y1, band.y2), (19, 21));
+    });
+  }
+
+  test('holdDeltaColor keeps a hold within the tolerance neutral', () {
+    expect(holdDeltaColor(-2), isNull);
+    expect(holdDeltaColor(3), isNull);
+    expect(holdDeltaColor(-3.5), lossColor);
+    expect(holdDeltaColor(4), gainColor);
   });
 }

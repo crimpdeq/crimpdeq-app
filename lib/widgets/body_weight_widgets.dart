@@ -134,9 +134,7 @@ class _AddBodyWeightState extends ConsumerState<_AddBodyWeight> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: const InputDecoration(
-                  labelText: 'Body weight (kg)',
-                ),
+                decoration: const InputDecoration(labelText: 'Weight (kg)'),
               ),
             ),
             const SizedBox(width: 8),

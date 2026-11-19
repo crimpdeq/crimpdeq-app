@@ -579,7 +579,13 @@ sealed class WarmupState with _$WarmupState {
 }
 
 /// Why a workout ended before its last rep.
-enum WorkoutEnd { disconnected, measurementFailed }
+enum WorkoutEnd {
+  disconnected,
+  measurementFailed,
+
+  /// Stopped by the user, who kept the reps done.
+  stopped,
+}
 
 @freezed
 sealed class WorkoutState with _$WorkoutState {

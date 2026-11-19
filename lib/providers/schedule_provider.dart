@@ -80,6 +80,16 @@ class TrainingNotifications {
         AndroidFlutterLocalNotificationsPlugin
       >();
 
+  IOSFlutterLocalNotificationsPlugin? get _ios => _plugin
+      .resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin
+      >();
+
+  MacOSFlutterLocalNotificationsPlugin? get _macos => _plugin
+      .resolvePlatformSpecificImplementation<
+        MacOSFlutterLocalNotificationsPlugin
+      >();
+
   /// Asks to notify, and on Android to notify on time instead of up to an
   /// hour late. Returns whether notifications are allowed.
   Future<bool> requestPermission() async {
@@ -92,17 +102,21 @@ class TrainingNotifications {
       }
       return allowed;
     }
-    final ios = _plugin
-        .resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin
-        >();
-    final macos = _plugin
-        .resolvePlatformSpecificImplementation<
-          MacOSFlutterLocalNotificationsPlugin
-        >();
-    return await (ios?.requestPermissions(alert: true, sound: true) ??
-            macos?.requestPermissions(alert: true, sound: true)) ??
+    return await (_ios?.requestPermissions(alert: true, sound: true) ??
+            _macos?.requestPermissions(alert: true, sound: true)) ??
         false;
+  }
+
+  /// Whether notifications are allowed, without asking: the system settings
+  /// can turn them off at any time.
+  Future<bool> areAllowed() async {
+    await _init();
+    if (_android case final android?) {
+      return await android.areNotificationsEnabled() ?? false;
+    }
+    final options =
+        await (_ios?.checkPermissions() ?? _macos?.checkPermissions());
+    return options?.isEnabled ?? false;
   }
 
   /// Replaces the scheduled reminders with [reminders].
@@ -175,6 +189,12 @@ class TrainingNotifications {
 
 final trainingNotificationsProvider = Provider<TrainingNotifications>(
   (ref) => TrainingNotifications(),
+);
+
+/// Whether notifications are allowed, read again on [Ref.invalidate], such
+/// as when the app returns from the system settings.
+final notificationsAllowedProvider = FutureProvider<bool>(
+  (ref) => ref.watch(trainingNotificationsProvider).areAllowed(),
 );
 
 /// Weekly reminders to train a gripper, stored on this device.

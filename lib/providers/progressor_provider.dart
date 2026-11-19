@@ -6,6 +6,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../analysis/calibration_check.dart';
 import '../analysis/calibration_curve.dart';
@@ -76,6 +77,21 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   // The device clock restarts at each start and passes half its u32 range,
   // where a jump back starts to look like a wrap, only after this long.
   static const _clockRestartWindow = Duration(microseconds: 0x80000000);
+
+  static const _lastDeviceKey = 'device.lastId';
+
+  /// The device connected last, which a scan connects to when it finds it.
+  String? _lastDeviceId;
+
+  /// Off once the user disconnects or a connection fails, until the next
+  /// connection: the scan then lists the devices, to choose another one.
+  bool _reconnect = true;
+
+  /// The start scans once for the last device, where a scan needs no tap.
+  bool _scannedAtStart = false;
+
+  /// Set by a scan the user stops, which found nothing to report.
+  bool _scanStopped = false;
 
   StreamSubscription<BluetoothAdapterState>? _adapterStateSubscription;
   StreamSubscription<bool>? _isScanningSubscription;
@@ -150,6 +166,9 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       return;
     }
 
+    _lastDeviceId = (await SharedPreferences.getInstance()).getString(
+      _lastDeviceKey,
+    );
     _isScanningSubscription = FlutterBluePlus.isScanning.listen(
       (scanning) => state = state.copyWith.connection(isScanning: scanning),
     );
@@ -169,6 +188,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
               ? 'Turn on the Crimpdeq, then scan for it.'
               : connection.status,
         );
+        // The web asks for the device on a tap instead.
+        if (_lastDeviceId != null && !_scannedAtStart && !kIsWeb) {
+          _scannedAtStart = true;
+          unawaited(startScanning());
+        }
       case BluetoothAdapterState.unauthorized:
         _resetConnection(
           'Bluetooth permission denied. Allow it in the app settings.',
@@ -194,6 +218,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       return;
     }
 
+    _scanStopped = false;
     state = state.copyWith.connection(
       discoveredDevices: const [],
       needsSettings: false,
@@ -224,10 +249,19 @@ class ProgressorNotifier extends _$ProgressorNotifier {
       return;
     }
     state = state.copyWith.connection(
-      status: afterScan.discoveredDevices.isEmpty
-          ? 'No compatible devices found. Please try scanning again.'
-          : 'Scan complete. Select a device to connect.',
+      status: afterScan.discoveredDevices.isNotEmpty
+          ? 'Scan complete. Select a device to connect.'
+          : _scanStopped
+          ? 'Turn on the Crimpdeq, then scan for it.'
+          : 'No Crimpdeq found. Turn it on, keep it near the phone, and '
+                'disconnect it from other phones and apps, then scan again.',
     );
+  }
+
+  /// Stops a scan before its timeout, keeping the devices found.
+  Future<void> stopScanning() async {
+    _scanStopped = true;
+    await FlutterBluePlus.stopScan();
   }
 
   void _onScanResults(List<ScanResult> results) {
@@ -241,6 +275,11 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         final byName = a.name.compareTo(b.name);
         return byName != 0 ? byName : a.id.compareTo(b.id);
       });
+    final last = devices.where((device) => device.id == _lastDeviceId);
+    if (_reconnect && last.isNotEmpty) {
+      unawaited(connect(last.first));
+      return;
+    }
     state = state.copyWith.connection(
       discoveredDevices: devices,
       status: devices.isEmpty
@@ -312,6 +351,12 @@ class ProgressorNotifier extends _$ProgressorNotifier {
         isConnecting: false,
         status: 'Connected to ${discovered.name}',
       );
+      _lastDeviceId = discovered.id;
+      _reconnect = true;
+      await (await SharedPreferences.getInstance()).setString(
+        _lastDeviceKey,
+        discovered.id,
+      );
     } catch (e) {
       await _failConnection(device, 'Connection failed: $e');
       return;
@@ -321,6 +366,8 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   }
 
   Future<void> _failConnection(BluetoothDevice device, String status) async {
+    // The next scan lists the devices instead of trying this one again.
+    _reconnect = false;
     _resetConnection(status);
     await device.disconnect().catchError(
       (Object e) => _log('Disconnect after failed setup: $e'),
@@ -330,6 +377,7 @@ class ProgressorNotifier extends _$ProgressorNotifier {
   Future<void> disconnect() async {
     final device = state.connection.device;
     if (device == null) return;
+    _reconnect = false;
 
     try {
       await device.disconnect();
