@@ -1238,7 +1238,7 @@ void main() {
     await tester.ensureVisible(find.text('Enter a held weight instead'));
     await tester.tap(find.text('Enter a held weight instead'));
     await tester.pumpAndSettle();
-    final weight = find.widgetWithText(TextField, 'Weight held (kg)');
+    final weight = find.widgetWithText(TextField, 'Weight (kg)');
     final save = find.widgetWithText(OutlinedButton, 'Save Hold');
     await tester.ensureVisible(save);
     await tester.enterText(weight, 'abc');
@@ -1253,10 +1253,7 @@ void main() {
 
     // 30 kg for 10 s is a 32.92 kg 5 s max.
     await tester.enterText(weight, '30');
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Time held (s)'),
-      '10',
-    );
+    await tester.enterText(find.widgetWithText(TextField, 'Held (s)'), '10');
     await tester.tap(save);
     await tester.pumpAndSettle();
     // The left hand's best, the right hand without one.
@@ -1289,10 +1286,7 @@ void main() {
     await _openPage(tester, 'Benchmarks');
     await _select(tester, 'Photon');
     await _select(tester, 'Right');
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Weight held (kg)'),
-      '30',
-    );
+    await tester.enterText(find.widgetWithText(TextField, 'Weight (kg)'), '30');
     final save = find.widgetWithText(OutlinedButton, 'Save Hold');
     await tester.ensureVisible(save);
     await tester.tap(save);
@@ -1348,7 +1342,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('No body weights yet.'), findsOne);
 
-    final field = find.widgetWithText(TextField, 'Body weight (kg)');
+    final field = find.widgetWithText(TextField, 'Weight (kg)');
     final save = find.text('Save Body Weight');
     for (final invalid in ['5', 'NaN']) {
       await tester.enterText(field, invalid);
@@ -1567,6 +1561,13 @@ void main() {
       'reminders Photon [1, 2, 3, 5] 10:0, Spark [1, 3, 5] 10:0',
       'reminders Photon [1, 2, 3, 5] 10:0',
     ]);
+    // A deletion can be undone, back in its place.
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    expect(
+      notifications.calls.last,
+      'reminders Photon [1, 2, 3, 5] 10:0, Spark [1, 3, 5] 10:0',
+    );
 
     notifications.calls.clear();
     final notify = find.text('Notify when the rest is over');
@@ -2583,6 +2584,7 @@ void main() {
     await tester.ensureVisible(latest);
     expect(latest, findsOne);
     expect(find.text('Left 95% (19.0 kg)\nRight 90% (27.0 kg)'), findsOne);
+    expect(find.textContaining(RegExp(r'^Photon · ')), findsNWidgets(2));
 
     await tester.tap(find.byTooltip('Delete readiness check').first);
     await tester.pumpAndSettle();

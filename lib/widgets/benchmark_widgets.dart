@@ -322,9 +322,7 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(
-                      labelText: 'Weight held (kg)',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Weight (kg)'),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -334,9 +332,7 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(
-                      labelText: 'Time held (s)',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Held (s)'),
                   ),
                 ),
               ],

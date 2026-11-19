@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../analysis/hold_tracker.dart';
+import '../analysis/opengrips_curve.dart';
 import '../models/training_models.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/progressor_provider.dart';
@@ -82,6 +83,11 @@ const handColors = {
   Hand.right: Color(0xFFFB923C),
 };
 
+/// Color of a hold against its target: neutral within
+/// [repToleranceSeconds], which counts as on target.
+Color? holdDeltaColor(double seconds) =>
+    seconds.abs() <= repToleranceSeconds ? null : deltaColor(seconds);
+
 Color? deltaColor(double? value) => value == null || value.abs() < 0.05
     ? null
     : value > 0
@@ -101,8 +107,12 @@ class TrainingLogView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return switch (ref.watch(trainingLogProvider)) {
       // The top padding keeps the floating label of a leading field visible.
+      // Above the gesture bar on a page without the navigation bar.
       AsyncData(value: final log) => SingleChildScrollView(
-        padding: const EdgeInsets.only(top: 4, bottom: 16),
+        padding: EdgeInsets.only(
+          top: 4,
+          bottom: 16 + MediaQuery.paddingOf(context).bottom,
+        ),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: maxPageWidth),

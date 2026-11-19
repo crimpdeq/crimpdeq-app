@@ -30,6 +30,9 @@ class MeasurementTab extends ConsumerWidget {
     final notifier = ref.read(progressorProvider.notifier);
 
     return SingleChildScrollView(
+      padding: EdgeInsets.only(
+        bottom: 16 + MediaQuery.paddingOf(context).bottom,
+      ),
       child: Column(
         children: [
           MeasurementControls(

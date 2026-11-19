@@ -1094,7 +1094,7 @@ class _HandResults extends StatelessWidget {
           StatTile(
             label: 'Avg Δ',
             value: formatDelta(meanDelta, 's'),
-            color: deltaColor(meanDelta),
+            color: holdDeltaColor(meanDelta),
           ),
           StatTile(
             label: 'Held',
@@ -1137,7 +1137,7 @@ class _HandResults extends StatelessWidget {
                       's',
                     ),
                     style: TextStyle(
-                      color: deltaColor(
+                      color: holdDeltaColor(
                         (seconds.round() - targets[rep]).toDouble(),
                       ),
                     ),

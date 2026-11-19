@@ -629,7 +629,7 @@ class _ReadinessHistory extends ConsumerWidget {
                 for (final (index, check) in checks.indexed.toList().reversed)
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text(formatDate(check.date)),
+                    title: Text('${check.tool} · ${formatDate(check.date)}'),
                     subtitle: Text(
                       [
                         for (final pull in check.pulls)

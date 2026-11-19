@@ -27,7 +27,6 @@ Color sectionTextColor(BuildContext context, CurveSection section) {
       : color;
 }
 
-const _idealCurveColor = Color(0xFFEF4444);
 const _workoutColor = Color(0xFFF97316);
 
 const _hiddenTitles = AxisTitles(sideTitles: SideTitles(showTitles: false));
@@ -79,6 +78,10 @@ LineTooltipItem _tooltip(BuildContext context, String text) => LineTooltipItem(
     fontSize: 11,
   ),
 );
+
+/// Room beside the first and last reps, in reps, so their labels center
+/// under them instead of shifting inside the chart.
+const _repPadding = 0.4;
 
 List<FlSpot> _repSpots(List<num> seconds) => [
   for (final (rep, value) in seconds.indexed) FlSpot(rep + 1, value.toDouble()),
@@ -135,8 +138,8 @@ class TargetWorkoutGraph extends StatelessWidget {
           child: LineChart(
             duration: Duration.zero,
             LineChartData(
-              minX: 1,
-              maxX: max(targets.length, 2).toDouble(),
+              minX: 1 - _repPadding,
+              maxX: max(targets.length, 2) + _repPadding,
               minY: 0,
               maxY: max(targets.reduce(max), 50).toDouble(),
               lineBarsData: [
@@ -184,6 +187,8 @@ class TargetWorkoutGraph extends StatelessWidget {
                   context,
                   (value) => 'Rep ${value.round()}',
                   interval: 1,
+                  minIncluded: false,
+                  maxIncluded: false,
                 ),
               ),
               gridData: _grid(Theme.of(context).colorScheme),
@@ -444,6 +449,9 @@ class ForceCurveGraph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Neutral, apart from the section colors, such as Power's red.
+    final idealCurveColor = Theme.of(context).colorScheme.onSurface
+        .withValues(alpha: 0.6);
     final section = this.section;
     final targetForceKg = this.targetForceKg;
     final floorKg = curveFloorKg(benchmarkKg);
@@ -499,7 +507,7 @@ class ForceCurveGraph extends StatelessWidget {
               lineBarsData: [
                 LineChartBarData(
                   spots: idealCurve,
-                  color: _idealCurveColor,
+                  color: idealCurveColor,
                   barWidth: 2.5,
                   dotData: const FlDotData(show: false),
                 ),
@@ -560,7 +568,7 @@ class ForceCurveGraph extends StatelessWidget {
           ),
         ),
         _Legend([
-          (_idealCurveColor, 'Ideal force curve'),
+          (idealCurveColor, 'Ideal force curve'),
           (_workoutColor, 'First holds'),
           if (section != null)
             (sectionColors[section]!, '${section.label} range and target'),
@@ -702,8 +710,8 @@ class RepResultsGraph extends StatelessWidget {
           child: LineChart(
             duration: Duration.zero,
             LineChartData(
-              minX: 1,
-              maxX: max(targets.length, 2).toDouble(),
+              minX: 1 - _repPadding,
+              maxX: max(targets.length, 2) + _repPadding,
               minY: 0,
               lineBarsData: [
                 line(targets, targetColor, dashed: true),
@@ -722,6 +730,8 @@ class RepResultsGraph extends StatelessWidget {
                   context,
                   (value) => 'Rep ${value.round()}',
                   interval: 1,
+                  minIncluded: false,
+                  maxIncluded: false,
                 ),
               ),
               gridData: _grid(colorScheme),

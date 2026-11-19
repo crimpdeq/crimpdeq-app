@@ -110,4 +110,11 @@ void main() {
       expect((band.y1, band.y2), (19, 21));
     });
   }
+
+  test('holdDeltaColor keeps a hold within the tolerance neutral', () {
+    expect(holdDeltaColor(-2), isNull);
+    expect(holdDeltaColor(3), isNull);
+    expect(holdDeltaColor(-3.5), lossColor);
+    expect(holdDeltaColor(4), gainColor);
+  });
 }

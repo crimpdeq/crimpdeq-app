@@ -248,7 +248,25 @@ class _Reminders extends ConsumerWidget {
               reminder: reminder,
               onChanged: (changed) =>
                   notifier.set([...reminders]..[index] = changed),
-              onDelete: () => notifier.set([...reminders]..removeAt(index)),
+              onDelete: () {
+                unawaited(notifier.set([...reminders]..removeAt(index)));
+                ScaffoldMessenger.of(context)
+                  ..removeCurrentSnackBar()
+                  ..showSnackBar(
+                    SnackBar(
+                      content: Text('${reminder.tool} reminder deleted.'),
+                      action: SnackBarAction(
+                        label: 'Undo',
+                        onPressed: () => notifier.set(
+                          [
+                            ...ref.read(remindersProvider).value ??
+                                const <Reminder>[],
+                          ]..insert(index, reminder),
+                        ),
+                      ),
+                    ),
+                  );
+              },
             ),
           ],
           const SizedBox(height: 12),

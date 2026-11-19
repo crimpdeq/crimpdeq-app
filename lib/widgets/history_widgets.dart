@@ -341,7 +341,7 @@ class _HandSummary extends StatelessWidget {
           StatTile(
             label: 'Avg Δ',
             value: formatDelta(workout.meanDeltaSeconds, 's'),
-            color: deltaColor(workout.meanDeltaSeconds),
+            color: holdDeltaColor(workout.meanDeltaSeconds),
           ),
           StatTile(
             label: 'Held',
@@ -447,7 +447,12 @@ class _SessionDetails extends ConsumerWidget {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          16 + MediaQuery.paddingOf(context).bottom,
+        ),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: maxPageWidth),
@@ -524,7 +529,7 @@ class _HandDetails extends StatelessWidget {
           StatTile(
             label: 'Avg Δ',
             value: formatDelta(workout.meanDeltaSeconds, 's'),
-            color: deltaColor(workout.meanDeltaSeconds),
+            color: holdDeltaColor(workout.meanDeltaSeconds),
           ),
           StatTile(
             label: 'Held',
@@ -574,7 +579,7 @@ class _HandDetails extends StatelessWidget {
                       's',
                     ),
                     style: TextStyle(
-                      color: deltaColor(
+                      color: holdDeltaColor(
                         (seconds.round() - workout.targetSeconds[rep])
                             .toDouble(),
                       ),
