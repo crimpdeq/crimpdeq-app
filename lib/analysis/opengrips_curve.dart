@@ -156,9 +156,12 @@ EnergySystems clampEnergySystems(EnergySystems systems) {
   );
 }
 
+/// How far a hang can miss its target and still count as on target.
+const repToleranceSeconds = 3;
+
 /// Target of each rep. Once the first hang is over, the later targets scale
-/// with it if it missed its target by more than 3 s. Without [energySystems]
-/// the targets follow the section's rep ratios.
+/// with it if it missed its target by more than [repToleranceSeconds].
+/// Without [energySystems] the targets follow the section's rep ratios.
 List<int> repTargetSeconds(
   CurveSection section, {
   required int reps,
@@ -168,7 +171,9 @@ List<int> repTargetSeconds(
 }) {
   final actual = firstHangActualSeconds;
   final base =
-      actual != null && actual > 0 && (actual - firstHangSeconds).abs() > 3
+      actual != null &&
+          actual > 0 &&
+          (actual - firstHangSeconds).abs() > repToleranceSeconds
       ? actual
       : firstHangSeconds;
   final ratios = section.repRatios;

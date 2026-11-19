@@ -127,6 +127,16 @@ class _StartedWorkout extends _FixedWorkout {
   }) async => starts.add((plans: plans, alternating: alternating));
 }
 
+/// A workout in a fixed state that records its redone reps.
+class _RedoneWorkout extends _FixedWorkout {
+  _RedoneWorkout(super.initialState);
+
+  var redone = 0;
+
+  @override
+  void redoRep() => redone++;
+}
+
 /// A warm-up in a fixed state.
 class _FixedWarmup extends WarmupNotifier {
   _FixedWarmup(this.initialState);
@@ -1613,6 +1623,41 @@ void main() {
     await tester.pump();
     expect(fake.calls, ['tare']);
   });
+
+  for (final (held, notice) in [
+    (1.0, 'rep 1 held 1 s of 101 s'),
+    (0.0, 'rep 1 held 0 s of 101 s'),
+    // Short by more than the tolerance before rounding, as the scaling is.
+    (97.6, 'rep 1 held 98 s of 101 s'),
+    (99.0, null),
+  ]) {
+    testWidgets('offers to redo a first rep held $held s', (tester) async {
+      final workout = _RedoneWorkout(
+        WorkoutState(
+          plans: [strength],
+          phase: WorkoutPhase.rest,
+          actualSeconds: [held],
+          repForcesKg: [held > 0 ? 12 : null],
+          restRemainingSeconds: 15,
+        ),
+      );
+      await _pumpScreen(
+        tester,
+        ProgressorState(connection: _connected),
+        deviceTools: false,
+        overrides: [workoutProvider.overrideWith(() => workout)],
+      );
+
+      if (notice == null) {
+        expect(find.textContaining('Redo Rep'), findsNothing);
+        return;
+      }
+      expect(find.byTooltip(notice), findsOne);
+      await tester.ensureVisible(find.text('Redo Rep 1'));
+      await tester.tap(find.text('Redo Rep 1'));
+      expect(workout.redone, 1);
+    });
+  }
 
   testWidgets('keeps the tare off while a hold counts', (tester) async {
     await _pumpScreen(

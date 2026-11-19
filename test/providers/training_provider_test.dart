@@ -189,6 +189,39 @@ void main() {
     expect(workouts.single.toJson(), saved.single.toJson());
   });
 
+  testWidgets('redoes a rep ended by accident', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = _measuring();
+    addTearDown(container.dispose);
+    final workout = container.read(workoutProvider.notifier);
+    WorkoutState state() => container.read(workoutProvider);
+
+    await workout.start([plan]);
+    // A bump of 1 s ends the first rep, and the later targets scale to it.
+    workout.addSamples([..._pull(0, 1, 0), ..._pull(12, 1, 1000)]);
+    workout.addSamples(_pull(0, 1.1, 2000));
+    expect(state().phase, WorkoutPhase.rest);
+    expect(state().targetsOf(0), [10, 1, 1]);
+
+    workout.redoRep();
+    expect(state().phase, WorkoutPhase.hold);
+    expect(state().rep, 1);
+    expect(state().actualSeconds, isEmpty);
+    expect(state().targetsOf(0), plan.targets());
+
+    // The rep holds again once unloaded, and the later targets follow it.
+    workout.addSamples([
+      ..._pull(0, 1, 3000),
+      ..._pull(12, 10, 4000),
+      ..._pull(0, 1.1, 14000),
+    ]);
+    expect(state().phase, WorkoutPhase.rest);
+    expect(state().actualSeconds.single, closeTo(9.9, 1e-9));
+    expect(state().repForcesKg.single, closeTo(12, 1e-9));
+    expect(state().targetsOf(0), plan.targets());
+    await workout.stop();
+  });
+
   testWidgets('alternates the hands, each resting while the other holds', (
     tester,
   ) async {

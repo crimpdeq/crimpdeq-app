@@ -580,6 +580,21 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     }
   }
 
+  /// Takes back the rep just done, such as a pull ended by accident, during
+  /// the rest after it: the rep holds again at once, and a first rep scales
+  /// the later targets to its new hold instead.
+  void redoRep() {
+    if (state.phase != WorkoutPhase.rest || state.actualSeconds.isEmpty) {
+      return;
+    }
+    final done = state.actualSeconds.length - 1;
+    state = state.copyWith(
+      actualSeconds: state.actualSeconds.sublist(0, done),
+      repForcesKg: state.repForcesKg.sublist(0, done),
+    );
+    _startHold(afterRest: false);
+  }
+
   /// Pauses or resumes the rests. Holds follow the force.
   void togglePause() => state = state.copyWith(paused: !state.paused);
 

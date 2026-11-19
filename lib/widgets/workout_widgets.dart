@@ -48,8 +48,9 @@ String _howWorkoutsWork(double thresholdKg) =>
     'than ${formatKg(thresholdKg)}, and ends a second after you let go. '
     'Change the threshold in Customize. Pull close to the target force: the '
     'force you actually pull is what the workout records.\n\n'
-    'If the first hold misses its target by more than 3 s, the later targets '
-    'scale with it.\n\n'
+    'If the first hold misses its target by more than $repToleranceSeconds s, '
+    'the later targets scale with it. A rep that falls that short, such as a '
+    'pull ended by accident, can be redone during the rest after it.\n\n'
     'Both hands train the same plan, each at its own benchmark, starting '
     'with the selected hand. In turn does every rep of one hand, then of the '
     'other. Alternate switches hands after each rep and holds the other hand '
@@ -605,6 +606,7 @@ class _WorkoutTimer extends ConsumerWidget {
     final double progress;
     final Widget instruction;
     final Widget? warning;
+    Widget? redo;
     if (holdPhase) {
       final target = workout.target;
       final remaining = target - workout.heldSeconds;
@@ -646,6 +648,25 @@ class _WorkoutTimer extends ConsumerWidget {
         style: textTheme.bodyLarge,
         textAlign: TextAlign.center,
       );
+      // A rep well short of its target may be a pull ended by accident, and a
+      // first one scales the later targets: it can hold again.
+      final (plan: lastPlan, rep: lastRep) =
+          workout.schedule[workout.actualSeconds.length - 1];
+      final lastHeld = workout.actualSeconds.last;
+      final lastTarget = workout.targetsOf(lastPlan)[lastRep - 1];
+      if (lastTarget - lastHeld > repToleranceSeconds) {
+        redo = Tooltip(
+          message:
+              '${bothHands ? '${workout.plans[lastPlan].hand.label} hand, ' : ''}'
+              'rep $lastRep held ${lastHeld.round()} s of $lastTarget s',
+          child: OutlinedButton.icon(
+            onPressed: notifier.redoRep,
+            icon: const Icon(Icons.replay),
+            label: Text('Redo Rep $lastRep'),
+            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 56)),
+          ),
+        );
+      }
       // A reading above the threshold through the rest is taken for a load
       // left on, which the next hold waits to drop.
       warning = (currentKg ?? 0) > thresholdKg
@@ -738,11 +759,20 @@ class _WorkoutTimer extends ConsumerWidget {
                 ),
               )
             else if (!holdPhase)
-              FilledButton.icon(
-                onPressed: notifier.togglePause,
-                style: bigButton,
-                icon: Icon(workout.paused ? Icons.play_arrow : Icons.pause),
-                label: Text(workout.paused ? 'Resume' : 'Pause'),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: notifier.togglePause,
+                      style: bigButton,
+                      icon: Icon(
+                        workout.paused ? Icons.play_arrow : Icons.pause,
+                      ),
+                      label: Text(workout.paused ? 'Resume' : 'Pause'),
+                    ),
+                  ),
+                  if (redo != null) ...[const SizedBox(width: 8), redo],
+                ],
               ),
             const SizedBox(height: 8),
             Row(
