@@ -184,6 +184,11 @@ ThemeData buildDarkTheme() {
       label: const Color(0xFF00111C),
       unselectedLabel: _webMuted,
     ),
+    // The default track, the secondary container, is the light secondary
+    // here, so a bar read as full.
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      linearTrackColor: Color(0xFF223447),
+    ),
     switchTheme: _switchTheme(_webMuted),
     // Disabled as Material does: a faint fill of the text color, which reads
     // as off on the panel instead of as another, darker button.
@@ -282,6 +287,9 @@ ThemeData buildLightTheme() {
       divider: _lightBorder,
       label: Colors.white,
       unselectedLabel: _lightMuted,
+    ),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      linearTrackColor: _lightOutlineVariant,
     ),
     switchTheme: _switchTheme(_lightMuted),
     // The light primary, darker than the dark theme's accent, which is

@@ -2249,6 +2249,15 @@ void main() {
     }
   });
 
+  test('tells a progress bar track from its fill', () {
+    for (final theme in [buildDarkTheme(), buildLightTheme()]) {
+      expect(
+        theme.progressIndicatorTheme.linearTrackColor,
+        theme.colorScheme.outlineVariant,
+      );
+    }
+  });
+
   testWidgets('keeps the threshold of a running workout', (tester) async {
     await _pumpScreen(
       tester,
