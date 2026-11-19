@@ -20,6 +20,17 @@ String formatClock(int seconds) =>
     '${(seconds ~/ 60).toString().padLeft(2, '0')}:'
     '${(seconds % 60).toString().padLeft(2, '0')}';
 
+/// A hold's time as shown: tenths under 10 s, where whole seconds would show
+/// a short hold as "0 s", else whole seconds.
+double shownHeldSeconds(double seconds) =>
+    seconds < 10 ? (seconds * 10).round() / 10 : seconds.roundToDouble();
+
+/// "0.4 s", "7.5 s" or "45 s".
+String formatHeld(double seconds) {
+  final shown = shownHeldSeconds(seconds);
+  return '${shown < 10 ? shown.toStringAsFixed(1) : shown.round()} s';
+}
+
 /// Seconds as OpenGrips shows hang durations: "45 s" or "1:05".
 String formatDuration(int seconds) => seconds < 60
     ? '$seconds s'
@@ -202,6 +213,20 @@ class TitledCard extends StatelessWidget {
   }
 }
 
+/// A rep's time held against its target, from the time as shown, in the
+/// colors of a hold.
+class HeldDelta extends StatelessWidget {
+  const HeldDelta(this.seconds, {super.key});
+
+  final double seconds;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    formatDelta(seconds, 's'),
+    style: TextStyle(color: holdDeltaColor(seconds)),
+  );
+}
+
 /// A labeled value, such as a workout result.
 class StatTile extends StatelessWidget {
   const StatTile({
@@ -279,7 +304,7 @@ class RepBars extends StatelessWidget {
               message: switch (actual.elementAtOrNull(rep)) {
                 null => 'Rep ${rep + 1}: $target s target',
                 final seconds =>
-                  'Rep ${rep + 1}: ${seconds.round()} of $target s',
+                  'Rep ${rep + 1}: ${formatHeld(seconds)} of $target s',
               },
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(3),

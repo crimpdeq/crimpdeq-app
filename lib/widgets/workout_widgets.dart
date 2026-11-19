@@ -1130,18 +1130,8 @@ class _HandResults extends StatelessWidget {
                 children: [
                   Text('${rep + 1}'),
                   Text('${targets[rep]} s'),
-                  Text('${seconds.round()} s'),
-                  Text(
-                    formatDelta(
-                      (seconds.round() - targets[rep]).toDouble(),
-                      's',
-                    ),
-                    style: TextStyle(
-                      color: holdDeltaColor(
-                        (seconds.round() - targets[rep]).toDouble(),
-                      ),
-                    ),
-                  ),
+                  Text(formatHeld(seconds)),
+                  HeldDelta(shownHeldSeconds(seconds) - targets[rep]),
                 ],
               ),
           ],
