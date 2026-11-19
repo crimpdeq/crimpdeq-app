@@ -73,7 +73,6 @@ class _WarmupSetup extends ConsumerStatefulWidget {
 
 class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
   WarmupKind _kind = WarmupKind.climbing;
-  String _tool = trainingTools.first;
   bool _heavy = false;
 
   @override
@@ -81,16 +80,21 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final benchmarks = widget.log.benchmarks;
+    // The workout's tool, which the training warm-up prepares for.
+    final tool =
+        ref.watch(workoutSetupProvider.select((setup) => setup.tool)) ??
+        benchmarks.lastOrNull?.tool ??
+        trainingTools.first;
     final thresholdKg = watchHoldThreshold(ref);
     final missing = missingBenchmarks(
       benchmarks,
-      _kind == WarmupKind.climbing ? trainingTools : [_tool],
+      _kind == WarmupKind.climbing ? trainingTools : [tool],
     );
     final steps = missing.isNotEmpty
         ? null
         : _kind == WarmupKind.climbing
         ? climbingWarmup(benchmarks)
-        : trainingWarmup(benchmarks, _tool, heavy: _heavy);
+        : trainingWarmup(benchmarks, tool, heavy: _heavy);
     // A hold only counts above the threshold, which a light force is not.
     final lightestKg = steps
         ?.map((step) => step.forceKg!)
@@ -121,8 +125,8 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
             const SizedBox(height: 12),
             ToolAndHand(
               tools: trainingTools,
-              tool: _tool,
-              onToolChanged: (tool) => setState(() => _tool = tool!),
+              tool: tool,
+              onToolChanged: ref.read(workoutSetupProvider.notifier).selectTool,
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,

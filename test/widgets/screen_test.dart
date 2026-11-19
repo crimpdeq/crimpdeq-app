@@ -2277,6 +2277,30 @@ void main() {
     expect(find.text('42.5 kg'), findsOne);
   });
 
+  testWidgets('warms up for the tool of the next workout', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_allBenchmarks]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CrimpdeqScreen)),
+    );
+    container.read(workoutSetupProvider.notifier).selectTool('Photon');
+    await _openPage(tester, 'Warm-up');
+    await _select(tester, 'Before training');
+    SegmentedButton<String?> tools() =>
+        tester.widget(find.byType(SegmentedButton<String?>));
+    expect(tools().selected, {'Photon'});
+
+    // And the workout follows the warm-up's tool.
+    await _select(tester, 'Spark');
+    expect(container.read(workoutSetupProvider).tool, 'Spark');
+  });
+
   testWidgets('blocks a warm-up whose lightest hold cannot start', (
     tester,
   ) async {
@@ -2291,6 +2315,7 @@ void main() {
     );
     await _openPage(tester, 'Warm-up');
     await _select(tester, 'Before training');
+    await _select(tester, 'Photon');
 
     expect(
       find.text(
