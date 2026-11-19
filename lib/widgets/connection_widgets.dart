@@ -249,13 +249,15 @@ class ConnectCard extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Icon(
-                  connection.bluetoothReady
-                      ? Icons.bluetooth_searching
-                      : Icons.bluetooth_disabled,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 12),
+                // Off only: the Scan button carries the Bluetooth icon, and
+                // the title keeps the width for one line.
+                if (!connection.bluetoothReady) ...[
+                  Icon(
+                    Icons.bluetooth_disabled,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 12),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,7 +287,7 @@ class ConnectCard extends ConsumerWidget {
                   const SizedBox(width: 8),
                   FilledButton.icon(
                     onPressed: notifier.startScanning,
-                    icon: const Icon(Icons.search),
+                    icon: const Icon(Icons.bluetooth_searching),
                     label: const Text('Scan'),
                     style: FilledButton.styleFrom(
                       minimumSize: const Size(0, 48),
