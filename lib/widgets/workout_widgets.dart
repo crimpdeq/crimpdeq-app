@@ -128,9 +128,12 @@ class _WorkoutSetup extends ConsumerWidget {
       for (final workout in log.workouts)
         if (workout.tool == tool && workout.hand == hand) ?workout.withPoint,
     ];
-    final suggested = suggestSection([
-      for (final (_, point) in workouts) point,
-    ], benchmark.forceKg);
+    final suggested = suggestedSection(
+      log.benchmarks,
+      log.workouts,
+      tool,
+      hand,
+    )!;
     final section = setup.section ?? suggested;
     // An edited plan follows the current best benchmark. A new benchmark or
     // workout can move the default tool, hand or section away from it.

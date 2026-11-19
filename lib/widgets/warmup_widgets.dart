@@ -73,18 +73,30 @@ class _WarmupSetup extends ConsumerStatefulWidget {
 
 class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
   WarmupKind _kind = WarmupKind.climbing;
-  bool _heavy = false;
+  // Null follows the next workout's section.
+  bool? _heavy;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final benchmarks = widget.log.benchmarks;
-    // The workout's tool, which the training warm-up prepares for.
+    // The workout's tool, which the training warm-up prepares for, and its
+    // section, which makes it a heavy session.
+    final setup = ref.watch(workoutSetupProvider);
     final tool =
-        ref.watch(workoutSetupProvider.select((setup) => setup.tool)) ??
-        benchmarks.lastOrNull?.tool ??
-        trainingTools.first;
+        setup.tool ?? benchmarks.lastOrNull?.tool ?? trainingTools.first;
+    final hand = setup.hand ?? benchmarks.lastOrNull?.hand;
+    final nextSection =
+        setup.section ??
+        (hand == null
+            ? null
+            : suggestedSection(benchmarks, widget.log.workouts, tool, hand));
+    final heavyNext = const {
+      CurveSection.powerStrength,
+      CurveSection.power,
+    }.contains(nextSection);
+    final heavy = _heavy ?? heavyNext;
     final thresholdKg = watchHoldThreshold(ref);
     final missing = missingBenchmarks(
       benchmarks,
@@ -94,7 +106,7 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
         ? null
         : _kind == WarmupKind.climbing
         ? climbingWarmup(benchmarks)
-        : trainingWarmup(benchmarks, tool, heavy: _heavy);
+        : trainingWarmup(benchmarks, tool, heavy: heavy);
     // A hold only counts above the threshold, which a light force is not.
     final lightestKg = steps
         ?.map((step) => step.forceKg!)
@@ -133,10 +145,10 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
               title: const Text('Heavy session'),
               subtitle: Text(
                 'Before Power/Strength, Power or a benchmark: adds 3 s at '
-                '85%.',
+                '85%.${heavyNext && _heavy == null ? ' On for your next ${nextSection!.label} workout.' : ''}',
                 style: textTheme.bodySmall,
               ),
-              value: _heavy,
+              value: heavy,
               onChanged: (heavy) => setState(() => _heavy = heavy),
             ),
           ],

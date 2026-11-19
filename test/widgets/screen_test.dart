@@ -2406,6 +2406,42 @@ void main() {
     expect(container.read(workoutSetupProvider).tool, 'Spark');
   });
 
+  testWidgets('makes the warm-up heavy before a heavy workout', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_allBenchmarks]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    final setup = ProviderScope.containerOf(
+      tester.element(find.byType(CrimpdeqScreen)),
+    ).read(workoutSetupProvider.notifier);
+    bool heavy() => tester
+        .widget<SwitchListTile>(
+          find.widgetWithText(SwitchListTile, 'Heavy session'),
+        )
+        .value;
+
+    setup.selectSection(CurveSection.power);
+    await _openPage(tester, 'Warm-up');
+    await _select(tester, 'Before training');
+    expect(heavy(), isTrue);
+    expect(find.textContaining('On for your next Power workout.'), findsOne);
+
+    setup.selectSection(CurveSection.endurance);
+    await tester.pumpAndSettle();
+    expect(heavy(), isFalse);
+
+    // A choice of its own stays.
+    await tester.tap(find.text('Heavy session'));
+    await tester.pumpAndSettle();
+    setup.selectSection(CurveSection.strength);
+    await tester.pumpAndSettle();
+    expect(heavy(), isTrue);
+  });
+
   testWidgets('blocks a warm-up whose lightest hold cannot start', (
     tester,
   ) async {

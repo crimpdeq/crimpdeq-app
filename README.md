@@ -17,7 +17,8 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
 - Training, following [OpenGrips](https://opengrips.xyz) with the Crimpdeq as the weight, on the
   navigation bar:
   - Warm-up: before climbing (Spark, then Photon) or before gripper training (a ramp on one
-    tool, with a short 85% hold for heavy sessions), both hands alternating at fractions of the
+    tool, with a short 85% hold for heavy sessions, on by itself before a Power/Strength or
+    Power workout), both hands alternating at fractions of the
     benchmarks. Each hand rests at least 15 s between its holds, usually during the other hand's
     hold, so the next hold starts when you pull. Each hold ends at its target, never at failure, with the same timer and live
     graph as a workout, and a warning with a low double beep when the force overshoots. A training warm-up ends with a
