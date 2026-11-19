@@ -572,18 +572,9 @@ class _HandDetails extends StatelessWidget {
                 children: [
                   Text('${rep + 1}'),
                   Text('${workout.targetSeconds[rep]} s'),
-                  Text('${seconds.round()} s'),
-                  Text(
-                    formatDelta(
-                      (seconds.round() - workout.targetSeconds[rep]).toDouble(),
-                      's',
-                    ),
-                    style: TextStyle(
-                      color: holdDeltaColor(
-                        (seconds.round() - workout.targetSeconds[rep])
-                            .toDouble(),
-                      ),
-                    ),
+                  Text(formatHeld(seconds)),
+                  HeldDelta(
+                    shownHeldSeconds(seconds) - workout.targetSeconds[rep],
                   ),
                   Text(switch (repForcesKg?[rep]) {
                     final kg? => formatKg(kg),

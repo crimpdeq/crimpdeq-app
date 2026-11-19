@@ -547,13 +547,12 @@ class _WarmupResults extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
+                  // The rest keeps counting on the Workout page, until the
+                  // workout starts.
                   child: FilledButton(
-                    onPressed: () {
-                      notifier.reset();
-                      ref
-                          .read(trainingPageProvider.notifier)
-                          .open(TrainingPage.workout);
-                    },
+                    onPressed: () => ref
+                        .read(trainingPageProvider.notifier)
+                        .open(TrainingPage.workout),
                     child: const Text('Go to Workout'),
                   ),
                 ),
@@ -593,6 +592,67 @@ class _WarmupResults extends ConsumerWidget {
             ),
           },
         ],
+      ),
+    );
+  }
+}
+
+/// The rest after a training warm-up, counting down on the Workout page.
+/// Nothing once it is over.
+class WarmupRestCard extends ConsumerWidget {
+  const WarmupRestCard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final remaining = ref.watch(
+      warmupProvider.select(
+        (warmup) =>
+            warmup.kind == WarmupKind.training &&
+                warmup.phase == WorkoutPhase.done &&
+                warmup.endedEarly == null
+            ? warmup.restRemainingSeconds
+            : 0,
+      ),
+    );
+    if (remaining <= 0) return const SizedBox.shrink();
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.local_fire_department, color: colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Rest after the warm-up',
+                      style: textTheme.titleSmall,
+                    ),
+                  ),
+                  Text(
+                    formatClock(remaining),
+                    style: textTheme.headlineSmall?.copyWith(
+                      color: colorScheme.primary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: 1 - remaining / workoutRestSeconds,
+                minHeight: 4,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

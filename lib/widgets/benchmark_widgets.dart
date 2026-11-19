@@ -140,15 +140,22 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
       );
   }
 
-  Future<void> _saveHold(String tool, Hand hand, double minBenchmarkKg) async {
-    double? parse(TextEditingController field) =>
-        double.tryParse(field.text.trim().replaceAll(',', '.'));
-    final weightKg = parse(_weightKg);
-    final heldSeconds = parse(_heldSeconds);
-    if (weightKg == null || weightKg <= 0) {
-      _showError('Enter the weight held, in kg.');
-      return;
-    }
+  static double? _parse(TextEditingController field) =>
+      double.tryParse(field.text.trim().replaceAll(',', '.'));
+
+  /// The weight entered, null until it is one.
+  double? get _weightEnteredKg => switch (_parse(_weightKg)) {
+    final kg? when kg > 0 => kg,
+    _ => null,
+  };
+
+  Future<void> _saveHold(
+    String tool,
+    Hand hand,
+    double weightKg,
+    double minBenchmarkKg,
+  ) async {
+    final heldSeconds = _parse(_heldSeconds);
     if (heldSeconds == null || heldSeconds < 5) {
       _showError('The hold must last at least 5 s.');
       return;
@@ -337,11 +344,17 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
               ],
             ),
             const SizedBox(height: 8),
-            OutlinedButton(
-              onPressed: tool == null || hand == null
-                  ? null
-                  : () => _saveHold(tool, hand, minBenchmarkKg),
-              child: const Text('Save Hold'),
+            // Off until a weight is entered, instead of an error after a tap.
+            ListenableBuilder(
+              listenable: _weightKg,
+              builder: (context, _) => OutlinedButton(
+                onPressed: switch ((tool, hand, _weightEnteredKg)) {
+                  (final tool?, final hand?, final weightKg?) =>
+                    () => _saveHold(tool, hand, weightKg, minBenchmarkKg),
+                  _ => null,
+                },
+                child: const Text('Save Hold'),
+              ),
             ),
           ],
         ),

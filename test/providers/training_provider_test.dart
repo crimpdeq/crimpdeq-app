@@ -73,6 +73,16 @@ List<WeightMeasurement> _pull(double weightKg, double seconds, int startMs) => [
     ),
 ];
 
+/// A training warm-up done, resting before the workout.
+class _RestingWarmup extends WarmupNotifier {
+  @override
+  WarmupState build() => const WarmupState(
+    kind: WarmupKind.training,
+    phase: WorkoutPhase.done,
+    restRemainingSeconds: 60,
+  );
+}
+
 /// Records the cues and the screen instead of using the platform.
 class _Feedback extends WorkoutFeedback {
   final events = <String>[];
@@ -272,6 +282,25 @@ void main() {
     expect(log.workouts.single.actualSeconds, state().actualSeconds);
     // At its end, however late it is saved.
     expect(log.workouts.single.date, state().endedAt);
+  });
+
+  testWidgets('ends the rest after a warm-up once the workout starts', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer(
+      overrides: [
+        progressorProvider.overrideWith(_MeasuringProgressor.new),
+        workoutFeedbackProvider.overrideWithValue(_Feedback()),
+        trainingNotificationsProvider.overrideWithValue(FakeNotifications()),
+        warmupProvider.overrideWith(_RestingWarmup.new),
+      ],
+    )..listen(progressorProvider, (_, _) {});
+    addTearDown(container.dispose);
+
+    await container.read(workoutProvider.notifier).start([plan]);
+    expect(container.read(warmupProvider).phase, WorkoutPhase.idle);
+    await container.read(workoutProvider.notifier).stop();
   });
 
   testWidgets('alternates the hands, each resting while the other holds', (

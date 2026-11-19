@@ -1242,6 +1242,7 @@ void main() {
     await tester.tap(find.text('Enter a held weight instead'));
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, 'Weight (kg)'), '30');
+    await tester.pump();
     final save = find.widgetWithText(OutlinedButton, 'Save Hold');
     await tester.ensureVisible(save);
     await tester.tap(save);
@@ -1283,19 +1284,23 @@ void main() {
     final weight = find.widgetWithText(TextField, 'Weight (kg)');
     final save = find.widgetWithText(OutlinedButton, 'Save Hold');
     await tester.ensureVisible(save);
+    // Off until a weight is entered.
+    expect(tester.widget<OutlinedButton>(save).onPressed, isNull);
     await tester.enterText(weight, 'abc');
-    await tester.tap(save);
     await tester.pump();
-    expect(find.text('Enter the weight held, in kg.'), findsOneWidget);
+    expect(tester.widget<OutlinedButton>(save).onPressed, isNull);
     // Too light for even the Power target to start a hold.
     await tester.enterText(weight, '0.5');
+    await tester.pump();
     await tester.tap(save);
     await tester.pump();
     expect(find.textContaining('A workout needs more than 3.0 kg'), findsOne);
 
     // 30 kg for 10 s is a 32.92 kg 5 s max.
     await tester.enterText(weight, '30');
+    await tester.pump();
     await tester.enterText(find.widgetWithText(TextField, 'Held (s)'), '10');
+    await tester.pump();
     await tester.tap(save);
     await tester.pumpAndSettle();
     // The left hand's best, the right hand without one.
@@ -1329,6 +1334,7 @@ void main() {
     await _select(tester, 'Photon');
     await _select(tester, 'Right');
     await tester.enterText(find.widgetWithText(TextField, 'Weight (kg)'), '30');
+    await tester.pump();
     final save = find.widgetWithText(OutlinedButton, 'Save Hold');
     await tester.ensureVisible(save);
     await tester.tap(save);
@@ -1388,6 +1394,7 @@ void main() {
     final save = find.text('Save Body Weight');
     for (final invalid in ['5', 'NaN']) {
       await tester.enterText(field, invalid);
+      await tester.pump();
       await tester.tap(save);
       await tester.pumpAndSettle();
       expect(find.textContaining('from 20 to 300 kg'), findsOne);
@@ -1395,6 +1402,7 @@ void main() {
     expect(find.text('No body weights yet.'), findsOne);
 
     await tester.enterText(field, '61,5');
+    await tester.pump();
     await tester.tap(save);
     await tester.pumpAndSettle();
     expect(find.text('61.5 kg'), findsOne);
@@ -1732,7 +1740,9 @@ void main() {
     await tester.ensureVisible(find.text('Enter a held weight instead'));
     await tester.tap(find.text('Enter a held weight instead'));
     await tester.pumpAndSettle();
-    // The latest benchmark's tool and hand, so a hold saves at once.
+    // A suggested tool and hand, so a hold saves once its weight is in.
+    await tester.enterText(find.widgetWithText(TextField, 'Weight (kg)'), '20');
+    await tester.pump();
     final save = find.widgetWithText(OutlinedButton, 'Save Hold');
     await tester.ensureVisible(save);
     expect(tester.widget<OutlinedButton>(save).onPressed, isNotNull);
@@ -2223,11 +2233,28 @@ void main() {
     }
   });
 
+  test('fills the buttons with each theme\'s primary', () {
+    for (final theme in [buildDarkTheme(), buildLightTheme()]) {
+      final style = theme.filledButtonTheme.style!;
+      expect(style.backgroundColor!.resolve({}), theme.colorScheme.primary);
+      expect(style.foregroundColor!.resolve({}), theme.colorScheme.onPrimary);
+    }
+  });
+
   test('shows the inactive slider and switch tracks on a card', () {
     for (final theme in [buildDarkTheme(), buildLightTheme()]) {
       final track = theme.colorScheme.surfaceContainerHighest;
       expect(track, isNot(theme.colorScheme.surface));
       expect(track, isNot(theme.cardTheme.color));
+    }
+  });
+
+  test('tells a progress bar track from its fill', () {
+    for (final theme in [buildDarkTheme(), buildLightTheme()]) {
+      expect(
+        theme.progressIndicatorTheme.linearTrackColor,
+        theme.colorScheme.outlineVariant,
+      );
     }
   });
 
@@ -2576,7 +2603,15 @@ void main() {
       expect(find.text('Warm-up complete'), findsOne);
       expect(find.text(message), findsOne);
       expect(find.text(clock), findsOne);
-      expect(find.text('Go to Workout'), findsOne);
+
+      // The rest keeps counting on the Workout page, while there is one.
+      await tester.tap(find.text('Go to Workout'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Rest after the warm-up'),
+        remaining > 0 ? findsOne : findsNothing,
+      );
+      if (remaining > 0) expect(find.text(clock), findsOne);
     });
   }
 

@@ -512,6 +512,10 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
         begin: (started) {
           _startedMeasurement = started;
           _thresholdKg = thresholdKg;
+          // The warm-up's results and rest give way to the workout.
+          if (ref.read(warmupProvider).phase == WorkoutPhase.done) {
+            ref.read(warmupProvider.notifier).reset();
+          }
           _trace = ForceTrace();
           _restLoad = null;
           _samples = ref

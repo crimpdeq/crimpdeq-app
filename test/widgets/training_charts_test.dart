@@ -117,4 +117,13 @@ void main() {
     expect(holdDeltaColor(-3.5), lossColor);
     expect(holdDeltaColor(4), gainColor);
   });
+
+  test('formatHeld shows a short hold in tenths, not as 0 s', () {
+    expect(formatHeld(0.4), '0.4 s');
+    expect(formatHeld(7.46), '7.5 s');
+    expect(formatHeld(9.96), '10 s');
+    expect(formatHeld(14.9), '15 s');
+    // The delta follows the time as shown.
+    expect(shownHeldSeconds(0.4) - 4, closeTo(-3.6, 1e-9));
+  });
 }
