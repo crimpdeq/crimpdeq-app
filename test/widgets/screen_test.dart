@@ -2584,7 +2584,15 @@ void main() {
       expect(find.text('Warm-up complete'), findsOne);
       expect(find.text(message), findsOne);
       expect(find.text(clock), findsOne);
-      expect(find.text('Go to Workout'), findsOne);
+
+      // The rest keeps counting on the Workout page, while there is one.
+      await tester.tap(find.text('Go to Workout'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Rest after the warm-up'),
+        remaining > 0 ? findsOne : findsNothing,
+      );
+      if (remaining > 0) expect(find.text(clock), findsOne);
     });
   }
 

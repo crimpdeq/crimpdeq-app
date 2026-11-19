@@ -11,6 +11,7 @@ import 'connection_widgets.dart';
 import 'schedule_widgets.dart';
 import 'training_charts.dart';
 import 'training_common.dart';
+import 'warmup_widgets.dart';
 
 /// The OpenGrips workout timer, with the Crimpdeq as the weight.
 class WorkoutTab extends ConsumerWidget {
@@ -31,9 +32,10 @@ class WorkoutTab extends ConsumerWidget {
             const ConnectCard(),
             const SizedBox(height: 16),
           ],
-          if (phase == WorkoutPhase.idle)
-            _WorkoutSetup(log: log)
-          else
+          if (phase == WorkoutPhase.idle) ...[
+            const WarmupRestCard(),
+            _WorkoutSetup(log: log),
+          ] else
             const _WorkoutResults(),
         ],
       ),
