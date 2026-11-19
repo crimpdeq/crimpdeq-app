@@ -137,6 +137,19 @@ class _RedoneWorkout extends _FixedWorkout {
   void redoRep() => redone++;
 }
 
+/// A workout in a fixed state that records how it stops.
+class _StoppedWorkout extends _FixedWorkout {
+  _StoppedWorkout(super.initialState);
+
+  final stops = <String>[];
+
+  @override
+  Future<void> stop() async => stops.add('discard');
+
+  @override
+  Future<void> stopKeepingReps() async => stops.add('keep');
+}
+
 /// A warm-up in a fixed state.
 class _FixedWarmup extends WarmupNotifier {
   _FixedWarmup(this.initialState);
@@ -1839,6 +1852,40 @@ void main() {
           lessThanOrEqualTo(size.height / ratio - 16),
         );
       }
+    });
+  }
+
+  for (final (repsDone, action) in [
+    (0, 'Stop'),
+    (1, 'Discard'),
+    (1, 'Save Reps'),
+  ]) {
+    testWidgets('stops a workout with $repsDone reps done: $action', (
+      tester,
+    ) async {
+      final workout = _StoppedWorkout(
+        WorkoutState(
+          plans: [strength],
+          phase: WorkoutPhase.hold,
+          actualSeconds: [for (var rep = 0; rep < repsDone; rep++) 101],
+          repForcesKg: [for (var rep = 0; rep < repsDone; rep++) 12],
+        ),
+      );
+      await _pumpScreen(
+        tester,
+        ProgressorState(connection: _connected),
+        deviceTools: false,
+        overrides: [workoutProvider.overrideWith(() => workout)],
+      );
+      final stop = find.widgetWithText(OutlinedButton, 'Stop');
+      await tester.ensureVisible(stop);
+      await tester.tap(stop);
+      await tester.pumpAndSettle();
+      expect(find.text('Save Reps'), repsDone == 0 ? findsNothing : findsOne);
+
+      await tester.tap(find.widgetWithText(TextButton, action));
+      await tester.pumpAndSettle();
+      expect(workout.stops, [action == 'Save Reps' ? 'keep' : 'discard']);
     });
   }
 

@@ -805,7 +805,11 @@ class _WorkoutTimer extends ConsumerWidget {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _confirmStop(context, notifier),
+                    onPressed: () => _confirmStop(
+                      context,
+                      notifier,
+                      workout.actualSeconds.length,
+                    ),
                     icon: const Icon(Icons.stop),
                     label: const Text('Stop'),
                   ),
@@ -829,27 +833,48 @@ class _WorkoutTimer extends ConsumerWidget {
   Future<void> _confirmStop(
     BuildContext context,
     WorkoutNotifier notifier,
+    int repsDone,
   ) async {
-    final stop = await showDialog<bool>(
+    final stop = await showDialog<_Stop>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Stop the workout?'),
-        content: const Text('The workout so far is discarded.'),
+        content: Text(
+          repsDone == 0
+              ? 'No rep is done yet, so there is nothing to save.'
+              : 'Save the $repsDone rep${repsDone == 1 ? '' : 's'} done, or '
+                    'discard the workout.',
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context),
             child: const Text('Continue'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Stop'),
+            onPressed: () => Navigator.pop(context, _Stop.discard),
+            child: Text(repsDone == 0 ? 'Stop' : 'Discard'),
           ),
+          if (repsDone > 0)
+            TextButton(
+              onPressed: () => Navigator.pop(context, _Stop.keep),
+              child: const Text('Save Reps'),
+            ),
         ],
       ),
     );
-    if (stop ?? false) await notifier.stop();
+    switch (stop) {
+      case _Stop.discard:
+        await notifier.stop();
+      case _Stop.keep:
+        await notifier.stopKeepingReps();
+      case null:
+        return;
+    }
   }
 }
+
+/// How a workout stops: without its reps, or with them to save.
+enum _Stop { discard, keep }
 
 /// Perceived exertion labels, from 1 to 10.
 const _effort = [
@@ -902,22 +927,27 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
     final reps = workout.actualSeconds.length;
 
     return TitledCard(
-      title: workout.endedEarly == null
-          ? 'Workout complete'
-          : 'Workout ended early',
+      title: switch (workout.endedEarly) {
+        null => 'Workout complete',
+        WorkoutEnd.stopped => 'Workout stopped',
+        _ => 'Workout ended early',
+      },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (workout.endedEarly case final end?) ...[
             Text(
-              'The Crimpdeq ${switch (end) {
-                WorkoutEnd.disconnected => 'disconnected',
-                WorkoutEnd.measurementFailed => 'stopped measuring',
+              '${switch (end) {
+                WorkoutEnd.disconnected => 'The Crimpdeq disconnected',
+                WorkoutEnd.measurementFailed => 'The Crimpdeq stopped measuring',
+                WorkoutEnd.stopped => 'You stopped',
               }} after rep $reps of ${workout.schedule.length}. You can '
               'still save the reps done.',
-              style: textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.error,
-              ),
+              style: end == WorkoutEnd.stopped
+                  ? textTheme.bodyMedium
+                  : textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
             ),
             const SizedBox(height: 8),
           ],

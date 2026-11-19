@@ -425,11 +425,17 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
       _cancel();
       if (_screenKeptOn) _feedback.keepScreenOn(false);
     });
-    listenSelf((_, next) {
+    listenSelf((previous, next) {
+      final unsaved = next.phase == WorkoutPhase.done && !next.saved;
+      final wasUnsaved =
+          previous?.phase == WorkoutPhase.done && !previous!.saved;
+      if (unsaved && !wasUnsaved) unawaited(_storeUnsaved(next));
+      if (wasUnsaved && !unsaved) unawaited(_clearUnsaved());
       if (next.isRunning == _screenKeptOn) return;
       _screenKeptOn = next.isRunning;
       _feedback.keepScreenOn(_screenKeptOn);
     });
+    unawaited(_restoreUnsaved());
     ref.listen(
       progressorProvider.select(
         (state) => (
@@ -604,6 +610,108 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     state = const WorkoutState();
     await _release();
   }
+
+  /// Ends the workout with the reps done so far, to save.
+  Future<void> stopKeepingReps() async {
+    if (!state.isRunning || state.actualSeconds.isEmpty) return;
+    // Done first, so stopping the measurement does not restart it.
+    state = state.copyWith(
+      phase: WorkoutPhase.done,
+      endedEarly: WorkoutEnd.stopped,
+      endedAt: DateTime.now(),
+    );
+    await _release();
+  }
+
+  static const _unsavedKey = 'training.unsavedWorkout';
+
+  /// Keeps finished results that are not saved yet, so they outlast the app,
+  /// which the system can close meanwhile.
+  Future<void> _storeUnsaved(WorkoutState workout) async =>
+      (await SharedPreferences.getInstance()).setString(
+        _unsavedKey,
+        jsonEncode({
+          'plans': [for (final plan in workout.plans) _planToJson(plan)],
+          'alternating': workout.alternating,
+          'actualSeconds': workout.actualSeconds,
+          'repForcesKg': workout.repForcesKg,
+          'endedEarly': workout.endedEarly?.name,
+          'startedAt': workout.startedAt!.toIso8601String(),
+          'endedAt': workout.endedAt!.toIso8601String(),
+        }),
+      );
+
+  Future<void> _clearUnsaved() async =>
+      (await SharedPreferences.getInstance()).remove(_unsavedKey);
+
+  /// Shows the results left unsaved when the app closed, unless a workout
+  /// started meanwhile.
+  Future<void> _restoreUnsaved() async {
+    final stored = (await SharedPreferences.getInstance()).getString(
+      _unsavedKey,
+    );
+    if (stored == null || state.phase != WorkoutPhase.idle || _starting) {
+      return;
+    }
+    final json = jsonDecode(stored) as Map<String, Object?>;
+    state = WorkoutState(
+      plans: [
+        for (final plan in json['plans']! as List)
+          _planFromJson(plan as Map<String, Object?>),
+      ],
+      alternating: json['alternating']! as bool,
+      phase: WorkoutPhase.done,
+      actualSeconds: [
+        for (final seconds in json['actualSeconds']! as List)
+          (seconds as num).toDouble(),
+      ],
+      repForcesKg: [
+        for (final kg in json['repForcesKg']! as List) (kg as num?)?.toDouble(),
+      ],
+      endedEarly: switch (json['endedEarly'] as String?) {
+        final name? => WorkoutEnd.values.byName(name),
+        null => null,
+      },
+      startedAt: DateTime.parse(json['startedAt']! as String),
+      endedAt: DateTime.parse(json['endedAt']! as String),
+    );
+  }
+
+  static Map<String, Object?> _planToJson(WorkoutPlan plan) => {
+    'tool': plan.tool,
+    'hand': plan.hand.name,
+    'section': plan.section.name,
+    'benchmarkKg': plan.benchmarkKg,
+    'firstHangSeconds': plan.firstHangSeconds,
+    'reps': plan.reps,
+    'restSeconds': plan.restSeconds,
+    'energySystems': switch (plan.energySystems) {
+      final systems? => {
+        'power': systems.power,
+        'powerEndurance': systems.powerEndurance,
+        'endurance': systems.endurance,
+      },
+      null => null,
+    },
+  };
+
+  static WorkoutPlan _planFromJson(Map<String, Object?> json) => WorkoutPlan(
+    tool: json['tool']! as String,
+    hand: Hand.values.byName(json['hand']! as String),
+    section: CurveSection.values.byName(json['section']! as String),
+    benchmarkKg: (json['benchmarkKg']! as num).toDouble(),
+    firstHangSeconds: json['firstHangSeconds']! as int,
+    reps: json['reps']! as int,
+    restSeconds: json['restSeconds']! as int,
+    energySystems: switch (json['energySystems'] as Map<String, Object?>?) {
+      final systems? => (
+        power: (systems['power']! as num).toDouble(),
+        powerEndurance: (systems['powerEndurance']! as num).toDouble(),
+        endurance: (systems['endurance']! as num).toDouble(),
+      ),
+      null => null,
+    },
+  );
 
   /// Ends the workout without the device's samples, with the reps done so far
   /// to save, or abandons it before the first rep.

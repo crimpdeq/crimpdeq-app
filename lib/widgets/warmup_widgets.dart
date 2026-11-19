@@ -463,9 +463,10 @@ class _WarmupResults extends ConsumerWidget {
         children: [
           if (warmup.endedEarly case final end?) ...[
             Text(
-              'The Crimpdeq ${switch (end) {
-                WorkoutEnd.disconnected => 'disconnected',
-                WorkoutEnd.measurementFailed => 'stopped measuring',
+              '${switch (end) {
+                WorkoutEnd.disconnected => 'The Crimpdeq disconnected',
+                WorkoutEnd.measurementFailed => 'The Crimpdeq stopped measuring',
+                WorkoutEnd.stopped => 'You stopped',
               }} after ${warmup.bestKg.length} of ${warmup.steps.length} '
               'holds.',
               style: textTheme.bodyMedium?.copyWith(
