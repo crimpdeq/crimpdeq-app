@@ -4,7 +4,8 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
 
 ## Features
 
-- Bluetooth Low Energy (BLE) device scanning and connection
+- Bluetooth Low Energy (BLE) device scanning and connection, reconnecting to the last device
+  at the start and on each scan until you disconnect it
 - Calibration support, with a check of each point's calibration-fit residual against the device calibration
 - Selectable linear, quadratic or two-segment piecewise linear calibration, fitted by the firmware
   (see [Calibration models](#calibration-models)), with the calibrated range and readings outside

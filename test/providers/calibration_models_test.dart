@@ -8,6 +8,7 @@ import 'package:crimpdeq/providers/progressor_provider.dart';
 import 'package:flutter_blue_plus_platform_interface/flutter_blue_plus_platform_interface.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/calibration_details.dart';
 import '../support/fake_ble.dart';
@@ -26,6 +27,8 @@ void main() {
   final ble = FakeBle();
   setUpAll(() => FlutterBluePlusPlatform.instance = ble);
   setUp(() {
+    // The connection stores the device to reconnect to.
+    SharedPreferences.setMockInitialValues({});
     ble.writes.clear();
     ble.unanswered.clear();
     ble.calibrationDetails = null;

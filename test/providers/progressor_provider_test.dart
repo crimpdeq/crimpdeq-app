@@ -7,6 +7,7 @@ import 'package:crimpdeq/providers/progressor_provider.dart';
 import 'package:flutter_blue_plus_platform_interface/flutter_blue_plus_platform_interface.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/fake_ble.dart';
 
@@ -39,6 +40,9 @@ void main() {
   final ble = FakeBle();
   setUpAll(() => FlutterBluePlusPlatform.instance = ble);
   setUp(() {
+    // The connection stores the device to reconnect to.
+    SharedPreferences.setMockInitialValues({});
+    ble.scans = 0;
     ble.writes.clear();
     ble.unanswered.clear();
   });
@@ -60,6 +64,70 @@ void main() {
     // Let the request timeouts expire.
     await tester.pump(const Duration(seconds: 3));
   }
+
+  group('reconnects to the last device', () {
+    tearDown(() => ble.advertising = false);
+
+    /// A new start of the app, with Bluetooth on.
+    Future<ProviderContainer> start(WidgetTester tester) async {
+      final container = ProviderContainer()
+        ..listen(progressorProvider, (_, _) {});
+      await tester.pump(const Duration(milliseconds: 10));
+      return container;
+    }
+
+    testWidgets('scans at the start and connects to it', (tester) async {
+      ble.advertising = true;
+      // Without a device yet, nothing to look for.
+      final first = await start(tester);
+      expect(ble.scans, 0);
+      await dispose(tester, await connect(tester, first));
+
+      final next = await start(tester);
+      await tester.pump(const Duration(milliseconds: 10));
+      expect(ble.scans, 1);
+      expect(next.read(progressorProvider).connection.isConnected, isTrue);
+      await dispose(tester, next);
+    });
+
+    testWidgets('lists it to choose once disconnected by the user', (
+      tester,
+    ) async {
+      ble.advertising = true;
+      final container = await connect(tester);
+      await container.read(progressorProvider.notifier).disconnect();
+      unawaited(container.read(progressorProvider.notifier).startScanning());
+      await tester.pump(const Duration(milliseconds: 10));
+      final connection = container.read(progressorProvider).connection;
+      expect(connection.isConnected, isFalse);
+      expect(connection.discoveredDevices.single.id, ble.device.id);
+      await container.read(progressorProvider.notifier).stopScanning();
+      await tester.pump(const Duration(milliseconds: 10));
+      await dispose(tester, container);
+    });
+  });
+
+  testWidgets('stops a scan and explains a scan that finds nothing', (
+    tester,
+  ) async {
+    final container = ProviderContainer()
+      ..listen(progressorProvider, (_, _) {});
+    await tester.pump(const Duration(milliseconds: 10));
+    final notifier = container.read(progressorProvider.notifier);
+    String status() => container.read(progressorProvider).connection.status;
+
+    unawaited(notifier.startScanning());
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(container.read(progressorProvider).connection.isScanning, isTrue);
+    await notifier.stopScanning();
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(status(), 'Turn on the Crimpdeq, then scan for it.');
+
+    unawaited(notifier.startScanning());
+    await tester.pump(const Duration(seconds: 11));
+    expect(status(), startsWith('No Crimpdeq found. Turn it on'));
+    await dispose(tester, container);
+  });
 
   testWidgets('keeps the low battery warning after the device turns off', (
     tester,

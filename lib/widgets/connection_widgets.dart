@@ -273,6 +273,13 @@ class ConnectCard extends ConsumerWidget {
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
+                if (connection.isScanning) ...[
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: notifier.stopScanning,
+                    child: const Text('Stop'),
+                  ),
+                ],
                 // Beside the title, so the card leaves the page its height.
                 if (canScan) ...[
                   const SizedBox(width: 8),
