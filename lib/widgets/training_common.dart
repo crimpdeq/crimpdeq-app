@@ -6,6 +6,7 @@ import '../models/training_models.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/progressor_provider.dart';
 import '../providers/training_provider.dart';
+import '../providers/warmup_provider.dart';
 import '../providers/workout_feedback_provider.dart';
 
 String formatKg(double kg) => '${kg.toStringAsFixed(1)} kg';
@@ -335,14 +336,27 @@ bool watchConnected(WidgetRef ref) => ref.watch(
 double watchHoldThreshold(WidgetRef ref) =>
     ref.watch(holdThresholdProvider).value ?? HoldTracker.defaultThresholdKg;
 
-/// Tares the Crimpdeq, unloaded, so the forces start from zero.
+/// Tares the Crimpdeq, unloaded, so the forces start from zero. Off during a
+/// counting hold, whose load a tare would zero.
 class TareButton extends ConsumerWidget {
   const TareButton({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // The flag outlives its hold, so it counts only in the hold phase.
+    final holding =
+        ref.watch(
+          workoutProvider.select(
+            (workout) => workout.phase == WorkoutPhase.hold && workout.holding,
+          ),
+        ) ||
+        ref.watch(
+          warmupProvider.select(
+            (warmup) => warmup.phase == WorkoutPhase.hold && warmup.holding,
+          ),
+        );
     return OutlinedButton.icon(
-      onPressed: watchConnected(ref)
+      onPressed: watchConnected(ref) && !holding
           ? ref.read(progressorProvider.notifier).tareScale
           : null,
       icon: const Icon(Icons.adjust),

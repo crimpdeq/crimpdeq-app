@@ -1614,6 +1614,70 @@ void main() {
     expect(fake.calls, ['tare']);
   });
 
+  testWidgets('keeps the tare off while a hold counts', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        measurement: const MeasurementState(isMeasuring: true, currentKg: 12),
+      ),
+      deviceTools: false,
+      overrides: [
+        workoutProvider.overrideWith(
+          () => _FixedWorkout(
+            WorkoutState(
+              plans: [strength],
+              phase: WorkoutPhase.hold,
+              holding: true,
+              heldSeconds: 20,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    final tare = tester.widget<ButtonStyleButton>(
+      find.ancestor(
+        of: find.text('Tare'),
+        matching: find.bySubtype<ButtonStyleButton>(),
+      ),
+    );
+    expect(tare.onPressed, isNull);
+  });
+
+  for (final (name, workout, message) in [
+    (
+      'a running workout',
+      WorkoutState(plans: [strength], phase: WorkoutPhase.hold),
+      'Stop the workout or warm-up to leave.',
+    ),
+    (
+      'unsaved results',
+      WorkoutState(
+        plans: [strength],
+        phase: WorkoutPhase.done,
+        actualSeconds: const [98, 34, 30, 22, 20],
+        repForcesKg: const [12, 12, 12, 12, 12],
+      ),
+      'Save or discard the workout to leave.',
+    ),
+  ]) {
+    testWidgets('keeps $name from the back gesture', (tester) async {
+      await _pumpScreen(
+        tester,
+        ProgressorState(connection: _connected),
+        deviceTools: false,
+        overrides: [workoutProvider.overrideWith(() => _FixedWorkout(workout))],
+      );
+
+      // Handled by the app, so the system does not close it.
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await tester.pump();
+      expect(find.text(message), findsOne);
+      expect(find.byType(CrimpdeqScreen), findsOne);
+    });
+  }
+
   testWidgets('shows the workout that starts on another page', (tester) async {
     final workout = _FixedWorkout(const WorkoutState());
     SharedPreferences.setMockInitialValues({
