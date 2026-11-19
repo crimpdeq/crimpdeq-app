@@ -2022,6 +2022,14 @@ void main() {
     expect(find.text('-2.2 s'), findsOneWidget);
     final save = find.widgetWithText(FilledButton, 'Save Results');
     await tester.ensureVisible(save);
+    // Saving waits for the effort.
+    expect(tester.widget<FilledButton>(save).onPressed, isNull);
+    final effort = find.byType(Slider);
+    await tester.ensureVisible(effort);
+    await tester.tap(effort);
+    await tester.pumpAndSettle();
+    expect(find.textContaining(RegExp(r'^Effort: \d+/10 · ')), findsOne);
+    await tester.ensureVisible(save);
     await tester.tap(save);
     await tester.pumpAndSettle();
     expect(find.text('Saved to your history.'), findsOneWidget);

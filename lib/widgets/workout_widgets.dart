@@ -891,7 +891,8 @@ class _WorkoutResults extends ConsumerStatefulWidget {
 
 class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
   final _notes = TextEditingController();
-  int _exertion = 5;
+  // Unrated until chosen, so a default is not saved as the effort.
+  int? _exertion;
 
   @override
   void dispose() {
@@ -954,15 +955,21 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
               ),
             ],
           const SizedBox(height: 16),
-          Text(
-            'Effort: $_exertion/10 · ${_effort[_exertion - 1]}',
-            style: textTheme.titleSmall,
-          ),
+          Text(switch (_exertion) {
+            final exertion? =>
+              'Effort: $exertion/10 · ${_effort[exertion - 1]}',
+            null => 'Effort: how hard was it, from 1 to 10?',
+          }, style: textTheme.titleSmall),
           Slider(
-            value: _exertion.toDouble(),
+            value: (_exertion ?? 5).toDouble(),
             min: 1,
             max: 10,
             divisions: 9,
+            // Unrated, the thumb waits in the middle without a color.
+            thumbColor: _exertion == null ? theme.colorScheme.outline : null,
+            activeColor: _exertion == null
+                ? theme.colorScheme.surfaceContainerHighest
+                : null,
             onChanged: workout.saved
                 ? null
                 : (value) => setState(() => _exertion = value.round()),
@@ -1019,10 +1026,13 @@ class _WorkoutResultsState extends ConsumerState<_WorkoutResults> {
                 Expanded(
                   flex: 2,
                   child: FilledButton.icon(
-                    onPressed: () => notifier.save(
-                      perceivedExertion: _exertion,
-                      notes: _notes.text.trim(),
-                    ),
+                    onPressed: switch (_exertion) {
+                      final exertion? => () => notifier.save(
+                        perceivedExertion: exertion,
+                        notes: _notes.text.trim(),
+                      ),
+                      null => null,
+                    },
                     icon: const Icon(Icons.save_alt),
                     label: const Text('Save Results'),
                     style: FilledButton.styleFrom(
