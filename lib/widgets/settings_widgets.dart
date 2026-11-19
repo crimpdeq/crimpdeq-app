@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/theme_mode_provider.dart';
 import '../providers/training_provider.dart';
+import '../providers/warmup_provider.dart';
 import 'training_common.dart';
 
 /// The theme and the hold threshold, which every workout and warm-up share.
@@ -13,6 +14,10 @@ class SettingsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final thresholdKg = watchHoldThreshold(ref);
+    // A running session keeps the threshold it started with.
+    final running =
+        ref.watch(workoutProvider.select((workout) => workout.isRunning)) ||
+        ref.watch(warmupProvider.select((warmup) => warmup.isRunning));
     return TrainingLogView(
       builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -38,9 +43,11 @@ class SettingsTab extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'A workout or warm-up hold starts when you pull more, and '
-                  'ends a second after the force drops to it. Lower it for '
-                  'light targets.',
+                  running
+                      ? 'Stop the workout or warm-up to change it.'
+                      : 'A workout or warm-up hold starts when you pull '
+                            'more, and ends a second after the force drops to '
+                            'it. Lower it for light targets.',
                   style: textTheme.bodySmall,
                 ),
                 Slider(
@@ -49,7 +56,9 @@ class SettingsTab extends ConsumerWidget {
                   max: 10,
                   divisions: 19,
                   label: formatKg(thresholdKg),
-                  onChanged: ref.read(holdThresholdProvider.notifier).set,
+                  onChanged: running
+                      ? null
+                      : ref.read(holdThresholdProvider.notifier).set,
                 ),
               ],
             ),

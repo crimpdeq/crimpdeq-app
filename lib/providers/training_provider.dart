@@ -254,6 +254,9 @@ class BenchmarkSelectionNotifier extends Notifier<BenchmarkSelection> {
   void selectTool(String? tool) => state = (tool: tool, hand: state.hand);
 
   void selectHand(Hand? hand) => state = (tool: state.tool, hand: hand);
+
+  /// Back to the defaults, such as the next benchmark after a save.
+  void clear() => state = (tool: null, hand: null);
 }
 
 typedef BenchmarkRecording = ({
@@ -738,7 +741,9 @@ class WorkoutNotifier extends Notifier<WorkoutState> {
     if (state.saved || _saving) return;
     _saving = true;
     final workout = state;
-    final date = DateTime.now();
+    // When the last rep ended, not when saved: results restored on a later
+    // day belong to their own day and rest.
+    final date = workout.endedAt!;
     try {
       await ref.read(trainingLogProvider.notifier).addWorkouts([
         for (final (index, plan) in workout.plans.indexed)

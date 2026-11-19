@@ -11,7 +11,6 @@ import 'package:crimpdeq/providers/warmup_provider.dart';
 import 'package:crimpdeq/screens/crimpdeq_screen.dart';
 import 'package:crimpdeq/theme.dart';
 import 'package:crimpdeq/widgets/training_charts.dart';
-import 'package:crimpdeq/widgets/training_common.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -1222,6 +1221,49 @@ void main() {
     });
   }
 
+  testWidgets('moves to the next missing benchmark after a save', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': [
+        for (final tool in ['Photon', 'Spark'])
+          '{"date":"2026-10-26T10:00:00.000","tool":"$tool",'
+              '"hand":"left","forceKg":30}',
+      ].toString(),
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    await _openPage(tester, 'Benchmarks');
+    // Photon's right hand is missing first.
+    await tester.ensureVisible(find.text('Enter a held weight instead'));
+    await tester.tap(find.text('Enter a held weight instead'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Weight (kg)'), '30');
+    final save = find.widgetWithText(OutlinedButton, 'Save Hold');
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    // Then Spark's, as a pair, not the left hand of Spark.
+    expect(
+      tester
+          .widget<SegmentedButton<String?>>(
+            find.byType(SegmentedButton<String?>),
+          )
+          .selected,
+      {'Spark'},
+    );
+    expect(
+      tester
+          .widget<SegmentedButton<Hand>>(find.byType(SegmentedButton<Hand>))
+          .selected,
+      {Hand.right},
+    );
+  });
+
   testWidgets('saves a held weight as a benchmark and opens its workout', (
     tester,
   ) async {
@@ -2037,10 +2079,8 @@ void main() {
 
     await tester.tap(find.text('View History'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('Photon · #1 in ${formatMonth(DateTime.now())}'),
-      findsOne,
-    );
+    // Saved at the end of its last rep, in October.
+    expect(find.text('Photon · #1 in Oct'), findsOne);
     expect(find.text('6:40'), findsOne);
   });
 
@@ -2189,6 +2229,27 @@ void main() {
       expect(track, isNot(theme.colorScheme.surface));
       expect(track, isNot(theme.cardTheme.color));
     }
+  });
+
+  testWidgets('keeps the threshold of a running workout', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+      overrides: [
+        workoutProvider.overrideWith(
+          () => _FixedWorkout(
+            WorkoutState(plans: [strength], phase: WorkoutPhase.hold),
+          ),
+        ),
+      ],
+    );
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Slider>(find.byType(Slider)).onChanged, isNull);
+    expect(find.text('Stop the workout or warm-up to change it.'), findsOne);
   });
 
   testWidgets('stores the theme and threshold in the settings', (tester) async {

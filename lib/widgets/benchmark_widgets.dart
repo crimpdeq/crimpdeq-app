@@ -117,10 +117,9 @@ class _AddBenchmarkState extends ConsumerState<_AddBenchmark> {
       forceKg: forceKg,
     );
     await ref.read(trainingLogProvider.notifier).addBenchmark(benchmark);
-    // The other hand is the likeliest next pull.
-    ref
-        .read(benchmarkSelectionProvider.notifier)
-        .selectHand(Hand.values.firstWhere((other) => other != hand));
+    // The tool and hand follow the next suggestion together, such as the
+    // other hand, so the next pull is not saved for an unintended pair.
+    ref.read(benchmarkSelectionProvider.notifier).clear();
     // Replaces a pending error instead of waiting behind it.
     messenger
       ..removeCurrentSnackBar()

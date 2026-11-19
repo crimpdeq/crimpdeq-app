@@ -270,6 +270,8 @@ void main() {
     expect(saved.read(workoutProvider).phase, WorkoutPhase.idle);
     final log = await saved.read(trainingLogProvider.future);
     expect(log.workouts.single.actualSeconds, state().actualSeconds);
+    // At its end, however late it is saved.
+    expect(log.workouts.single.date, state().endedAt);
   });
 
   testWidgets('alternates the hands, each resting while the other holds', (
