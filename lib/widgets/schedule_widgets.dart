@@ -397,42 +397,62 @@ class _GripperRestCardState extends ConsumerState<GripperRestCard> {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final saved = widget.workouts.last.date.toLocal();
+    // Compact, so the workout's Start stays near the top.
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: TitledCard(
-        title: 'Rest before ${widget.tool}',
-        trailing: const InfoButton(
-          title: 'Rest between grippers',
-          content: _howGripperRestWorks,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              // The seconds round up, so the clock ends at 00:00.
-              formatClock((remaining.inMilliseconds / 1000).ceil()),
-              style: textTheme.displayMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: colorScheme.primary,
-                fontFeatures: const [FontFeature.tabularFigures()],
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.hourglass_top, color: colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Rest before ${widget.tool}',
+                          style: textTheme.titleSmall,
+                        ),
+                        Text(
+                          'After your ${widget.workouts.last.tool} workout '
+                          'at ${_formatTime(saved.hour, saved.minute)}, or '
+                          'train ${widget.tool} tomorrow.',
+                          style: textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    // The seconds round up, so the clock ends at 00:00.
+                    formatClock((remaining.inMilliseconds / 1000).ceil()),
+                    style: textTheme.headlineSmall?.copyWith(
+                      color: colorScheme.primary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const InfoButton(
+                    title: 'Rest between grippers',
+                    content: _howGripperRestWorks,
+                  ),
+                ],
               ),
-              textAlign: TextAlign.center,
-            ),
-            LinearProgressIndicator(
-              value: 1 - remaining.inSeconds / rest.inSeconds,
-              minHeight: 6,
-              borderRadius: BorderRadius.circular(3),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Your ${widget.workouts.last.tool} workout was saved at '
-              '${_formatTime(saved.hour, saved.minute)}. Rest '
-              '${rest.inMinutes} min between gripper workouts, or train '
-              '${widget.tool} tomorrow. Change the rest in Schedule, in the '
-              'menu.',
-              style: textTheme.bodySmall,
-            ),
-          ],
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: LinearProgressIndicator(
+                  value: 1 - remaining.inSeconds / rest.inSeconds,
+                  minHeight: 4,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
