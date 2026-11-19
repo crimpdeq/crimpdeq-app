@@ -1391,6 +1391,11 @@ void main() {
     expect(find.text('No body weights yet.'), findsOne);
 
     final field = find.widgetWithText(TextField, 'Weight (kg)');
+    // The day as tall as the weight.
+    expect(
+      tester.getSize(find.byType(OutlinedButton).first).height,
+      tester.getSize(field).height,
+    );
     final save = find.text('Save Body Weight');
     for (final invalid in ['5', 'NaN']) {
       await tester.enterText(field, invalid);
@@ -1448,6 +1453,9 @@ void main() {
     expect(find.text('Photon · #1 in Oct'), findsOne);
     expect(find.text('Photon · #2 in Oct'), findsOne);
     expect(find.text('Right hand'), findsNWidgets(2));
+    // The mean hold against the mean target, and the reps held.
+    expect(find.text('Avg hold'), findsNWidgets(3));
+    expect(find.text('Reps held'), findsNWidgets(3));
     expect(find.text('Left hand'), findsOne);
     expect(find.text('12:34'), findsOne);
     expect(find.text('2:48'), findsOne);

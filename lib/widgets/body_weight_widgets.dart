@@ -126,27 +126,30 @@ class _AddBodyWeightState extends ConsumerState<_AddBodyWeight> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _kg,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+        // The day as tall as the weight field beside it.
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _kg,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(labelText: 'Weight (kg)'),
                 ),
-                decoration: const InputDecoration(labelText: 'Weight (kg)'),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _pickDay,
-                icon: const Icon(Icons.calendar_today),
-                label: Text(formatDay(_day)),
-                style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickDay,
+                  icon: const Icon(Icons.calendar_today),
+                  label: Text(formatDay(_day)),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         Text(

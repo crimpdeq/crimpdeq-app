@@ -151,8 +151,9 @@ class _RestSettings extends ConsumerWidget {
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Notify when the rest is over'),
-              subtitle: const Text(
-                'While the other gripper is left to train that day.',
+              subtitle: Text(
+                'Only on a day the other gripper is still to train.',
+                style: textTheme.bodySmall,
               ),
               value: settings.notify,
               onChanged: minutes == 0

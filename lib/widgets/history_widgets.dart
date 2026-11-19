@@ -333,7 +333,7 @@ class _HandSummary extends StatelessWidget {
             value: forceKg == null ? '—' : formatKg(forceKg),
           ),
           StatTile(
-            label: 'Hold',
+            label: 'Avg hold',
             value:
                 '${workout.meanActualSeconds.round()}'
                 ' / ${workout.meanTargetSeconds.round()} s',
@@ -344,7 +344,7 @@ class _HandSummary extends StatelessWidget {
             color: holdDeltaColor(workout.meanDeltaSeconds),
           ),
           StatTile(
-            label: 'Held',
+            label: 'Reps held',
             value: '${workout.repsHeld}/${workout.actualSeconds.length}',
           ),
         ]),
@@ -532,7 +532,7 @@ class _HandDetails extends StatelessWidget {
             color: holdDeltaColor(workout.meanDeltaSeconds),
           ),
           StatTile(
-            label: 'Held',
+            label: 'Reps held',
             value: '${workout.repsHeld}/${workout.actualSeconds.length}',
           ),
         ]),

@@ -1090,7 +1090,7 @@ class _HandResults extends StatelessWidget {
             value: meanForceKg == null ? '—' : formatKg(meanForceKg),
           ),
           StatTile(
-            label: 'Hold',
+            label: 'Avg hold',
             value: '${meanActual.round()} / ${meanTarget.round()} s',
           ),
           StatTile(
@@ -1099,7 +1099,7 @@ class _HandResults extends StatelessWidget {
             color: holdDeltaColor(meanDelta),
           ),
           StatTile(
-            label: 'Held',
+            label: 'Reps held',
             value:
                 '${actual.where((seconds) => seconds > 0).length}'
                 '/${actual.length}',
