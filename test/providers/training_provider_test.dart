@@ -219,6 +219,7 @@ void main() {
     expect(state().actualSeconds.single, closeTo(9.9, 1e-9));
     expect(state().repForcesKg.single, closeTo(12, 1e-9));
     expect(state().targetsOf(0), plan.targets());
+    await workout.stop();
   });
 
   testWidgets('alternates the hands, each resting while the other holds', (
