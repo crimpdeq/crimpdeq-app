@@ -161,6 +161,17 @@ class _FixedWarmup extends WarmupNotifier {
   void set(WarmupState warmup) => state = warmup;
 }
 
+/// An idle warm-up that records its starts instead of measuring.
+class _StartedWarmup extends _FixedWarmup {
+  _StartedWarmup() : super(const WarmupState());
+
+  final starts = <WarmupKind>[];
+
+  @override
+  Future<void> start(WarmupKind kind, List<WarmupStep> steps) async =>
+      starts.add(kind);
+}
+
 /// Opens the training pages, or the device tools from the app bar menu.
 Future<_FakeProgressor> _pumpScreen(
   WidgetTester tester,
@@ -214,6 +225,14 @@ Future<void> _openBenchmarkHistory(WidgetTester tester) async {
 Future<void> _select(WidgetTester tester, String label) async {
   await tester.tap(find.text(label).first);
   await tester.pumpAndSettle();
+}
+
+/// Taps a workout section's chip, scrolling its row to it first.
+Future<void> _tapChip(WidgetTester tester, String label) async {
+  final chip = find.widgetWithText(ChoiceChip, label);
+  await tester.ensureVisible(chip);
+  await tester.pumpAndSettle();
+  await tester.tap(chip);
 }
 
 bool _chipSelected(WidgetTester tester, String label) =>
@@ -972,7 +991,7 @@ void main() {
     expect(find.text('3:13'), findsOneWidget);
     expect(find.text('No Endurance workouts yet.'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Power'));
+    await _tapChip(tester, 'Power');
     await tester.pumpAndSettle();
     expect(_chipSelected(tester, 'Power'), isTrue);
     expect(find.text('Suggested'), findsNothing);
@@ -1025,13 +1044,13 @@ void main() {
     expect(find.textContaining('target is too light'), findsOneWidget);
     expect(tester.widget<FilledButton>(start).onPressed, isNull);
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Power'));
+    await _tapChip(tester, 'Power');
     await tester.pumpAndSettle();
     expect(find.textContaining('target is too light'), findsNothing);
     expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
 
     // A lower threshold lets the light target start a hold.
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Endurance'));
+    await _tapChip(tester, 'Endurance');
     await ProviderScope.containerOf(tester.element(find.byType(CrimpdeqScreen)))
         .read(holdThresholdProvider.notifier)
         .set(1);
@@ -1073,6 +1092,32 @@ void main() {
     );
     expect(tool.selected, {'Spark'});
     expect(hand.selected, {Hand.left});
+  });
+
+  testWidgets('keeps the workout types in one row, the selected in view', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+    });
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    ProviderScope.containerOf(tester.element(find.byType(CrimpdeqScreen)))
+        .read(workoutSetupProvider.notifier)
+        .selectSection(CurveSection.power);
+    await tester.pumpAndSettle();
+
+    Rect chip(String label) =>
+        tester.getRect(find.widgetWithText(ChoiceChip, label));
+    expect(chip('Power').top, chip('Endurance').top);
+    expect(chip('Power').right, lessThanOrEqualTo(360));
+    expect(chip('Power').left, greaterThanOrEqualTo(0));
   });
 
   testWidgets('shapes the rep targets by energy systems once switched on', (
@@ -1391,6 +1436,11 @@ void main() {
     expect(find.text('No body weights yet.'), findsOne);
 
     final field = find.widgetWithText(TextField, 'Weight (kg)');
+    // The day as tall as the weight.
+    expect(
+      tester.getSize(find.byType(OutlinedButton).first).height,
+      tester.getSize(field).height,
+    );
     final save = find.text('Save Body Weight');
     for (final invalid in ['5', 'NaN']) {
       await tester.enterText(field, invalid);
@@ -1448,6 +1498,9 @@ void main() {
     expect(find.text('Photon · #1 in Oct'), findsOne);
     expect(find.text('Photon · #2 in Oct'), findsOne);
     expect(find.text('Right hand'), findsNWidgets(2));
+    // The mean hold against the mean target, and the reps held.
+    expect(find.text('Avg hold'), findsNWidgets(3));
+    expect(find.text('Reps held'), findsNWidgets(3));
     expect(find.text('Left hand'), findsOne);
     expect(find.text('12:34'), findsOne);
     expect(find.text('2:48'), findsOne);
@@ -1732,7 +1785,7 @@ void main() {
       deviceTools: false,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Power'));
+    await _tapChip(tester, 'Power');
     await tester.pumpAndSettle();
     expect(_chipSelected(tester, 'Power'), isTrue);
 
@@ -2398,6 +2451,42 @@ void main() {
     expect(container.read(workoutSetupProvider).tool, 'Spark');
   });
 
+  testWidgets('makes the warm-up heavy before a heavy workout', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_allBenchmarks]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    final setup = ProviderScope.containerOf(
+      tester.element(find.byType(CrimpdeqScreen)),
+    ).read(workoutSetupProvider.notifier);
+    bool heavy() => tester
+        .widget<SwitchListTile>(
+          find.widgetWithText(SwitchListTile, 'Heavy session'),
+        )
+        .value;
+
+    setup.selectSection(CurveSection.power);
+    await _openPage(tester, 'Warm-up');
+    await _select(tester, 'Before training');
+    expect(heavy(), isTrue);
+    expect(find.textContaining('On for your next Power workout.'), findsOne);
+
+    setup.selectSection(CurveSection.endurance);
+    await tester.pumpAndSettle();
+    expect(heavy(), isFalse);
+
+    // A choice of its own stays.
+    await tester.tap(find.text('Heavy session'));
+    await tester.pumpAndSettle();
+    setup.selectSection(CurveSection.strength);
+    await tester.pumpAndSettle();
+    expect(heavy(), isTrue);
+  });
+
   testWidgets('blocks a warm-up whose lightest hold cannot start', (
     tester,
   ) async {
@@ -2571,6 +2660,41 @@ void main() {
           tester.widget<FilledButton>(check).onPressed != null,
           !recording,
         );
+      },
+    );
+  }
+
+  for (final (benchmarks, enabled) in [(_allBenchmarks, true), ('', false)]) {
+    testWidgets(
+      '${enabled ? 'checks' : 'asks for benchmarks to check'} readiness on '
+      'its own',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({
+          'training.benchmarks': '[$benchmarks]',
+        });
+        final warmup = _StartedWarmup();
+        await _pumpScreen(
+          tester,
+          ProgressorState(connection: _connected),
+          deviceTools: false,
+          overrides: [warmupProvider.overrideWith(() => warmup)],
+        );
+        await _openPage(tester, 'Warm-up');
+        final check = find.widgetWithText(OutlinedButton, 'Check Readiness');
+        await tester.ensureVisible(check);
+        if (!enabled) {
+          expect(tester.widget<OutlinedButton>(check).onPressed, isNull);
+          expect(
+            find.text(
+              'Record a Photon benchmark with each hand to check readiness.',
+            ),
+            findsOne,
+          );
+          return;
+        }
+        await tester.tap(check);
+        await tester.pump();
+        expect(warmup.starts, [WarmupKind.readiness]);
       },
     );
   }

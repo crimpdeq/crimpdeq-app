@@ -128,9 +128,12 @@ class _WorkoutSetup extends ConsumerWidget {
       for (final workout in log.workouts)
         if (workout.tool == tool && workout.hand == hand) ?workout.withPoint,
     ];
-    final suggested = suggestSection([
-      for (final (_, point) in workouts) point,
-    ], benchmark.forceKg);
+    final suggested = suggestedSection(
+      log.benchmarks,
+      log.workouts,
+      tool,
+      hand,
+    )!;
     final section = setup.section ?? suggested;
     // An edited plan follows the current best benchmark. A new benchmark or
     // workout can move the default tool, hand or section away from it.
@@ -235,31 +238,10 @@ class _WorkoutSetup extends ConsumerWidget {
                 ],
               ],
               const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final option in CurveSection.values)
-                    ChoiceChip(
-                      avatar: Icon(Icons.circle, color: sectionColors[option]),
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(option.label),
-                          if (option == suggested) ...[
-                            const SizedBox(width: 4),
-                            const Icon(Icons.auto_awesome, size: 14),
-                          ],
-                        ],
-                      ),
-                      tooltip: option == suggested
-                          ? 'Suggested from your history'
-                          : null,
-                      selected: option == section,
-                      showCheckmark: false,
-                      onSelected: (_) => setupNotifier.selectSection(option),
-                    ),
-                ],
+              _SectionChips(
+                section: section,
+                suggested: suggested,
+                onSelected: setupNotifier.selectSection,
               ),
               const SizedBox(height: 20),
               Row(
@@ -411,6 +393,114 @@ class _WorkoutSetup extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The sections in one scrolling row, so the plan below stays near the top,
+/// with the selected one scrolled into view.
+class _SectionChips extends StatefulWidget {
+  const _SectionChips({
+    required this.section,
+    required this.suggested,
+    required this.onSelected,
+  });
+
+  final CurveSection section;
+  final CurveSection suggested;
+  final ValueChanged<CurveSection> onSelected;
+
+  @override
+  State<_SectionChips> createState() => _SectionChipsState();
+}
+
+class _SectionChipsState extends State<_SectionChips> {
+  final _scroll = ScrollController();
+  final _row = GlobalKey();
+  final _chips = {
+    for (final section in CurveSection.values) section: GlobalKey(),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _reveal(animate: false);
+  }
+
+  @override
+  void didUpdateWidget(_SectionChips old) {
+    super.didUpdateWidget(old);
+    if (old.section != widget.section) _reveal(animate: true);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Centers the selected chip in the row, after its layout.
+  void _reveal({required bool animate}) =>
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final chip = _chips[widget.section]!.currentContext?.findRenderObject();
+        final row = _row.currentContext?.findRenderObject();
+        if (!mounted || chip is! RenderBox || row is! RenderBox) return;
+        if (!_scroll.hasClients) return;
+        final center =
+            chip.localToGlobal(Offset.zero, ancestor: row).dx +
+            chip.size.width / 2;
+        final position = _scroll.position;
+        final offset = (center - position.viewportDimension / 2).clamp(
+          0.0,
+          position.maxScrollExtent,
+        );
+        if (animate) {
+          _scroll.animateTo(
+            offset,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        } else {
+          _scroll.jumpTo(offset);
+        }
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      controller: _scroll,
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        key: _row,
+        children: [
+          for (final option in CurveSection.values)
+            Padding(
+              padding: EdgeInsets.only(
+                right: option == CurveSection.values.last ? 0 : 8,
+              ),
+              child: ChoiceChip(
+                key: _chips[option],
+                avatar: Icon(Icons.circle, color: sectionColors[option]),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(option.label),
+                    if (option == widget.suggested) ...[
+                      const SizedBox(width: 4),
+                      const Icon(Icons.auto_awesome, size: 14),
+                    ],
+                  ],
+                ),
+                tooltip: option == widget.suggested
+                    ? 'Suggested from your history'
+                    : null,
+                selected: option == widget.section,
+                showCheckmark: false,
+                onSelected: (_) => widget.onSelected(option),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -1090,7 +1180,7 @@ class _HandResults extends StatelessWidget {
             value: meanForceKg == null ? '—' : formatKg(meanForceKg),
           ),
           StatTile(
-            label: 'Hold',
+            label: 'Avg hold',
             value: '${meanActual.round()} / ${meanTarget.round()} s',
           ),
           StatTile(
@@ -1099,7 +1189,7 @@ class _HandResults extends StatelessWidget {
             color: holdDeltaColor(meanDelta),
           ),
           StatTile(
-            label: 'Held',
+            label: 'Reps held',
             value:
                 '${actual.where((seconds) => seconds > 0).length}'
                 '/${actual.length}',

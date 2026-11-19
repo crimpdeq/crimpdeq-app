@@ -39,7 +39,10 @@ class WarmupTab extends ConsumerWidget {
             _WarmupResults(log: log),
           if (phase == WorkoutPhase.idle) ...[
             const SizedBox(height: 16),
-            _ReadinessHistory(checks: log.readiness),
+            _ReadinessHistory(
+              checks: log.readiness,
+              benchmarks: log.benchmarks,
+            ),
           ],
         ],
       ),
@@ -73,18 +76,30 @@ class _WarmupSetup extends ConsumerStatefulWidget {
 
 class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
   WarmupKind _kind = WarmupKind.climbing;
-  bool _heavy = false;
+  // Null follows the next workout's section.
+  bool? _heavy;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final benchmarks = widget.log.benchmarks;
-    // The workout's tool, which the training warm-up prepares for.
+    // The workout's tool, which the training warm-up prepares for, and its
+    // section, which makes it a heavy session.
+    final setup = ref.watch(workoutSetupProvider);
     final tool =
-        ref.watch(workoutSetupProvider.select((setup) => setup.tool)) ??
-        benchmarks.lastOrNull?.tool ??
-        trainingTools.first;
+        setup.tool ?? benchmarks.lastOrNull?.tool ?? trainingTools.first;
+    final hand = setup.hand ?? benchmarks.lastOrNull?.hand;
+    final nextSection =
+        setup.section ??
+        (hand == null
+            ? null
+            : suggestedSection(benchmarks, widget.log.workouts, tool, hand));
+    final heavyNext = const {
+      CurveSection.powerStrength,
+      CurveSection.power,
+    }.contains(nextSection);
+    final heavy = _heavy ?? heavyNext;
     final thresholdKg = watchHoldThreshold(ref);
     final missing = missingBenchmarks(
       benchmarks,
@@ -94,7 +109,7 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
         ? null
         : _kind == WarmupKind.climbing
         ? climbingWarmup(benchmarks)
-        : trainingWarmup(benchmarks, tool, heavy: _heavy);
+        : trainingWarmup(benchmarks, tool, heavy: heavy);
     // A hold only counts above the threshold, which a light force is not.
     final lightestKg = steps
         ?.map((step) => step.forceKg!)
@@ -133,10 +148,10 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
               title: const Text('Heavy session'),
               subtitle: Text(
                 'Before Power/Strength, Power or a benchmark: adds 3 s at '
-                '85%.',
+                '85%.${heavyNext && _heavy == null ? ' On for your next ${nextSection!.label} workout.' : ''}',
                 style: textTheme.bodySmall,
               ),
-              value: _heavy,
+              value: heavy,
               onChanged: (heavy) => setState(() => _heavy = heavy),
             ),
           ],
@@ -661,63 +676,87 @@ class WarmupRestCard extends ConsumerWidget {
 /// The readiness checks, newest first, each hand against its benchmark and
 /// the previous check.
 class _ReadinessHistory extends ConsumerWidget {
-  const _ReadinessHistory({required this.checks});
+  const _ReadinessHistory({required this.checks, required this.benchmarks});
 
   final List<ReadinessCheck> checks;
+  final List<Benchmark> benchmarks;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
+    final missing = missingBenchmarks(benchmarks, [readinessTool]);
+    final blocked = watchStartBlocked(ref);
     return TitledCard(
       title: 'Readiness',
       trailing: const InfoButton(
         title: 'About readiness',
         content:
-            'After a climbing warm-up, a readiness check pulls Photon as '
-            'hard as you can with each hand. Its best 5 s, as a share of '
-            'your benchmark then, shows how ready your fingers are: lower '
-            'when tired, higher when fresh. Checks do not change your '
-            'benchmarks or workouts.',
+            'A readiness check pulls Photon as hard as you can with each '
+            'hand, best after a climbing warm-up, which offers one. Its best '
+            '5 s, as a share of your benchmark then, shows how ready your '
+            'fingers are: lower when tired, higher when fresh. Checks do not '
+            'change your benchmarks or workouts.',
       ),
-      child: checks.isEmpty
-          ? const Text(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (checks.isEmpty)
+            const Text(
               'No readiness checks yet. Run one after a climbing warm-up.',
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final (index, check) in checks.indexed.toList().reversed)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text('${check.tool} · ${formatDate(check.date)}'),
-                    subtitle: Text(
-                      [
-                        for (final pull in check.pulls)
-                          '${pull.hand.label} ${_percent(pull.forceKg, pull.benchmarkKg)} '
-                              '(${formatKg(pull.forceKg)})'
-                              '${_vsPrevious(pull, checks.sublist(0, index))}',
-                      ].join('\n'),
-                      style: textTheme.bodyMedium,
-                    ),
-                    trailing: IconButton(
-                      tooltip: 'Delete readiness check',
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () async {
-                        if (await confirm(
-                          context,
-                          title: 'Delete the readiness check?',
-                          content: formatDate(check.date),
-                          action: 'Delete',
-                        )) {
-                          await ref
-                              .read(trainingLogProvider.notifier)
-                              .deleteReadiness(check);
-                        }
-                      },
-                    ),
-                  ),
-              ],
             ),
+          for (final (index, check) in checks.indexed.toList().reversed)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text('${check.tool} · ${formatDate(check.date)}'),
+              subtitle: Text(
+                [
+                  for (final pull in check.pulls)
+                    '${pull.hand.label} ${_percent(pull.forceKg, pull.benchmarkKg)} '
+                        '(${formatKg(pull.forceKg)})'
+                        '${_vsPrevious(pull, checks.sublist(0, index))}',
+                ].join('\n'),
+                style: textTheme.bodyMedium,
+              ),
+              trailing: IconButton(
+                tooltip: 'Delete readiness check',
+                icon: const Icon(Icons.delete_outline),
+                onPressed: () async {
+                  if (await confirm(
+                    context,
+                    title: 'Delete the readiness check?',
+                    content: formatDate(check.date),
+                    action: 'Delete',
+                  )) {
+                    await ref
+                        .read(trainingLogProvider.notifier)
+                        .deleteReadiness(check);
+                  }
+                },
+              ),
+            ),
+          const SizedBox(height: 12),
+          // Also on its own, such as after warming up on the wall.
+          OutlinedButton.icon(
+            onPressed: blocked == null && missing.isEmpty
+                ? () => ref
+                      .read(warmupProvider.notifier)
+                      .start(WarmupKind.readiness, readinessCheck(benchmarks))
+                : null,
+            icon: const Icon(Icons.speed),
+            label: const Text('Check Readiness'),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            missing.isNotEmpty
+                ? 'Record a $readinessTool benchmark with each hand to check '
+                      'readiness.'
+                : blocked ??
+                      'Warm up first: each hand pulls as hard as it can.',
+            style: textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 

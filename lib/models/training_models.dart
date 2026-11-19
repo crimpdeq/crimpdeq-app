@@ -63,6 +63,22 @@ Benchmark? bestBenchmark(List<Benchmark> benchmarks, String tool, Hand hand) {
   return best;
 }
 
+/// The section suggested for the next workout with [tool] and [hand], from
+/// their workouts and best benchmark. Null without a benchmark.
+CurveSection? suggestedSection(
+  List<Benchmark> benchmarks,
+  List<WorkoutRecord> workouts,
+  String tool,
+  Hand hand,
+) {
+  final benchmark = bestBenchmark(benchmarks, tool, hand);
+  if (benchmark == null) return null;
+  return suggestSection([
+    for (final workout in workouts)
+      if (workout.tool == tool && workout.hand == hand) ?workout.curvePoint,
+  ], benchmark.forceKg);
+}
+
 /// Body weight logged for a local day, which the forces of that day and the
 /// next ones, until another weight, compare with.
 class BodyWeight {
