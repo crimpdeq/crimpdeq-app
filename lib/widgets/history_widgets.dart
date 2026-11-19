@@ -38,16 +38,11 @@ class _HistoryTabState extends State<HistoryTab> {
             if (_tool == null || session.first.tool == _tool)
               (session: session, monthNumber: monthNumbers[index]),
         ];
-        // The curve of the strongest benchmark among the shown tools.
-        final benchmarks = [
-          for (final benchmark in log.benchmarks)
-            if (_tool == null || benchmark.tool == _tool) benchmark,
+        // A curve per tool, since each follows its own benchmark.
+        final curveTools = [
+          for (final tool in trainingTools)
+            if (shown.any((entry) => entry.session.first.tool == tool)) tool,
         ];
-        final benchmarkKg = benchmarks.isEmpty
-            ? null
-            : benchmarks
-                  .map((benchmark) => benchmark.forceKg)
-                  .reduce((a, b) => a > b ? a : b);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -57,19 +52,17 @@ class _HistoryTabState extends State<HistoryTab> {
               tool: _tool,
               onToolChanged: (tool) => setState(() => _tool = tool),
             ),
-            const SizedBox(height: 16),
-            TitledCard(
-              title: 'Force curve',
-              child: benchmarkKg == null
-                  ? const Text('Record a benchmark to draw the force curve.')
-                  : ForceCurveGraph(
-                      benchmarkKg: benchmarkKg,
-                      workouts: [
-                        for (final (:session, monthNumber: _) in shown)
-                          for (final workout in session) ?workout.curvePoint,
-                      ],
-                    ),
-            ),
+            for (final tool in curveTools) ...[
+              const SizedBox(height: 16),
+              _ToolForceCurve(
+                tool: tool,
+                benchmarks: log.benchmarks,
+                workouts: [
+                  for (final (:session, monthNumber: _) in shown)
+                    if (session.first.tool == tool) ...session,
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
             Text('Workouts', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
@@ -107,6 +100,43 @@ class _HistoryTabState extends State<HistoryTab> {
   }
 }
 
+/// The workouts of [tool] on the curve of its strongest benchmark.
+class _ToolForceCurve extends StatelessWidget {
+  const _ToolForceCurve({
+    required this.tool,
+    required this.benchmarks,
+    required this.workouts,
+  });
+
+  final String tool;
+
+  /// Of every tool.
+  final List<Benchmark> benchmarks;
+
+  /// Of [tool].
+  final List<WorkoutRecord> workouts;
+
+  @override
+  Widget build(BuildContext context) {
+    final benchmarkKg = benchmarks
+        .where((benchmark) => benchmark.tool == tool)
+        .map((benchmark) => benchmark.forceKg)
+        .fold<double?>(
+          null,
+          (best, kg) => best == null || kg > best ? kg : best,
+        );
+    return TitledCard(
+      title: '$tool force curve',
+      child: benchmarkKg == null
+          ? Text('Record a $tool benchmark to draw its force curve.')
+          : ForceCurveGraph(
+              benchmarkKg: benchmarkKg,
+              workouts: [for (final workout in workouts) ?workout.curvePoint],
+            ),
+    );
+  }
+}
+
 class _StartWorkout extends ConsumerWidget {
   const _StartWorkout();
 
@@ -131,9 +161,10 @@ class _StartWorkout extends ConsumerWidget {
   }
 }
 
-/// "Photon · #3 this month".
+/// "Photon · #3 in Oct".
 String _sessionLabel(List<WorkoutRecord> session, int monthNumber) =>
-    '${session.first.tool} · #$monthNumber this month';
+    '${session.first.tool} · #$monthNumber in '
+    '${formatMonth(session.first.date)}';
 
 /// One workout, with each hand trained in it.
 class _SessionCard extends StatelessWidget {
