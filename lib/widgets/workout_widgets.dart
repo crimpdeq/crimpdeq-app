@@ -20,6 +20,9 @@ class WorkoutTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final phase = ref.watch(workoutProvider.select((state) => state.phase));
     final isConnected = watchConnected(ref);
+    if (phase == WorkoutPhase.hold || phase == WorkoutPhase.rest) {
+      return const TimerLayout(child: _WorkoutTimer());
+    }
     return TrainingLogView(
       builder: (context, log) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -28,11 +31,10 @@ class WorkoutTab extends ConsumerWidget {
             const ConnectCard(),
             const SizedBox(height: 16),
           ],
-          switch (phase) {
-            WorkoutPhase.idle => _WorkoutSetup(log: log),
-            WorkoutPhase.done => const _WorkoutResults(),
-            _ => const _WorkoutTimer(),
-          },
+          if (phase == WorkoutPhase.idle)
+            _WorkoutSetup(log: log)
+          else
+            const _WorkoutResults(),
         ],
       ),
     );
@@ -594,7 +596,8 @@ class _SliderRow extends StatelessWidget {
 const _unloadedToleranceKg = 0.5;
 
 /// Readable from the hangboard: the phase in its color, a large clock and
-/// the force, then the controls.
+/// the force, then the controls. Fills the height, the graph taking what is
+/// left.
 class _WorkoutTimer extends ConsumerWidget {
   const _WorkoutTimer();
 
@@ -687,9 +690,8 @@ class _WorkoutTimer extends ConsumerWidget {
       // left on, which the next hold waits to drop.
       warning = (currentKg ?? 0) > thresholdKg
           ? Text(
-              'The Crimpdeq reads more than ${formatKg(thresholdKg)} at '
-              'rest, so the next hold waits for you to release it. Release '
-              'it, or tare it unloaded.',
+              'Over ${formatKg(thresholdKg)} at rest: the next hold waits '
+              'for a release, or tare it unloaded.',
               style: textTheme.bodyMedium?.copyWith(color: colorScheme.error),
             )
           : (currentKg ?? 0).abs() > _unloadedToleranceKg
@@ -703,6 +705,16 @@ class _WorkoutTimer extends ConsumerWidget {
 
     final bigButton = FilledButton.styleFrom(
       minimumSize: const Size.fromHeight(56),
+    );
+    final graph = LiveForceGraph(
+      trace: workout.forceTrace,
+      currentKg: currentKg,
+      target: (
+        kg: plan.targetForceKg,
+        thresholdKg: thresholdKg,
+        section: plan.section,
+      ),
+      fill: true,
     );
     return Card(
       child: Padding(
@@ -718,10 +730,13 @@ class _WorkoutTimer extends ConsumerWidget {
                 const MuteButton(),
               ],
             ),
+            // Large already, so the text scale would only push the
+            // controls off the screen.
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
                 clock,
+                textScaler: TextScaler.noScaling,
                 style: textTheme.displayLarge?.copyWith(
                   fontFamily: interFont,
                   fontWeight: FontWeight.w800,
@@ -743,15 +758,7 @@ class _WorkoutTimer extends ConsumerWidget {
             const SizedBox(height: 16),
             instruction,
             const SizedBox(height: 12),
-            LiveForceGraph(
-              trace: workout.forceTrace,
-              currentKg: currentKg,
-              target: (
-                kg: plan.targetForceKg,
-                thresholdKg: thresholdKg,
-                section: plan.section,
-              ),
-            ),
+            Expanded(child: graph),
             ?warning,
             const SizedBox(height: 16),
             RepBars(
@@ -763,11 +770,14 @@ class _WorkoutTimer extends ConsumerWidget {
               color: sectionColors[plan.section]!,
             ),
             const SizedBox(height: 16),
-            // Before the pull, ending the rep is the same as skipping it.
+            // Before the pull, ending the rep is the same as skipping it. A
+            // release ends the hold too, so the button is a secondary one.
             if (holdPhase && workout.holding)
-              FilledButton(
+              OutlinedButton(
                 onPressed: notifier.finishRep,
-                style: bigButton,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
                 child: Text(
                   workout.heldSeconds < workout.target
                       ? 'Failed Early'

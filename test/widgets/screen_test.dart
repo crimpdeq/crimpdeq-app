@@ -1785,6 +1785,63 @@ void main() {
     });
   }
 
+  for (final (size, ratio, scale) in [
+    (const Size(1080, 2340), 3.0, 1.0),
+    (const Size(1280, 2772), 3.25, 1.3),
+  ]) {
+    testWidgets('keeps the timer controls on a phone at $scale× text', (
+      tester,
+    ) async {
+      final workout = _FixedWorkout(
+        WorkoutState(
+          plans: [strength],
+          phase: WorkoutPhase.rest,
+          actualSeconds: const [1],
+          repForcesKg: const [12],
+          restRemainingSeconds: 15,
+        ),
+      );
+      // A load at rest adds the longest message, and the short rep its redo.
+      await _pumpScreen(
+        tester,
+        ProgressorState(
+          connection: _connected,
+          measurement: const MeasurementState(isMeasuring: true, currentKg: 3),
+        ),
+        deviceTools: false,
+        overrides: [workoutProvider.overrideWith(() => workout)],
+      );
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = ratio;
+      tester.view.padding = FakeViewPadding(
+        top: 24 * ratio,
+        bottom: 16 * ratio,
+      );
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      for (final state in [
+        workout.initialState,
+        WorkoutState(
+          plans: [strength],
+          phase: WorkoutPhase.hold,
+          actualSeconds: const [101],
+          holding: true,
+          heldSeconds: 10,
+        ),
+      ]) {
+        workout.set(state);
+        await tester.pumpAndSettle();
+        // Above the gesture bar, without scrolling.
+        expect(
+          tester.getRect(find.text('Stop')).bottom,
+          lessThanOrEqualTo(size.height / ratio - 16),
+        );
+      }
+    });
+  }
+
   testWidgets('shows the workout that starts on another page', (tester) async {
     final workout = _FixedWorkout(const WorkoutState());
     SharedPreferences.setMockInitialValues({

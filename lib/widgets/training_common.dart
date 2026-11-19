@@ -118,6 +118,38 @@ class TrainingLogView extends ConsumerWidget {
   }
 }
 
+/// A running timer: the whole height, so its controls stay on screen, or
+/// scrolling when its content does not fit, such as with large text.
+class TimerLayout extends StatelessWidget {
+  const TimerLayout({super.key, required this.child});
+
+  /// Fills the height it is given.
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.only(
+            top: 4,
+            bottom: 16 + MediaQuery.paddingOf(context).bottom,
+          ),
+          sliver: SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: maxPageWidth),
+                child: child,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class TitledCard extends StatelessWidget {
   const TitledCard({
     super.key,

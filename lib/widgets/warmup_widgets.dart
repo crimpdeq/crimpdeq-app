@@ -22,6 +22,9 @@ class WarmupTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final phase = ref.watch(warmupProvider.select((state) => state.phase));
     final isConnected = watchConnected(ref);
+    if (phase == WorkoutPhase.hold || phase == WorkoutPhase.rest) {
+      return const TimerLayout(child: _WarmupTimer());
+    }
     return TrainingLogView(
       builder: (context, log) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -30,11 +33,10 @@ class WarmupTab extends ConsumerWidget {
             const ConnectCard(),
             const SizedBox(height: 16),
           ],
-          switch (phase) {
-            WorkoutPhase.idle => _WarmupSetup(log: log),
-            WorkoutPhase.done => _WarmupResults(log: log),
-            _ => const _WarmupTimer(),
-          },
+          if (phase == WorkoutPhase.idle)
+            _WarmupSetup(log: log)
+          else
+            _WarmupResults(log: log),
           if (phase == WorkoutPhase.idle) ...[
             const SizedBox(height: 16),
             _ReadinessHistory(checks: log.readiness),
@@ -237,7 +239,8 @@ class _StepTable extends StatelessWidget {
 }
 
 /// Readable from the grip: the phase in its color, the tool and hand, a
-/// large clock and the force, then the controls.
+/// large clock and the force, then the controls. Fills the height, the graph
+/// taking what is left.
 class _WarmupTimer extends ConsumerWidget {
   const _WarmupTimer();
 
@@ -296,6 +299,18 @@ class _WarmupTimer extends ConsumerWidget {
     final bigButton = FilledButton.styleFrom(
       minimumSize: const Size.fromHeight(56),
     );
+    final graph = LiveForceGraph(
+      trace: warmup.forceTrace,
+      currentKg: currentKg,
+      target: forceKg == null
+          ? null
+          : (
+              kg: forceKg,
+              thresholdKg: thresholdKg,
+              section: CurveSection.of(forceKg, step.benchmarkKg),
+            ),
+      fill: true,
+    );
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -329,10 +344,13 @@ class _WarmupTimer extends ConsumerWidget {
               style: textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
+            // Large already, so the text scale would only push the
+            // controls off the screen.
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
                 clock,
+                textScaler: TextScaler.noScaling,
                 style: textTheme.displayLarge?.copyWith(
                   fontFamily: interFont,
                   fontWeight: FontWeight.w800,
@@ -360,17 +378,7 @@ class _WarmupTimer extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-            LiveForceGraph(
-              trace: warmup.forceTrace,
-              currentKg: currentKg,
-              target: forceKg == null
-                  ? null
-                  : (
-                      kg: forceKg,
-                      thresholdKg: thresholdKg,
-                      section: CurveSection.of(forceKg, step.benchmarkKg),
-                    ),
-            ),
+            Expanded(child: graph),
             if (warning != null)
               Text(
                 warning,
