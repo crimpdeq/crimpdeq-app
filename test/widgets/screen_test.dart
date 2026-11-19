@@ -1593,6 +1593,8 @@ void main() {
   for (final (held, notice) in [
     (1.0, 'rep 1 held 1 s of 101 s'),
     (0.0, 'rep 1 held 0 s of 101 s'),
+    // Short by more than the tolerance before rounding, as the scaling is.
+    (97.6, 'rep 1 held 98 s of 101 s'),
     (99.0, null),
   ]) {
     testWidgets('offers to redo a first rep held $held s', (tester) async {

@@ -652,13 +652,13 @@ class _WorkoutTimer extends ConsumerWidget {
       // first one scales the later targets: it can hold again.
       final (plan: lastPlan, rep: lastRep) =
           workout.schedule[workout.actualSeconds.length - 1];
-      final lastHeld = workout.actualSeconds.last.round();
+      final lastHeld = workout.actualSeconds.last;
       final lastTarget = workout.targetsOf(lastPlan)[lastRep - 1];
       if (lastTarget - lastHeld > repToleranceSeconds) {
         redo = Tooltip(
           message:
               '${bothHands ? '${workout.plans[lastPlan].hand.label} hand, ' : ''}'
-              'rep $lastRep held $lastHeld s of $lastTarget s',
+              'rep $lastRep held ${lastHeld.round()} s of $lastTarget s',
           child: OutlinedButton.icon(
             onPressed: notifier.redoRep,
             icon: const Icon(Icons.replay),
