@@ -216,6 +216,14 @@ Future<void> _select(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+/// Taps a workout section's chip, scrolling its row to it first.
+Future<void> _tapChip(WidgetTester tester, String label) async {
+  final chip = find.widgetWithText(ChoiceChip, label);
+  await tester.ensureVisible(chip);
+  await tester.pumpAndSettle();
+  await tester.tap(chip);
+}
+
 bool _chipSelected(WidgetTester tester, String label) =>
     tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, label)).selected;
 
@@ -972,7 +980,7 @@ void main() {
     expect(find.text('3:13'), findsOneWidget);
     expect(find.text('No Endurance workouts yet.'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Power'));
+    await _tapChip(tester, 'Power');
     await tester.pumpAndSettle();
     expect(_chipSelected(tester, 'Power'), isTrue);
     expect(find.text('Suggested'), findsNothing);
@@ -1025,13 +1033,13 @@ void main() {
     expect(find.textContaining('target is too light'), findsOneWidget);
     expect(tester.widget<FilledButton>(start).onPressed, isNull);
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Power'));
+    await _tapChip(tester, 'Power');
     await tester.pumpAndSettle();
     expect(find.textContaining('target is too light'), findsNothing);
     expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
 
     // A lower threshold lets the light target start a hold.
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Endurance'));
+    await _tapChip(tester, 'Endurance');
     await ProviderScope.containerOf(tester.element(find.byType(CrimpdeqScreen)))
         .read(holdThresholdProvider.notifier)
         .set(1);
@@ -1073,6 +1081,32 @@ void main() {
     );
     expect(tool.selected, {'Spark'});
     expect(hand.selected, {Hand.left});
+  });
+
+  testWidgets('keeps the workout types in one row, the selected in view', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+    });
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    ProviderScope.containerOf(tester.element(find.byType(CrimpdeqScreen)))
+        .read(workoutSetupProvider.notifier)
+        .selectSection(CurveSection.power);
+    await tester.pumpAndSettle();
+
+    Rect chip(String label) =>
+        tester.getRect(find.widgetWithText(ChoiceChip, label));
+    expect(chip('Power').top, chip('Endurance').top);
+    expect(chip('Power').right, lessThanOrEqualTo(360));
+    expect(chip('Power').left, greaterThanOrEqualTo(0));
   });
 
   testWidgets('shapes the rep targets by energy systems once switched on', (
@@ -1740,7 +1774,7 @@ void main() {
       deviceTools: false,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Power'));
+    await _tapChip(tester, 'Power');
     await tester.pumpAndSettle();
     expect(_chipSelected(tester, 'Power'), isTrue);
 
