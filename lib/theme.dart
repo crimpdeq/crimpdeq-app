@@ -87,12 +87,14 @@ SwitchThemeData _switchTheme(Color color) => SwitchThemeData(
 );
 
 FilledButtonThemeData _filledButtonTheme({
+  required Color background,
+  required Color foreground,
   required Color disabled,
   required Color disabledText,
 }) => FilledButtonThemeData(
   style: FilledButton.styleFrom(
-    backgroundColor: webAccent,
-    foregroundColor: const Color(0xFF00111C),
+    backgroundColor: background,
+    foregroundColor: foreground,
     disabledBackgroundColor: disabled,
     disabledForegroundColor: disabledText,
     textStyle: _inter(FontWeight.w700),
@@ -101,12 +103,14 @@ FilledButtonThemeData _filledButtonTheme({
 );
 
 ElevatedButtonThemeData _elevatedButtonTheme({
+  required Color background,
+  required Color foreground,
   required Color disabled,
   required Color disabledText,
 }) => ElevatedButtonThemeData(
   style: ElevatedButton.styleFrom(
-    backgroundColor: webAccent,
-    foregroundColor: const Color(0xFF00111C),
+    backgroundColor: background,
+    foregroundColor: foreground,
     disabledBackgroundColor: disabled,
     disabledForegroundColor: disabledText,
     elevation: 0,
@@ -184,10 +188,14 @@ ThemeData buildDarkTheme() {
     // Disabled as Material does: a faint fill of the text color, which reads
     // as off on the panel instead of as another, darker button.
     filledButtonTheme: _filledButtonTheme(
+      background: webAccent,
+      foreground: const Color(0xFF00111C),
       disabled: _webText.withValues(alpha: 0.12),
       disabledText: _webText.withValues(alpha: 0.38),
     ),
     elevatedButtonTheme: _elevatedButtonTheme(
+      background: webAccent,
+      foreground: const Color(0xFF00111C),
       disabled: _webText.withValues(alpha: 0.12),
       disabledText: _webText.withValues(alpha: 0.38),
     ),
@@ -276,11 +284,17 @@ ThemeData buildLightTheme() {
       unselectedLabel: _lightMuted,
     ),
     switchTheme: _switchTheme(_lightMuted),
+    // The light primary, darker than the dark theme's accent, which is
+    // pale on white.
     filledButtonTheme: _filledButtonTheme(
+      background: _lightPrimary,
+      foreground: Colors.white,
       disabled: _lightText.withValues(alpha: 0.12),
       disabledText: _lightText.withValues(alpha: 0.38),
     ),
     elevatedButtonTheme: _elevatedButtonTheme(
+      background: _lightPrimary,
+      foreground: Colors.white,
       disabled: _lightText.withValues(alpha: 0.12),
       disabledText: _lightText.withValues(alpha: 0.38),
     ),

@@ -2223,6 +2223,14 @@ void main() {
     }
   });
 
+  test('fills the buttons with each theme\'s primary', () {
+    for (final theme in [buildDarkTheme(), buildLightTheme()]) {
+      final style = theme.filledButtonTheme.style!;
+      expect(style.backgroundColor!.resolve({}), theme.colorScheme.primary);
+      expect(style.foregroundColor!.resolve({}), theme.colorScheme.onPrimary);
+    }
+  });
+
   test('shows the inactive slider and switch tracks on a card', () {
     for (final theme in [buildDarkTheme(), buildLightTheme()]) {
       final track = theme.colorScheme.surfaceContainerHighest;
