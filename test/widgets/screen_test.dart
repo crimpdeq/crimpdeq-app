@@ -1814,6 +1814,14 @@ void main() {
     }
   });
 
+  test('shows the inactive slider and switch tracks on a card', () {
+    for (final theme in [buildDarkTheme(), buildLightTheme()]) {
+      final track = theme.colorScheme.surfaceContainerHighest;
+      expect(track, isNot(theme.colorScheme.surface));
+      expect(track, isNot(theme.cardTheme.color));
+    }
+  });
+
   testWidgets('stores the theme choice', (tester) async {
     await _pumpScreen(
       tester,

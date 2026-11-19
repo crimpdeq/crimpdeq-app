@@ -74,6 +74,18 @@ TabBarThemeData _tabBarTheme({
   splashBorderRadius: BorderRadius.circular(12),
 );
 
+/// An unselected switch's thumb in [color]: the default, the outline, matches
+/// the track.
+SwitchThemeData _switchTheme(Color color) => SwitchThemeData(
+  thumbColor: WidgetStateProperty.resolveWith(
+    (states) =>
+        states.contains(WidgetState.selected) ||
+            states.contains(WidgetState.disabled)
+        ? null
+        : color,
+  ),
+);
+
 FilledButtonThemeData _filledButtonTheme({
   required Color disabled,
   required Color disabledText,
@@ -131,6 +143,9 @@ ThemeData buildDarkTheme() {
       onError: Colors.white,
       outline: webBorder,
       outlineVariant: Color(0xFF223447),
+      // The inactive slider and switch tracks. The default, the surface, is
+      // the card color, which hides them.
+      surfaceContainerHighest: webBorder,
     ),
     scaffoldBackgroundColor: webBg,
     canvasColor: webBg,
@@ -165,6 +180,7 @@ ThemeData buildDarkTheme() {
       label: const Color(0xFF00111C),
       unselectedLabel: _webMuted,
     ),
+    switchTheme: _switchTheme(_webMuted),
     filledButtonTheme: _filledButtonTheme(
       disabled: _webPanelDeep,
       disabledText: _webMuted,
@@ -228,6 +244,7 @@ ThemeData buildLightTheme() {
       onError: Colors.white,
       outline: _lightOutline,
       outlineVariant: _lightOutlineVariant,
+      surfaceContainerHighest: _lightOutlineVariant,
     ),
     scaffoldBackgroundColor: const Color(0xFFEFF5FB),
     canvasColor: const Color(0xFFEFF5FB),
@@ -256,6 +273,7 @@ ThemeData buildLightTheme() {
       label: Colors.white,
       unselectedLabel: _lightMuted,
     ),
+    switchTheme: _switchTheme(_lightMuted),
     filledButtonTheme: _filledButtonTheme(
       disabled: _lightOutlineVariant,
       disabledText: _lightMuted,
