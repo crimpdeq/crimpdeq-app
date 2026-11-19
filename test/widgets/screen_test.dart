@@ -1542,6 +1542,31 @@ void main() {
     expect(find.textContaining('Notifications are off'), findsOne);
   });
 
+  testWidgets('warns while reminders cannot notify', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+      notifications: FakeNotifications(allowed: false),
+    );
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Schedule'));
+    await tester.pumpAndSettle();
+    const warning =
+        'Notifications are off for Crimpdeq, so the reminders and the rest '
+        'notice do not show.';
+    // Nothing to notify yet.
+    expect(find.text(warning), findsNothing);
+
+    await tester.tap(find.text('Add Reminder'));
+    await tester.pumpAndSettle();
+    // The reminder is kept, and the warning stays with it.
+    expect(find.text('10:00'), findsOne);
+    expect(find.text(warning), findsOne);
+    expect(find.text('Open App Settings'), findsOne);
+  });
+
   testWidgets('keeps the training available without a device', (tester) async {
     SharedPreferences.setMockInitialValues({
       'training.benchmarks': '[$_benchmark]',

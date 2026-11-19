@@ -19,6 +19,9 @@ class FakeNotifications extends TrainingNotifications {
   }
 
   @override
+  Future<bool> areAllowed() async => allowed;
+
+  @override
   Future<void> scheduleReminders(List<Reminder> reminders) async => calls.add(
     'reminders ${[for (final reminder in reminders) '${reminder.tool} ${reminder.weekdays} ${reminder.hour}:${reminder.minute}'].join(', ')}',
   );

@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../models/training_models.dart';
 import '../providers/schedule_provider.dart';
@@ -17,16 +19,92 @@ const _howGripperRestWorks =
     'Without time for the rest, train the other gripper the next day: both '
     'keep the same days per week.';
 
-/// The rest between grippers and the weekly reminders.
-class ScheduleTab extends StatelessWidget {
+/// The rest between grippers and the weekly reminders, with a warning while
+/// the system keeps their notifications off.
+class ScheduleTab extends ConsumerStatefulWidget {
   const ScheduleTab({super.key});
 
   @override
+  ConsumerState<ScheduleTab> createState() => _ScheduleTabState();
+}
+
+class _ScheduleTabState extends ConsumerState<ScheduleTab> {
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    // The system settings, opened from the warning, can allow them meanwhile.
+    _lifecycle = AppLifecycleListener(
+      onResume: () => ref.invalidate(notificationsAllowedProvider),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final notifying =
+        (ref.watch(remindersProvider).value?.isNotEmpty ?? false) ||
+        (ref.watch(gripperRestProvider).value?.notify ?? false);
+    final allowed = ref.watch(notificationsAllowedProvider).value ?? true;
     return TrainingLogView(
-      builder: (context, _) => const Column(
+      builder: (context, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [_RestSettings(), SizedBox(height: 16), _Reminders()],
+        children: [
+          if (notifying && !allowed) ...[
+            const _NotificationsOff(),
+            const SizedBox(height: 16),
+          ],
+          const _RestSettings(),
+          const SizedBox(height: 16),
+          const _Reminders(),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationsOff extends StatelessWidget {
+  const _NotificationsOff();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.notifications_off_outlined,
+                  color: colorScheme.error,
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Notifications are off for Crimpdeq, so the reminders and '
+                    'the rest notice do not show.',
+                  ),
+                ),
+              ],
+            ),
+            if (!kIsWeb) ...[
+              const SizedBox(height: 12),
+              const OutlinedButton(
+                onPressed: openAppSettings,
+                child: Text('Open App Settings'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -81,9 +159,9 @@ class _RestSettings extends ConsumerWidget {
                   ? null
                   : (notify) async {
                       final messenger = ScaffoldMessenger.of(context);
-                      if (!await notifier.setNotify(notify)) {
-                        messenger.showSnackBar(_notificationsOff);
-                      }
+                      final allowed = await notifier.setNotify(notify);
+                      ref.invalidate(notificationsAllowedProvider);
+                      if (!allowed) messenger.showSnackBar(_notificationsOff);
                     },
             ),
         ],
@@ -92,10 +170,13 @@ class _RestSettings extends ConsumerWidget {
   }
 }
 
-const _notificationsOff = SnackBar(
-  content: Text(
+final _notificationsOff = SnackBar(
+  content: const Text(
     'Notifications are off for Crimpdeq. Allow them in the system settings.',
   ),
+  action: kIsWeb
+      ? null
+      : const SnackBarAction(label: 'Settings', onPressed: openAppSettings),
 );
 
 const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -124,13 +205,14 @@ class _Reminders extends ConsumerWidget {
     final notifier = ref.read(remindersProvider.notifier);
 
     Future<void> add() async {
-      final messenger = ScaffoldMessenger.of(context);
       // A gripper without a reminder first, such as the second one.
       final tool = trainingTools.firstWhere(
         (tool) => reminders.every((reminder) => reminder.tool != tool),
         orElse: () => trainingTools.first,
       );
-      final allowed = await notifications.requestPermission();
+      // Denied, the warning above the cards stays until they are allowed.
+      await notifications.requestPermission();
+      ref.invalidate(notificationsAllowedProvider);
       await notifier.set([
         ...reminders,
         Reminder(
@@ -144,7 +226,6 @@ class _Reminders extends ConsumerWidget {
           minute: 0,
         ),
       ]);
-      if (!allowed) messenger.showSnackBar(_notificationsOff);
     }
 
     return TitledCard(
