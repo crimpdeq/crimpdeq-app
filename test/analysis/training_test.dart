@@ -60,11 +60,15 @@ void main() {
   });
 
   group('Workout history', () {
-    WorkoutRecord workout(DateTime date, Hand hand) => WorkoutRecord(
+    WorkoutRecord workout(
+      DateTime date,
+      Hand hand, {
+      CurveSection section = CurveSection.strength,
+    }) => WorkoutRecord(
       date: date,
       tool: 'Photon',
       hand: hand,
-      section: CurveSection.strength,
+      section: section,
       targetForceKg: 12,
       forceKg: 12.5,
       restSeconds: 20,
@@ -92,6 +96,17 @@ void main() {
       expect(previousWorkout([first, right, left], right), first);
       expect(previousWorkout([first, right, left], left), isNull);
       expect(previousWorkout([first, right, left], first), isNull);
+    });
+
+    test('compares a workout only with one of its section', () {
+      final power = workout(
+        DateTime(2026, 10, 28, 10),
+        Hand.right,
+        section: CurveSection.power,
+      );
+      final strength = workout(DateTime(2026, 10, 29, 10), Hand.right);
+      expect(previousWorkout([first, power, strength], power), isNull);
+      expect(previousWorkout([first, power, strength], strength), first);
     });
 
     test('sums the time under load and the workload of the reps', () {

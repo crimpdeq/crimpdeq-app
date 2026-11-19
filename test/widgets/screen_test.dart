@@ -11,6 +11,7 @@ import 'package:crimpdeq/providers/warmup_provider.dart';
 import 'package:crimpdeq/screens/crimpdeq_screen.dart';
 import 'package:crimpdeq/theme.dart';
 import 'package:crimpdeq/widgets/training_charts.dart';
+import 'package:crimpdeq/widgets/training_common.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -1304,8 +1305,8 @@ void main() {
     await _openPage(tester, 'History');
 
     // One card per workout, with the totals of its hands.
-    expect(find.text('Photon · #1 this month'), findsOne);
-    expect(find.text('Photon · #2 this month'), findsOne);
+    expect(find.text('Photon · #1 in Oct'), findsOne);
+    expect(find.text('Photon · #2 in Oct'), findsOne);
     expect(find.text('Right hand'), findsNWidgets(2));
     expect(find.text('Left hand'), findsOne);
     expect(find.text('12:34'), findsOne);
@@ -1326,7 +1327,7 @@ void main() {
     await tester.tap(latest);
     await tester.pumpAndSettle();
     expect(find.text('Strength · Photon'), findsOne);
-    expect(find.text('Tue 27 Oct · 10:00 · Photon · #2 this month'), findsOne);
+    expect(find.text('Tue 27 Oct · 10:00 · Photon · #2 in Oct'), findsOne);
     expect(find.text('Felt good'), findsOne);
     expect(
       find.text('20% BW · 20 s rest · under load 1:22 · 992 kg·s'),
@@ -1356,8 +1357,41 @@ void main() {
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
     expect(latest, findsNothing);
-    expect(find.text('Photon · #1 this month'), findsOne);
+    expect(find.text('Photon · #1 in Oct'), findsOne);
     expect(find.text('Left hand'), findsNothing);
+  });
+
+  testWidgets('draws each tool on the curve of its own benchmark', (
+    tester,
+  ) async {
+    String workout(String tool, String date) =>
+        '{"date":"$date","tool":"$tool","hand":"right",'
+        '"section":"strength","targetForceKg":12,"forceKg":12,'
+        '"restSeconds":20,"targetSeconds":[50],"actualSeconds":[50],'
+        '"perceivedExertion":7,"notes":""}';
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+      'training.workouts':
+          '[${workout('Photon', '2026-10-26T10:00:00.000')},'
+          '${workout('Spark', '2026-10-27T10:00:00.000')}]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    await _openPage(tester, 'History');
+
+    expect(find.text('Photon force curve'), findsOne);
+    expect(find.text('Spark force curve'), findsOne);
+    expect(
+      find.text('Record a Spark benchmark to draw its force curve.'),
+      findsOne,
+    );
+
+    await _select(tester, 'Photon');
+    expect(find.text('Photon force curve'), findsOne);
+    expect(find.text('Spark force curve'), findsNothing);
   });
 
   testWidgets('counts the rest down before the other gripper', (tester) async {
@@ -1625,6 +1659,70 @@ void main() {
     });
   }
 
+  testWidgets('keeps the tare off while a hold counts', (tester) async {
+    await _pumpScreen(
+      tester,
+      ProgressorState(
+        connection: _connected,
+        measurement: const MeasurementState(isMeasuring: true, currentKg: 12),
+      ),
+      deviceTools: false,
+      overrides: [
+        workoutProvider.overrideWith(
+          () => _FixedWorkout(
+            WorkoutState(
+              plans: [strength],
+              phase: WorkoutPhase.hold,
+              holding: true,
+              heldSeconds: 20,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    final tare = tester.widget<ButtonStyleButton>(
+      find.ancestor(
+        of: find.text('Tare'),
+        matching: find.bySubtype<ButtonStyleButton>(),
+      ),
+    );
+    expect(tare.onPressed, isNull);
+  });
+
+  for (final (name, workout, message) in [
+    (
+      'a running workout',
+      WorkoutState(plans: [strength], phase: WorkoutPhase.hold),
+      'Stop the workout or warm-up to leave.',
+    ),
+    (
+      'unsaved results',
+      WorkoutState(
+        plans: [strength],
+        phase: WorkoutPhase.done,
+        actualSeconds: const [98, 34, 30, 22, 20],
+        repForcesKg: const [12, 12, 12, 12, 12],
+      ),
+      'Save or discard the workout to leave.',
+    ),
+  ]) {
+    testWidgets('keeps $name from the back gesture', (tester) async {
+      await _pumpScreen(
+        tester,
+        ProgressorState(connection: _connected),
+        deviceTools: false,
+        overrides: [workoutProvider.overrideWith(() => _FixedWorkout(workout))],
+      );
+
+      // Handled by the app, so the system does not close it.
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await tester.pump();
+      expect(find.text(message), findsOne);
+      expect(find.byType(CrimpdeqScreen), findsOne);
+    });
+  }
+
   testWidgets('shows the workout that starts on another page', (tester) async {
     final workout = _FixedWorkout(const WorkoutState());
     SharedPreferences.setMockInitialValues({
@@ -1716,7 +1814,10 @@ void main() {
 
     await tester.tap(find.text('View History'));
     await tester.pumpAndSettle();
-    expect(find.text('Photon · #1 this month'), findsOne);
+    expect(
+      find.text('Photon · #1 in ${formatMonth(DateTime.now())}'),
+      findsOne,
+    );
     expect(find.text('6:40'), findsOne);
   });
 
@@ -1856,6 +1957,14 @@ void main() {
     expect(find.textContaining('after rep 3 of 10.'), findsOne);
     for (final hand in ['Right', 'Left']) {
       expect(find.text('Strength · Photon · $hand hand'), findsOne);
+    }
+  });
+
+  test('shows the inactive slider and switch tracks on a card', () {
+    for (final theme in [buildDarkTheme(), buildLightTheme()]) {
+      final track = theme.colorScheme.surfaceContainerHighest;
+      expect(track, isNot(theme.colorScheme.surface));
+      expect(track, isNot(theme.cardTheme.color));
     }
   });
 

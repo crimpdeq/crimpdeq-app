@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/training_models.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/progressor_provider.dart';
 import '../providers/theme_mode_provider.dart';
@@ -56,26 +57,50 @@ class CrimpdeqScreen extends ConsumerWidget {
     final running =
         ref.watch(workoutProvider.select((state) => state.isRunning)) ||
         ref.watch(warmupProvider.select((state) => state.isRunning));
+    final unsaved = ref.watch(
+      workoutProvider.select(
+        (state) => state.phase == WorkoutPhase.done && !state.saved,
+      ),
+    );
 
-    return Scaffold(
-      appBar: const _CrimpdeqAppBar(),
-      bottomNavigationBar: running
-          ? null
-          : NavigationBar(
-              selectedIndex: page.index,
-              onDestinationSelected: (index) => ref
-                  .read(trainingPageProvider.notifier)
-                  .open(TrainingPage.values[index]),
-              destinations: [
-                for (final (label, icon, selectedIcon, _) in _pages.values)
-                  NavigationDestination(
-                    icon: Icon(icon),
-                    selectedIcon: Icon(selectedIcon),
-                    label: label,
-                  ),
-              ],
+    // Nor by the back gesture, which would close the app, and with it the
+    // results not saved yet.
+    return PopScope(
+      canPop: !running && !unsaved,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        ScaffoldMessenger.of(context)
+          ..removeCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                running
+                    ? 'Stop the workout or warm-up to leave.'
+                    : 'Save or discard the workout to leave.',
+              ),
             ),
-      body: _AppBody(child: _pages[page]!.$4),
+          );
+      },
+      child: Scaffold(
+        appBar: const _CrimpdeqAppBar(),
+        bottomNavigationBar: running
+            ? null
+            : NavigationBar(
+                selectedIndex: page.index,
+                onDestinationSelected: (index) => ref
+                    .read(trainingPageProvider.notifier)
+                    .open(TrainingPage.values[index]),
+                destinations: [
+                  for (final (label, icon, selectedIcon, _) in _pages.values)
+                    NavigationDestination(
+                      icon: Icon(icon),
+                      selectedIcon: Icon(selectedIcon),
+                      label: label,
+                    ),
+                ],
+              ),
+        body: _AppBody(child: _pages[page]!.$4),
+      ),
     );
   }
 }
