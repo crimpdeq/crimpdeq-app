@@ -1183,6 +1183,45 @@ void main() {
     expect(find.text('Photon'), findsOneWidget);
   });
 
+  for (final (benchmarks, tool, hand) in [
+    // The missing hand of a tool trained, not of the others.
+    ([('Spark', 'left')], 'Spark', Hand.right),
+    // Else the other hand of the latest.
+    ([('Spark', 'left'), ('Spark', 'right')], 'Spark', Hand.left),
+  ]) {
+    testWidgets('defaults a benchmark after $benchmarks to $tool $hand', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        'training.benchmarks': [
+          for (final (tool, hand) in benchmarks)
+            '{"date":"2026-10-26T10:00:00.000","tool":"$tool",'
+                '"hand":"$hand","forceKg":30}',
+        ].toString(),
+      });
+      await _pumpScreen(
+        tester,
+        ProgressorState(connection: _connected),
+        deviceTools: false,
+      );
+      await _openPage(tester, 'Benchmarks');
+      expect(
+        tester
+            .widget<SegmentedButton<String?>>(
+              find.byType(SegmentedButton<String?>),
+            )
+            .selected,
+        {tool},
+      );
+      expect(
+        tester
+            .widget<SegmentedButton<Hand>>(find.byType(SegmentedButton<Hand>))
+            .selected,
+        {hand},
+      );
+    });
+  }
+
   testWidgets('saves a held weight as a benchmark and opens its workout', (
     tester,
   ) async {
@@ -1224,6 +1263,13 @@ void main() {
     expect(find.widgetWithText(Card, '1 benchmark'), findsOne);
     expect(find.text('32.9 kg'), findsOneWidget);
     expect(find.text('No benchmark yet'), findsOne);
+    // The other hand pulls next.
+    expect(
+      tester
+          .widget<SegmentedButton<Hand>>(find.byType(SegmentedButton<Hand>))
+          .selected,
+      {Hand.right},
+    );
 
     await tester.tap(find.text('Open Workout'));
     await tester.pumpAndSettle();
