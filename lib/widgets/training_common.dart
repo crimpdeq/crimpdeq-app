@@ -39,6 +39,9 @@ const _months = [
   'Dec',
 ];
 
+/// "Oct".
+String formatMonth(DateTime date) => _months[date.toLocal().month - 1];
+
 /// "27 Oct".
 String formatDayMonth(DateTime date) {
   final local = date.toLocal();

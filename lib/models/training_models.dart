@@ -270,14 +270,20 @@ List<List<WorkoutRecord>> workoutSessions(List<WorkoutRecord> workouts) {
   return sessions;
 }
 
-/// The latest workout before [workout] in [workouts] with its tool and hand,
-/// which OpenGrips compares it with. Null for the first one.
+/// The latest workout before [workout] in [workouts] with its tool, hand and
+/// section: the forces and holds of other sections do not compare. Null for
+/// the first one.
 WorkoutRecord? previousWorkout(
   List<WorkoutRecord> workouts,
   WorkoutRecord workout,
 ) => workouts
     .take(workouts.indexOf(workout))
-    .where((other) => other.tool == workout.tool && other.hand == workout.hand)
+    .where(
+      (other) =>
+          other.tool == workout.tool &&
+          other.hand == workout.hand &&
+          other.section == workout.section,
+    )
     .lastOrNull;
 
 /// When the rest after the latest workout, with another tool than [tool],

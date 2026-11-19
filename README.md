@@ -33,9 +33,10 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
     still rests as planned. Each hand saves its own workout
   - Benchmarks: 5-second-max pulls, with the same live graph, or held weights; each tool shows the
     personal best of each hand, their progress over time and the history
-  - History: workouts on the force curve, and a log like Frez's: each workout with both hands
-    together, its time, time under load, effort, workload (force × time held) and place in the
-    month; each hand's force, holds and change since its previous workout; and in its details,
+  - History: workouts on each tool's force curve, and a log like Frez's: each workout with both
+    hands together, its time, time under load, effort, workload (force × time held) and place in
+    its month; each hand's force, holds and change since its previous workout of the same type;
+    and in its details,
     every rep's target, time held and force, stored on the device
 - Schedule, in the app bar menu: the rest between gripper workouts (1 h by default, as HoG
   Academy sets for the first 30 sessions on each gripper), which the Workout page counts down
