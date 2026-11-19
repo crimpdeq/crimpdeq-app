@@ -1063,6 +1063,43 @@ void main() {
     expect(hand.selected, {Hand.left});
   });
 
+  testWidgets('shapes the rep targets by energy systems once switched on', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'training.benchmarks': '[$_benchmark]',
+    });
+    await _pumpScreen(
+      tester,
+      ProgressorState(connection: _connected),
+      deviceTools: false,
+    );
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(CrimpdeqScreen)),
+    );
+    EnergySystems? energySystems() =>
+        container.read(workoutSetupProvider).plan?.energySystems;
+    Future<void> tap(Finder finder) async {
+      await tester.ensureVisible(finder);
+      await tester.tap(finder);
+      await tester.pumpAndSettle();
+    }
+
+    await tap(find.text('Customize'));
+    // The template, without the sliders that would change it.
+    expect(find.textContaining('Power: '), findsNothing);
+
+    final shape = find.text('Shape by energy systems');
+    await tap(shape);
+    expect(energySystems(), isNotNull);
+    expect(find.textContaining('Power: '), findsOne);
+
+    await tap(shape);
+    expect(energySystems(), isNull);
+    expect(find.textContaining('Power: '), findsNothing);
+  });
+
   testWidgets('drops an edited plan when the default tool or hand moves', (
     tester,
   ) async {

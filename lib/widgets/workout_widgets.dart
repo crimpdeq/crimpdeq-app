@@ -131,18 +131,19 @@ class _WorkoutSetup extends ConsumerWidget {
     // An edited plan follows the current best benchmark. A new benchmark or
     // workout can move the default tool, hand or section away from it.
     final edited = setup.plan;
+    final defaults = WorkoutPlan.forSection(
+      tool: tool,
+      hand: hand,
+      section: section,
+      benchmarkKg: benchmark.forceKg,
+    );
     final plan =
         edited != null &&
             edited.tool == tool &&
             edited.hand == hand &&
             edited.section == section
         ? edited.copyWith(benchmarkKg: benchmark.forceKg)
-        : WorkoutPlan.forSection(
-            tool: tool,
-            hand: hand,
-            section: section,
-            benchmarkKg: benchmark.forceKg,
-          );
+        : defaults;
     final sessions = [
       for (final (workout, point) in workouts.reversed)
         if (CurveSection.of(point.forceKg, benchmark.forceKg) == section)
@@ -368,7 +369,7 @@ class _WorkoutSetup extends ConsumerWidget {
               _PlanSettings(
                 plan: plan,
                 section: section,
-                edited: edited != null,
+                edited: plan != defaults,
               ),
             ],
           ),
@@ -482,54 +483,69 @@ class _PlanSettings extends ConsumerWidget {
           onChanged: ref.read(holdThresholdProvider.notifier).set,
         ),
         const SizedBox(height: 8),
-        Text('Energy systems', style: textTheme.titleSmall),
-        Text(
-          plan.energySystems == null
-              ? 'The rep targets follow the ${section.label} template. '
-                    'Moving a slider shapes them with these values.'
-              : 'The rep targets follow these values.',
-          style: textTheme.bodySmall,
+        // The template and the energy systems are different formulas, so the
+        // switch, not a slider's first move, changes the targets.
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Shape by energy systems'),
+          subtitle: Text(
+            plan.energySystems == null
+                ? 'Off: the rep targets follow the ${section.label} '
+                      'template.'
+                : 'The rep targets follow the values below.',
+            style: textTheme.bodySmall,
+          ),
+          value: plan.energySystems != null,
+          onChanged: (on) => update(
+            plan.copyWith(
+              energySystems: on
+                  ? clampEnergySystems(section.energySystems)
+                  : null,
+            ),
+          ),
         ),
-        _SliderRow(
-          label:
-              'Power: ${energySystems.power.toStringAsFixed(2)} '
-              '(rep 2 target as a fraction of the first hold)',
-          value: energySystems.power,
-          range: power,
-          step: 0.01,
-          onChanged: (value) => updateEnergySystems((
-            power: value,
-            powerEndurance: energySystems.powerEndurance,
-            endurance: energySystems.endurance,
-          )),
-        ),
-        _SliderRow(
-          label:
-              'Power-Endurance: '
-              '${energySystems.powerEndurance.toStringAsFixed(2)} '
-              '(how far the later reps fall)',
-          value: energySystems.powerEndurance,
-          range: powerEndurance,
-          step: 0.01,
-          onChanged: (value) => updateEnergySystems((
-            power: energySystems.power,
-            powerEndurance: value,
-            endurance: energySystems.endurance,
-          )),
-        ),
-        _SliderRow(
-          label:
-              'Endurance: ${energySystems.endurance.toStringAsFixed(2)} '
-              '(the tail of the later reps)',
-          value: energySystems.endurance,
-          range: enduranceRange,
-          step: 0.01,
-          onChanged: (value) => updateEnergySystems((
-            power: energySystems.power,
-            powerEndurance: energySystems.powerEndurance,
-            endurance: value,
-          )),
-        ),
+        if (plan.energySystems != null) ...[
+          _SliderRow(
+            label:
+                'Power: ${energySystems.power.toStringAsFixed(2)} '
+                '(rep 2 target as a fraction of the first hold)',
+            value: energySystems.power,
+            range: power,
+            step: 0.01,
+            onChanged: (value) => updateEnergySystems((
+              power: value,
+              powerEndurance: energySystems.powerEndurance,
+              endurance: energySystems.endurance,
+            )),
+          ),
+          _SliderRow(
+            label:
+                'Power-Endurance: '
+                '${energySystems.powerEndurance.toStringAsFixed(2)} '
+                '(how far the later reps fall)',
+            value: energySystems.powerEndurance,
+            range: powerEndurance,
+            step: 0.01,
+            onChanged: (value) => updateEnergySystems((
+              power: energySystems.power,
+              powerEndurance: value,
+              endurance: energySystems.endurance,
+            )),
+          ),
+          _SliderRow(
+            label:
+                'Endurance: ${energySystems.endurance.toStringAsFixed(2)} '
+                '(the tail of the later reps)',
+            value: energySystems.endurance,
+            range: enduranceRange,
+            step: 0.01,
+            onChanged: (value) => updateEnergySystems((
+              power: energySystems.power,
+              powerEndurance: energySystems.powerEndurance,
+              endurance: value,
+            )),
+          ),
+        ],
         if (edited)
           TextButton.icon(
             onPressed: () => setupNotifier.selectSection(section),
