@@ -175,9 +175,7 @@ class _WorkoutSetup extends ConsumerWidget {
         .map((plan) => plan.targetForceKg)
         .reduce((a, b) => a < b ? a : b);
     final holdsCount = lightestKg > thresholdKg;
-    final benchmarkRecording = ref.watch(
-      benchmarkRecorderProvider.select((recording) => recording.recording),
-    );
+    final blocked = watchStartBlocked(ref);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -333,11 +331,10 @@ class _WorkoutSetup extends ConsumerWidget {
                   Expanded(
                     child: FilledButton.icon(
                       onPressed:
-                          benchmarkRecording ||
+                          blocked != null ||
                               !holdsCount ||
                               missingOtherHand ||
-                              alternateBlocked ||
-                              !watchConnected(ref)
+                              alternateBlocked
                           ? null
                           : () => ref
                                 .read(workoutProvider.notifier)
@@ -353,9 +350,14 @@ class _WorkoutSetup extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Tare it unloaded first. Each hold starts when you pull more '
-                'than ${formatKg(thresholdKg)}.',
-                style: textTheme.bodySmall,
+                blocked ??
+                    'Tare it unloaded first. Each hold starts when you pull '
+                        'more than ${formatKg(thresholdKg)}.',
+                style: blocked == null
+                    ? textTheme.bodySmall
+                    : textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                 textAlign: TextAlign.center,
               ),
             ],

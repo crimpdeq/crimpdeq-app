@@ -1643,6 +1643,8 @@ void main() {
     final start = find.widgetWithText(FilledButton, 'Start Workout');
     await tester.ensureVisible(start);
     expect(tester.widget<FilledButton>(start).onPressed, isNull);
+    // Saying why.
+    expect(find.text('Connect your Crimpdeq to start.'), findsOne);
 
     // Without a device, a held weight, and the way to connect one.
     await _openPage(tester, 'Benchmarks');

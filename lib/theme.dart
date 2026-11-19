@@ -181,13 +181,15 @@ ThemeData buildDarkTheme() {
       unselectedLabel: _webMuted,
     ),
     switchTheme: _switchTheme(_webMuted),
+    // Disabled as Material does: a faint fill of the text color, which reads
+    // as off on the panel instead of as another, darker button.
     filledButtonTheme: _filledButtonTheme(
-      disabled: _webPanelDeep,
-      disabledText: _webMuted,
+      disabled: _webText.withValues(alpha: 0.12),
+      disabledText: _webText.withValues(alpha: 0.38),
     ),
     elevatedButtonTheme: _elevatedButtonTheme(
-      disabled: _webPanelDeep,
-      disabledText: _webMuted,
+      disabled: _webText.withValues(alpha: 0.12),
+      disabledText: _webText.withValues(alpha: 0.38),
     ),
     outlinedButtonTheme: _outlinedButtonTheme(
       text: _webText,
@@ -275,12 +277,12 @@ ThemeData buildLightTheme() {
     ),
     switchTheme: _switchTheme(_lightMuted),
     filledButtonTheme: _filledButtonTheme(
-      disabled: _lightOutlineVariant,
-      disabledText: _lightMuted,
+      disabled: _lightText.withValues(alpha: 0.12),
+      disabledText: _lightText.withValues(alpha: 0.38),
     ),
     elevatedButtonTheme: _elevatedButtonTheme(
-      disabled: _lightOutlineVariant,
-      disabledText: _lightMuted,
+      disabled: _lightText.withValues(alpha: 0.12),
+      disabledText: _lightText.withValues(alpha: 0.38),
     ),
     outlinedButtonTheme: _outlinedButtonTheme(
       text: _lightText,

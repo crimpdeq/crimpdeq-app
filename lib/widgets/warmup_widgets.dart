@@ -96,9 +96,7 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
         ?.map((step) => step.forceKg!)
         .reduce((a, b) => a < b ? a : b);
     final holdsCount = lightestKg != null && lightestKg > thresholdKg;
-    final benchmarkRecording = ref.watch(
-      benchmarkRecorderProvider.select((recording) => recording.recording),
-    );
+    final blocked = watchStartBlocked(ref);
 
     return TitledCard(
       title: 'Warm-up',
@@ -173,10 +171,7 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed:
-                        benchmarkRecording ||
-                            !holdsCount ||
-                            !watchConnected(ref)
+                    onPressed: blocked != null || !holdsCount
                         ? null
                         : () => ref
                               .read(warmupProvider.notifier)
@@ -192,9 +187,15 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Tare it unloaded first. Each hold starts when you pull more '
-              'than ${formatKg(thresholdKg)} and ends at its target.',
-              style: textTheme.bodySmall,
+              blocked ??
+                  'Tare it unloaded first. Each hold starts when you pull '
+                      'more than ${formatKg(thresholdKg)} and ends at its '
+                      'target.',
+              style: blocked == null
+                  ? textTheme.bodySmall
+                  : textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
               textAlign: TextAlign.center,
             ),
           ],

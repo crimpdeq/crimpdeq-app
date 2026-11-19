@@ -359,6 +359,17 @@ class ToolAndHand extends StatelessWidget {
   }
 }
 
+/// Why a workout or warm-up cannot start on the device, null when it can.
+String? watchStartBlocked(WidgetRef ref) {
+  if (!watchConnected(ref)) return 'Connect your Crimpdeq to start.';
+  if (ref.watch(
+    benchmarkRecorderProvider.select((recording) => recording.recording),
+  )) {
+    return 'Finish the benchmark pull to start.';
+  }
+  return null;
+}
+
 /// Whether a device is connected, which measuring needs.
 bool watchConnected(WidgetRef ref) => ref.watch(
   progressorProvider.select((state) => state.connection.isConnected),
