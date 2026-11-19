@@ -48,7 +48,7 @@ String _howWorkoutsWork(double thresholdKg) =>
     'Tare the Crimpdeq unloaded before you start. Each hold waits for you, '
     'even after its rest: it counts down from its target while you pull more '
     'than ${formatKg(thresholdKg)}, and ends a second after you let go. '
-    'Change the threshold in Customize. Pull close to the target force: the '
+    'Change the threshold in Settings, in the menu. Pull close to the target force: the '
     'force you actually pull is what the workout records.\n\n'
     'If the first hold misses its target by more than $repToleranceSeconds s, '
     'the later targets scale with it. A rep that falls that short, such as a '
@@ -432,7 +432,6 @@ class _PlanSettings extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final setupNotifier = ref.read(workoutSetupProvider.notifier);
     final update = setupNotifier.updatePlan;
-    final thresholdKg = watchHoldThreshold(ref);
     final energySystems = clampEnergySystems(
       plan.energySystems ?? section.energySystems,
     );
@@ -446,7 +445,7 @@ class _PlanSettings extends ConsumerWidget {
       subtitle: Text(
         edited
             ? 'Changed from the ${section.label} defaults'
-            : 'First hold, reps, rest, threshold and rep targets',
+            : 'First hold, reps, rest and rep targets',
         style: textTheme.bodySmall,
       ),
       tilePadding: EdgeInsets.zero,
@@ -476,15 +475,6 @@ class _PlanSettings extends ConsumerWidget {
           step: 1,
           onChanged: (value) =>
               update(plan.copyWith(restSeconds: value.round())),
-        ),
-        _SliderRow(
-          label:
-              'Hold threshold: ${formatKg(thresholdKg)} '
-              '(the timer runs while you pull more)',
-          value: thresholdKg,
-          range: (min: 0.5, max: 10),
-          step: 0.5,
-          onChanged: ref.read(holdThresholdProvider.notifier).set,
         ),
         const SizedBox(height: 8),
         // The template and the energy systems are different formulas, so the

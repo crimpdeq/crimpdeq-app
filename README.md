@@ -25,7 +25,7 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
     stored as a readiness history, apart from benchmarks and workouts
   - Workout: the suggested workout type with its targets, a Start button above the fold, and a
     full-screen timer with sound cues and the screen kept on. Each hold waits for a pull above a
-    threshold (2 kg by default, set in Customize), even once its rest is over, and a live graph
+    threshold (2 kg by default, set in Settings), even once its rest is over, and a live graph
     shows the last 15 s of force with the current reading and a Tare button. A workout trains one
     hand or both, each at its own benchmark: in turn (every rep of one hand, then the other) or
     alternating after each rep, where the other hand holds during each rest. Alternating needs a
@@ -49,6 +49,7 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
 - Body weight, in the app bar menu: an optional log, one weight per day, stored on the device.
   Benchmarks and workout details show their force as a share of the latest body weight on or
   before their day, such as 64% BW
+- Settings, in the app bar menu: the theme (system, light or dark) and the hold threshold
 - Device tools, in the app bar menu: calibration and measurements
 - Compatible with Tindeq Progressor API
 - Cross-platform support (Android, macOS, Windows, Linux, Web)

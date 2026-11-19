@@ -158,7 +158,7 @@ class _WarmupSetupState extends ConsumerState<_WarmupSetup> {
               Text(
                 'The lightest hold, ${formatKg(lightestKg!)}, is too light to '
                 'start above ${formatKg(thresholdKg)}. Lower the threshold in '
-                'the workout Customize settings.',
+                'Settings, in the menu.',
                 style: textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.error,
                 ),

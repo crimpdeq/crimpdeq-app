@@ -2182,7 +2182,7 @@ void main() {
     }
   });
 
-  testWidgets('stores the theme choice', (tester) async {
+  testWidgets('stores the theme and threshold in the settings', (tester) async {
     await _pumpScreen(
       tester,
       ProgressorState(connection: _connected),
@@ -2190,20 +2190,22 @@ void main() {
     );
     await tester.tap(find.byTooltip('More'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Light mode'));
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
-    expect(
-      ProviderScope.containerOf(tester.element(find.byType(CrimpdeqScreen)))
-          .read(themeModeProvider),
-      ThemeMode.light,
+    await tester.tap(find.text('System'));
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SettingsScreen)),
     );
+    expect(container.read(themeModeProvider), ThemeMode.system);
+    // A new start reads it back before its first frame.
+    expect(await ThemeModeNotifier.load(), ThemeMode.system);
 
-    // A new start reads it back.
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    container.read(themeModeProvider);
-    await tester.pump();
-    expect(container.read(themeModeProvider), ThemeMode.light);
+    expect(find.text('Hold threshold: 2.0 kg'), findsOne);
+    await tester.drag(find.byType(Slider), const Offset(-1000, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Hold threshold: 0.5 kg'), findsOne);
+    expect(await container.read(holdThresholdProvider.future), 0.5);
   });
   testWidgets('asks for every benchmark a warm-up needs', (tester) async {
     SharedPreferences.setMockInitialValues({
@@ -2293,7 +2295,7 @@ void main() {
     expect(
       find.text(
         'The lightest hold, 6.0 kg, is too light to start above 7.0 kg. '
-        'Lower the threshold in the workout Customize settings.',
+        'Lower the threshold in Settings, in the menu.',
       ),
       findsOne,
     );

@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/training_models.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/progressor_provider.dart';
-import '../providers/theme_mode_provider.dart';
 import '../providers/training_provider.dart';
 import '../providers/warmup_provider.dart';
 import '../theme.dart';
@@ -15,6 +14,7 @@ import '../widgets/connection_widgets.dart';
 import '../widgets/history_widgets.dart';
 import '../widgets/measurement_widgets.dart';
 import '../widgets/schedule_widgets.dart';
+import '../widgets/settings_widgets.dart';
 import '../widgets/warmup_widgets.dart';
 import '../widgets/workout_widgets.dart';
 
@@ -156,6 +156,19 @@ class ScheduleScreen extends StatelessWidget {
   }
 }
 
+/// The theme and the hold threshold.
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Settings')),
+      body: const _AppBody(child: SettingsTab()),
+    );
+  }
+}
+
 /// The body weight log.
 class BodyWeightScreen extends StatelessWidget {
   const BodyWeightScreen({super.key});
@@ -227,7 +240,7 @@ class _AppBody extends ConsumerWidget {
   }
 }
 
-enum _MenuAction { schedule, bodyWeight, deviceTools, theme }
+enum _MenuAction { schedule, bodyWeight, settings, deviceTools }
 
 class _CrimpdeqAppBar extends ConsumerWidget implements PreferredSizeWidget {
   const _CrimpdeqAppBar();
@@ -243,7 +256,6 @@ class _CrimpdeqAppBar extends ConsumerWidget implements PreferredSizeWidget {
     final deviceInfo = ref.watch(
       progressorProvider.select((state) => state.deviceInfo),
     );
-    final isDarkMode = ref.watch(themeModeProvider) == ThemeMode.dark;
     final compact = MediaQuery.sizeOf(context).width < 700;
 
     return AppBar(
@@ -281,13 +293,16 @@ class _CrimpdeqAppBar extends ConsumerWidget implements PreferredSizeWidget {
                 builder: (context) => const BodyWeightScreen(),
               ),
             ),
+            _MenuAction.settings => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => const SettingsScreen(),
+              ),
+            ),
             _MenuAction.deviceTools => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (context) => const DeviceToolsScreen(),
               ),
             ),
-            _MenuAction.theme =>
-              ref.read(themeModeProvider.notifier).setDarkMode(!isDarkMode),
           },
           itemBuilder: (context) => [
             const PopupMenuItem(
@@ -307,22 +322,19 @@ class _CrimpdeqAppBar extends ConsumerWidget implements PreferredSizeWidget {
               ),
             ),
             const PopupMenuItem(
+              value: _MenuAction.settings,
+              child: ListTile(
+                leading: Icon(Icons.settings_outlined),
+                title: Text('Settings'),
+                subtitle: Text('Theme and hold threshold'),
+              ),
+            ),
+            const PopupMenuItem(
               value: _MenuAction.deviceTools,
               child: ListTile(
                 leading: Icon(Icons.tune),
                 title: Text('Device tools'),
                 subtitle: Text('Calibration and measurements'),
-              ),
-            ),
-            PopupMenuItem(
-              value: _MenuAction.theme,
-              child: ListTile(
-                leading: Icon(
-                  isDarkMode
-                      ? Icons.light_mode_outlined
-                      : Icons.dark_mode_outlined,
-                ),
-                title: Text(isDarkMode ? 'Light mode' : 'Dark mode'),
               ),
             ),
           ],
