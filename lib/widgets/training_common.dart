@@ -20,16 +20,13 @@ String formatClock(int seconds) =>
     '${(seconds ~/ 60).toString().padLeft(2, '0')}:'
     '${(seconds % 60).toString().padLeft(2, '0')}';
 
-/// A hold's time as shown: tenths under 10 s, where whole seconds would show
-/// a short hold as "0 s", else whole seconds.
-double shownHeldSeconds(double seconds) =>
-    seconds < 10 ? (seconds * 10).round() / 10 : seconds.roundToDouble();
+/// A hold's time as shown, in tenths: whole seconds would show a short hold
+/// as "0 s", and one precision keeps a column of holds alike.
+double shownHeldSeconds(double seconds) => (seconds * 10).round() / 10;
 
-/// "0.4 s", "7.5 s" or "45 s".
-String formatHeld(double seconds) {
-  final shown = shownHeldSeconds(seconds);
-  return '${shown < 10 ? shown.toStringAsFixed(1) : shown.round()} s';
-}
+/// "0.4 s", "7.5 s" or "46.3 s".
+String formatHeld(double seconds) =>
+    '${shownHeldSeconds(seconds).toStringAsFixed(1)} s';
 
 /// Seconds as OpenGrips shows hang durations: "45 s" or "1:05".
 String formatDuration(int seconds) => seconds < 60

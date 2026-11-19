@@ -1533,10 +1533,12 @@ void main() {
       ),
       findsOne,
     );
-    // The force of each rep.
+    // The force of each rep, and its time held in tenths, like every hold.
     for (final kg in ['12.3 kg', '11.9 kg', '8.1 kg', '7.9 kg']) {
       expect(find.text(kg), findsOne);
     }
+    expect(find.text('46.0 s'), findsOne);
+    expect(find.text('36.0 s'), findsNWidgets(2));
     expect(find.text('-4.0 s'), findsOne);
 
     await tester.tap(find.byTooltip('Delete'));
