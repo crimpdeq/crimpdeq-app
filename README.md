@@ -25,7 +25,8 @@ A Flutter app for calibrating, testing and communicating with [Crimpdeq](https:/
     2 min rest countdown before the workout, which the Workout page keeps counting. After a
     climbing warm-up, an optional readiness
     check pulls Photon as hard as possible with each hand; its best 5 s against the benchmark is
-    stored as a readiness history, apart from benchmarks and workouts
+    stored as a readiness history, apart from benchmarks and workouts. The Readiness card also
+    runs one on its own, such as after warming up on the wall
   - Workout: the suggested workout type with its targets, a Start button above the fold, and a
     full-screen timer with sound cues and the screen kept on. Each hold waits for a pull above a
     threshold (2 kg by default, set in Settings), even once its rest is over, and a live graph

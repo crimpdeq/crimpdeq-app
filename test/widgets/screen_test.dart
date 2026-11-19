@@ -161,6 +161,17 @@ class _FixedWarmup extends WarmupNotifier {
   void set(WarmupState warmup) => state = warmup;
 }
 
+/// An idle warm-up that records its starts instead of measuring.
+class _StartedWarmup extends _FixedWarmup {
+  _StartedWarmup() : super(const WarmupState());
+
+  final starts = <WarmupKind>[];
+
+  @override
+  Future<void> start(WarmupKind kind, List<WarmupStep> steps) async =>
+      starts.add(kind);
+}
+
 /// Opens the training pages, or the device tools from the app bar menu.
 Future<_FakeProgressor> _pumpScreen(
   WidgetTester tester,
@@ -2649,6 +2660,41 @@ void main() {
           tester.widget<FilledButton>(check).onPressed != null,
           !recording,
         );
+      },
+    );
+  }
+
+  for (final (benchmarks, enabled) in [(_allBenchmarks, true), ('', false)]) {
+    testWidgets(
+      '${enabled ? 'checks' : 'asks for benchmarks to check'} readiness on '
+      'its own',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({
+          'training.benchmarks': '[$benchmarks]',
+        });
+        final warmup = _StartedWarmup();
+        await _pumpScreen(
+          tester,
+          ProgressorState(connection: _connected),
+          deviceTools: false,
+          overrides: [warmupProvider.overrideWith(() => warmup)],
+        );
+        await _openPage(tester, 'Warm-up');
+        final check = find.widgetWithText(OutlinedButton, 'Check Readiness');
+        await tester.ensureVisible(check);
+        if (!enabled) {
+          expect(tester.widget<OutlinedButton>(check).onPressed, isNull);
+          expect(
+            find.text(
+              'Record a Photon benchmark with each hand to check readiness.',
+            ),
+            findsOne,
+          );
+          return;
+        }
+        await tester.tap(check);
+        await tester.pump();
+        expect(warmup.starts, [WarmupKind.readiness]);
       },
     );
   }
